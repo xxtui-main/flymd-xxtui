@@ -185,6 +185,8 @@ let selectedFolderPath: string | null = null
 let selectedNodeEl: HTMLElement | null = null
 // 库面板停靠状态：true=固定在左侧并收缩编辑区；false=覆盖式抽屉
 let libraryDocked = true
+// 非固定模式下：离开侧栏后自动隐藏的延迟定时器
+let _libLeaveTimer: number | null = null
 function selectLibraryNode(el: HTMLElement | null, path: string | null, isDir: boolean) {
   try {
     if (selectedNodeEl) selectedNodeEl.classList.remove('selected')
@@ -2933,6 +2935,29 @@ function showLibrary(show: boolean) {
   if (!lib) return
   lib.classList.toggle('hidden', !show)
   applyLibraryLayout()
+  // 非固定模式：绑定悬停离开自动隐藏
+  if (show && !libraryDocked) {
+    try {
+      // 仅绑定一次
+      if (!(lib as any)._hoverBound) {
+        const onEnter = () => { if (_libLeaveTimer != null) { clearTimeout(_libLeaveTimer); _libLeaveTimer = null } }
+        const onLeave = (ev: MouseEvent) => {
+          try {
+            if (libraryDocked) return
+            const rt = ev.relatedTarget as Node | null
+            if (rt && lib.contains(rt)) return
+            if (_libLeaveTimer != null) { clearTimeout(_libLeaveTimer); _libLeaveTimer = null }
+            _libLeaveTimer = window.setTimeout(() => {
+              try { if (!libraryDocked && lib && !lib.matches(':hover')) showLibrary(false) } catch {}
+            }, 200)
+          } catch {}
+        }
+        lib.addEventListener('mouseenter', onEnter)
+        lib.addEventListener('mouseleave', onLeave)
+        ;(lib as any)._hoverBound = true
+      }
+    } catch {}
+  }
 }
 
 async function setLibraryDocked(docked: boolean) {
@@ -2944,6 +2969,11 @@ async function setLibraryDocked(docked: boolean) {
     if (btn) btn.textContent = libraryDocked ? '取消固定' : '固定'
   } catch {}
   applyLibraryLayout()
+  // 若当前已显示且切到“非固定”，补绑定悬停自动隐藏
+  try {
+    const lib = document.getElementById('library') as HTMLDivElement | null
+    if (lib && !lib.classList.contains('hidden') && !libraryDocked) showLibrary(true)
+  } catch {}
 }
 
 async function getLibraryDocked(): Promise<boolean> {

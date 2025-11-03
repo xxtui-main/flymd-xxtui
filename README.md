@@ -142,6 +142,11 @@ flyMD 支持通过扩展插件来增强功能。你可以：
 
 ## 🗺️ 路线图
 
+## 更新 v0.1.3
+- 完全重构所见模式，现在所见模式拥有更好的体验（基于Milkdown）
+- 为MACOS版本提供缺失的更新地址
+- 更灵活的侧栏
+
 ## 更新 v0.1.2
 - 修改扩展窗口及部分扩展的样式
 - 增加同步逻辑的选择项，实时日志信息丰富
@@ -269,7 +274,7 @@ flyMD 支持通过扩展插件来增强功能。你可以：
 本项目采用 Apache 2.0 许可证，详见 [LICENSE](LICENSE)。
 
 ## 🙏 致谢
-
+- [MilkDown]（https://milkdown.dev/）
 - [Tauri](https://tauri.app/)
 - [markdown-it](https://github.com/markdown-it/markdown-it)
 - [DOMPurify](https://github.com/cure53/DOMPurify)
