@@ -678,19 +678,11 @@ async function setWysiwygEnabled(enable: boolean) {
         if (container) { container.classList.remove('wysiwyg-v2-loading'); container.classList.add('wysiwyg-v2'); }
         try { if (root) (root as HTMLElement).style.display = 'block' } catch {}
         try { preview.classList.add('hidden') } catch {}
+        // 根据“库是否固定”应用布局：WYSIWYG V2 在固定库时仍占满全宽
+        try { applyLibraryLayout() } catch {}
         // 移除旧滚轮处理器
         try { if (_wheelHandlerRef) { container?.removeEventListener('wheel', _wheelHandlerRef as any); _wheelHandlerRef = null } } catch {}
-        // 追加所见模式提示（右下角）
-        try {
-          let ind = document.getElementById('wysiwyg-v2-indicator') as HTMLDivElement | null
-          if (!ind) {
-            ind = document.createElement('div') as HTMLDivElement
-            ind.id = 'wysiwyg-v2-indicator'
-            ind.className = 'wysiwyg-v2-indicator'
-            ind.textContent = '所见模式 · Ctrl+Shift+E 退出'
-            container?.appendChild(ind)
-          }
-        } catch {}
+        // 取消右下角提示信息，避免遮挡与视觉噪声
         // 确保富文本视图获得焦点
         setTimeout(() => {
           try {
@@ -725,8 +717,9 @@ async function setWysiwygEnabled(enable: boolean) {
         try { await disableWysiwygV2() } catch {}
         wysiwygV2Active = false
         if (container) container.classList.remove('wysiwyg-v2')
-        try { const ind = document.getElementById('wysiwyg-v2-indicator'); ind?.remove() } catch {}
+        // 右下角提示已取消，无需移除
       }
+      try { applyLibraryLayout() } catch {}
       if (mode !== 'preview') {
         try { preview.classList.add('hidden') } catch {}
       }
@@ -3467,6 +3460,18 @@ function bindEvents() {
     // 应用持久化的排序偏好
     try { const s = await getLibrarySort(); fileTree.setSort(s); await fileTree.refresh() } catch {}
   }))
+  // 非固定模式：点击库外空白自动隐藏
+  document.addEventListener('mousedown', (ev) => {
+    try {
+      const lib = document.getElementById('library') as HTMLDivElement | null
+      if (!lib) return
+      const visible = !lib.classList.contains('hidden')
+      if (!visible) return
+      if (libraryDocked) return // 仅非固定模式
+      const t = ev.target as Node
+      if (lib && !lib.contains(t)) showLibrary(false)
+    } catch {}
+  })
   if (btnAbout) btnAbout.addEventListener('click', guard(() => showAbout(true)))
   if (btnUploader) btnUploader.addEventListener('click', guard(() => openUploaderDialog()))
 

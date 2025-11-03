@@ -132,18 +132,7 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
 #md-wysiwyg-root > div { display: block; min-height: 100%; }
 
 /* V2 状态提示（右下角） */
-.wysiwyg-v2-indicator {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  background: rgba(127,127,255,0.1);
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 6px;
-  pointer-events: none;
-}
+/* 右下角提示已取消 */
 
 /* 如有富文本工具条，默认隐藏，纯所见编辑 */
 #md-wysiwyg-root [role="toolbar"] { display: none !important; }
@@ -376,6 +365,8 @@ body > .block-menu { display: none !important; }
 .container.with-library .preview { padding-left: 300px; }
 /* 所见 V2 打开文档库侧栏时，避免编辑区被左侧面板覆盖 */
 .container.with-library #md-wysiwyg-root { left: 300px; width: calc(100% - 300px); }
+/* 所见 V2 在“固定库”模式下仍保持全宽，让库覆盖在上方，不挤压所见编辑区 */
+.container.wysiwyg-v2.with-library #md-wysiwyg-root { left: 0; width: 100%; }
 
 .statusbar {
   position: absolute; right: 10px; bottom: 8px; font-size: 12px; color: var(--muted);
