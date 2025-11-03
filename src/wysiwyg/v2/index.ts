@@ -52,6 +52,23 @@ function toLocalAbsFromSrc(src: string): string | null {
   } catch { return null }
 }
 
+function fromFileUri(u: string): string | null {
+  try {
+    if (!/^file:/i.test(u)) return null
+    const url = new URL(u)
+    const host = url.hostname || ''
+    let p = url.pathname || ''
+    if (/^\/[a-zA-Z]:\//.test(p)) p = p.slice(1)
+    p = decodeURIComponent(p)
+    if (host) {
+      // UNC: file://server/share/path -> \\server\share\path
+      const pathPart = p.replace(/^\//, '').replace(/\//g, '\\')
+      return '\\' + '\\' + host + (pathPart ? '\\' + pathPart : '')
+    }
+    if (/^[a-zA-Z]:\//.test(p)) p = p.replace(/\//g, '\\')
+    return p
+  } catch { return null }
+}
 function isTauriRuntime(): boolean {
   try { return typeof (window as any).__TAURI__ !== 'undefined' } catch { return false }
 }
@@ -176,6 +193,8 @@ export async function enableWysiwygV2(root: HTMLElement, initialMd: string, onCh
             // 已经是 <...> 的不处理
             if (s.startsWith('<') && s.endsWith('>')) return m
             const dec = (() => { try { return decodeURIComponent(s) } catch { return s } })()
+            const localFromFile = fromFileUri(dec)
+            if (localFromFile) return m.replace(s, `<${localFromFile}>`)
             const looksLocal = /^(?:file:|[a-zA-Z]:[\\/]|\\\\|\/)/.test(dec)
             const hasSpaceOrSlash = /[\s()\\]/.test(dec)
             if (looksLocal && hasSpaceOrSlash) {
@@ -220,3 +239,6 @@ export async function wysiwygV2ReplaceAll(markdown: string) {
   if (!_editor) return
   try { await _editor.action(replaceAll(markdown)) } catch {}
 }
+
+
+

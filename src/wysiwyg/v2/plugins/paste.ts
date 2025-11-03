@@ -16,6 +16,30 @@ async function getDefaultPasteDir(): Promise<string | null> {
 }
 function pathJoin(a: string, b: string): string { const sep = a.includes('\\') ? '\\' : '/'; return a.replace(/[\\/]+$/, '') + sep + b.replace(/^[\\/]+/, '') }
 function needAngle(url: string): boolean { return /[\s()]/.test(url) || /^[a-zA-Z]:/.test(url) || /\\/.test(url) }
+function toFileUri(p: string): string {
+  try {
+    const s = String(p || '').trim()
+    if (!s) return s
+    if (/^file:/i.test(s)) return s
+    // UNC: \\server\share\path -> file://server/share/path
+    if (/^\\\\/.test(s)) {
+      const rest = s.replace(/^\\\\/, '')
+      const i = rest.indexOf('\\')
+      const host = i >= 0 ? rest.substring(0, i) : rest
+      const tail = i >= 0 ? rest.substring(i + 1) : ''
+      const norm = tail.replace(/\\/g, '/').replace(/^\/+/, '')
+      return `file://${host}${norm ? '/' + encodeURI(norm) : ''}`
+    }
+    // Windows 盘符: C:\\a\\b -> file:///C:/a/b
+    if (/^[a-zA-Z]:[\\/]/.test(s)) {
+      const norm = s.replace(/\\/g, '/').replace(/^\/+/, '')
+      return 'file:///' + encodeURI(norm)
+    }
+    // Unix 绝对路径: /a/b -> file:///a/b
+    if (/^\//.test(s)) return 'file://' + encodeURI(s)
+    return s
+  } catch { return p }
+}
 
 export const uploader: Uploader = async (files, schema) => {
   const images: File[] = []
@@ -58,7 +82,7 @@ export const uploader: Uploader = async (files, schema) => {
         const saver = (window as any).flymdSaveImageToLocalAndGetPath
         const dstPath: string | null = typeof saver === 'function' ? await saver(img, img.name || 'image') : null
         if (dstPath) {
-          const url = needAngle(dstPath) ? `<${dstPath}>` : dstPath
+          const url = toFileUri(dstPath)
           const n = schema.nodes.image.createAndFill({ src: url, alt: img.name }) as ProseNode
           if (n) { nodes.push(n); done = true }
         }
@@ -86,3 +110,4 @@ function toDataUrl(file: File): Promise<string> {
     } catch (e) { reject(e) }
   })
 }
+
