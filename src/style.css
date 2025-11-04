@@ -117,14 +117,17 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
 }
 
 .preview {
-  position: absolute; inset: 0; overflow: auto; padding: 16px 20px 40px 20px;
+  position: absolute; inset: 0;
+  /* 仅显示竖向滚动条，隐藏横向滚动条，避免页面抖动且更清爽 */
+  overflow-y: auto; overflow-x: hidden;
+  padding: 16px 20px 40px 20px;
   background: var(--bg); color: var(--fg);
 }
 .preview.hidden { display: none; }
 
 /* 所见 V2：真实所见视图容器 */
 #md-wysiwyg-root, #md-wysiwyg-root * { box-sizing: border-box; }
-#md-wysiwyg-root { position: absolute; inset: 0; display: none; overflow: auto; z-index: 2; }
+#md-wysiwyg-root { position: absolute; inset: 0; display: none; overflow-y: auto; overflow-x: hidden; z-index: 2; }
 .container.wysiwyg-v2 #md-wysiwyg-root { display: block; }
 .container.wysiwyg-v2-loading #md-wysiwyg-root { display: none; }
 .container.wysiwyg-v2 .editor { display: none; }
@@ -371,7 +374,7 @@ body > .block-menu { display: none !important; }
 }
 
 /* 文档库侧栏（阶段A：最小侵入） */
-.library { position: absolute; inset: 0 auto 0 0; width: 280px; border-right: 1px solid var(--border); background: var(--panel-bg); color: var(--fg); overflow: auto; z-index: 15; }
+.library { position: absolute; inset: 0 auto 0 0; width: 280px; border-right: 1px solid var(--border); background: var(--panel-bg); color: var(--fg); overflow-y: auto; overflow-x: hidden; z-index: 15; }
 .library.hidden { display: none; }
 .library .lib-header { position: sticky; top: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border); padding: 8px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
 .library .lib-path { flex: 1; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -714,20 +717,33 @@ html, body { overflow: hidden; }
   margin: 0.6em 0;
 }
 
-/* 隐藏底部横向滚动条外观（不影响滚动功能） */
+/* 仅隐藏横向滚动条外观（不影响滚动功能），竖向滚动条保持可见 */
 html::-webkit-scrollbar:horizontal,
 body::-webkit-scrollbar:horizontal,
 #app::-webkit-scrollbar:horizontal,
 .container::-webkit-scrollbar:horizontal,
-.preview::-webkit-scrollbar:horizontal {
-  height: 0 !important;
-}
-/* 全环境隐藏滚动条外观（仍可滚动）*/
+.preview::-webkit-scrollbar:horizontal,
+#md-wysiwyg-root::-webkit-scrollbar:horizontal,
+.library::-webkit-scrollbar:horizontal { height: 0 !important; }
+
+/* 为主要滚动容器显式展示竖向滚动条（跨浏览器） */
 /* Firefox */
-html, body, #app, .container, .preview { scrollbar-width: none; }
+.preview, #md-wysiwyg-root, .library { scrollbar-width: thin; scrollbar-color: rgba(127,127,127,0.45) transparent; }
 /* WebKit/Chromium */
-html::-webkit-scrollbar, body::-webkit-scrollbar, #app::-webkit-scrollbar,
-.container::-webkit-scrollbar, .preview::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
+.preview::-webkit-scrollbar:vertical,
+#md-wysiwyg-root::-webkit-scrollbar:vertical,
+.library::-webkit-scrollbar:vertical { width: 10px; }
+.preview::-webkit-scrollbar-thumb,
+#md-wysiwyg-root::-webkit-scrollbar-thumb,
+.library::-webkit-scrollbar-thumb {
+  background: rgba(127,127,127,0.45);
+  border-radius: 999px;
+  border: 2px solid transparent; /* 让拇指更细更圆润 */
+  background-clip: content-box;
+}
+.preview::-webkit-scrollbar-track,
+#md-wysiwyg-root::-webkit-scrollbar-track,
+.library::-webkit-scrollbar-track { background: transparent; }
 /* WebDAV 同步：标签左对齐、警告缩进与横排开关 */
 .upl-grid > label { justify-self: start; text-align: left; }
 .upl-hint.warn { color: #ff9800; }
