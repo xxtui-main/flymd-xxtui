@@ -2045,7 +2045,7 @@ async function renderPreview() {
       try {
         mermaid = (await import('mermaid')).default
       } catch (e1) {
-        console.warn('加载 mermaid 失败，尝试 ESM 备用路径...', e1)
+        if (!wysiwyg) console.warn('加载 mermaid 失败，尝试 ESM 备用路径...', e1)
         try {
           mermaid = (await import('mermaid/dist/mermaid.esm.mjs')).default
         } catch (e2) {
@@ -2053,11 +2053,22 @@ async function renderPreview() {
           throw e2
         }
       }
+      // 所见模式下，进一步静默 mermaid 的 parseError 回调，避免控制台噪音
+      try {
+        if (wysiwyg) {
+          try { (mermaid as any).parseError = () => {} } catch {}
+          try { if ((mermaid as any).mermaidAPI) (mermaid as any).mermaidAPI.parseError = () => {} } catch {}
+        }
+      } catch {}
       if (!mermaidReady) {
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' })
+        // 初始化 Mermaid；所见模式下降低日志级别，避免错误信息干扰输入体验
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default', logLevel: (wysiwyg ? 'fatal' as any : 'error' as any) })
         mermaidReady = true
         console.log('Mermaid 已初始化')
-  try { decorateCodeBlocks(preview) } catch {}
+        try { decorateCodeBlocks(preview) } catch {}
+      } else {
+        // 已初始化时，动态调整日志级别（切换所见/预览模式时生效）
+        try { mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default', logLevel: (wysiwyg ? 'fatal' as any : 'error' as any) }) } catch {}
       }
       for (let i = 0; i < nodes.length; i++) {
         const el = nodes[i]
@@ -2096,13 +2107,17 @@ async function renderPreview() {
             throw new Error('生成的 SVG 节点为空')
           }
         } catch (err) {
-          console.error('Mermaid 单图渲染失败：', err)
-          el.innerHTML = `<div style="color: red; border: 1px solid red; padding: 10px;">Mermaid 渲染错误: ${err}</div>`
+          // 所见模式：完全静默；预览模式保留错误提示
+          if (!wysiwyg) {
+            console.error('Mermaid 单图渲染失败：', err)
+            el.innerHTML = `<div style=\"color: red; border: 1px solid red; padding: 10px;\">Mermaid 渲染错误: ${err}</div>`
+          }
         }
       }
     }
   } catch (e) {
-    console.error('Mermaid 渲染失败：', e)
+    // 所见模式：完全静默；预览模式保留错误日志
+    if (!wysiwyg) console.error('Mermaid 渲染失败：', e)
   // 代码块装饰：委托到统一的 decorateCodeBlocks，避免重复实现导致行为不一致
   try { decorateCodeBlocks(preview) } catch {}
 
