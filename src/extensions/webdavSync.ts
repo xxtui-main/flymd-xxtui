@@ -54,6 +54,11 @@ type SyncMetadata = {
     }
   }
   lastSyncTime: number
+  // 新增：远端目录属性快照（用于远端扫描剪枝）
+  // 仅记录目录条目的 mtime/etag（若服务器提供）
+  dirs?: {
+    [dir: string]: { mtime?: number; etag?: string }
+  }
 }
 
 // 获取同步元数据
@@ -89,7 +94,19 @@ async function getSyncMetadata(): Promise<SyncMetadata> {
       }
     }
 
-    return { files, lastSyncTime: rawMeta.lastSyncTime || 0 }
+    // 目录快照兼容
+    const dirs: SyncMetadata['dirs'] = {}
+    try {
+      const rawDirs = rawMeta.dirs || {}
+      if (rawDirs && typeof rawDirs === 'object') {
+        for (const [k, v] of Object.entries(rawDirs)) {
+          const dv = v as any
+          dirs[k] = { mtime: Number(dv?.mtime) || undefined, etag: dv?.etag ? String(dv.etag) : undefined }
+        }
+      }
+    } catch {}
+
+    return { files, lastSyncTime: rawMeta.lastSyncTime || 0, dirs }
   } catch (e) {
     console.warn('读取同步元数据失败', e)
     // 如果是 JSON 解析错误，尝试备份损坏的文件
@@ -454,8 +471,17 @@ async function listRemoteDir(baseUrl: string, auth: { username: string; password
   return { files }
 }
 
-async function listRemoteRecursively(baseUrl: string, auth: { username: string; password: string }, rootPath: string): Promise<Map<string, FileEntry>> {
+// 远端递归扫描（带剪枝）：
+// - 根据上次保存的目录属性（mtime/etag）决定是否深入子目录
+// - 若服务器未提供目录 mtime/etag，则回退为完整递归
+async function listRemoteRecursively(
+  baseUrl: string,
+  auth: { username: string; password: string },
+  rootPath: string,
+  opts?: { lastDirs?: { [dir: string]: { mtime?: number; etag?: string } } }
+): Promise<{ files: Map<string, FileEntry>; dirsProps: { [dir: string]: { mtime?: number; etag?: string } } }> {
   const map = new Map<string, FileEntry>()
+  const dirsProps: { [dir: string]: { mtime?: number; etag?: string } } = {}
   let dirCount = 0
   let fileCount = 0
 
@@ -480,7 +506,22 @@ async function listRemoteRecursively(baseUrl: string, auth: { username: string; 
       if (String(f.name).startsWith('.')) continue
       const r = rel ? rel + '/' + f.name : f.name
       if (f.isDir) {
-        await walk(r)
+        // 记录目录条目属性（若服务器提供）
+        dirsProps[r] = { mtime: f.mtime, etag: f.etag }
+        // 是否需要深入扫描该子目录
+        let needDive = true
+        const last = opts?.lastDirs?.[r]
+        if (last && (last.etag || last.mtime !== undefined)) {
+          const sameEtag = last.etag && f.etag && last.etag === f.etag
+          const sameMtime = last.mtime !== undefined && f.mtime !== undefined && Math.abs((last.mtime || 0) - (f.mtime || 0)) <= 1000
+          if (sameEtag || sameMtime) {
+            needDive = false
+            await syncLog('[remote-prune] 跳过未变化目录: ' + r)
+          }
+        }
+        if (needDive) {
+          await walk(r)
+        }
       } else {
         fileCount++
         map.set(r, { path: r, mtime: toEpochMs(f.mtime), size: 0, etag: f.etag })
@@ -489,7 +530,7 @@ async function listRemoteRecursively(baseUrl: string, auth: { username: string; 
   }
   await walk('')
   updateStatus(`远程扫描完成，共 ${fileCount} 个文件，${dirCount} 个目录`)
-  return map
+  return { files: map, dirsProps }
 }
 
 async function downloadFile(baseUrl: string, auth: { username: string; password: string }, remotePath: string): Promise<Uint8Array> {
@@ -656,8 +697,9 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
       } catch {}
     }, 2000)
 
-    // 扫描远程文件
-    const remoteIdx = await listRemoteRecursively(cfg.baseUrl, auth, cfg.rootPath)
+    // 扫描远程文件（带目录剪枝）
+    const remoteScan = await listRemoteRecursively(cfg.baseUrl, auth, cfg.rootPath, { lastDirs: lastMeta.dirs || {} })
+    const remoteIdx = remoteScan.files
 
     // 清除定时器
     clearTimeout(connectionHintTimer)
@@ -813,7 +855,8 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
     // 全量覆盖：初始化 newMeta 时复制 lastMeta.files，保留未变化的条目
     const newMeta: SyncMetadata = {
       files: { ...lastMeta.files },  // 复制所有旧条目
-      lastSyncTime: Date.now()
+      lastSyncTime: Date.now(),
+      dirs: { ...(lastMeta.dirs || {}), ...((remoteScan as any)?.dirsProps || {}) }
     }
 
     for (const act of plan) {
