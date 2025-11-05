@@ -1237,11 +1237,16 @@ let _wheelHandlerRef: ((e: WheelEvent)=>void) | null = null
   library.className = 'library hidden'
   library.innerHTML = `
     <div class="lib-header">
-      <div class="lib-path" id="lib-path"></div>
       <button class="lib-btn" id="lib-choose"></button>
+      <div class="lib-path" id="lib-path"></div>
+      <div class="lib-tabs">
+        <button class="lib-tab active" id="lib-tab-files">文件</button>
+        <button class="lib-tab" id="lib-tab-outline">大纲</button>
+      </div>
       <button class="lib-btn" id="lib-refresh"></button>
     </div>
     <div class="lib-tree" id="lib-tree"></div>
+    <div class="lib-outline hidden" id="lib-outline"></div>
   `
   containerEl.appendChild(library)
   // 创建左侧边缘唤醒热区（默认隐藏）
@@ -1266,8 +1271,26 @@ let _wheelHandlerRef: ((e: WheelEvent)=>void) | null = null
     const elRefresh = library.querySelector('#lib-refresh') as HTMLButtonElement | null
     // 去除“未选择库目录”默认提示，保持为空，避免长期提示误导
     if (elPath) elPath.textContent = ''
-    if (elChoose) elChoose.textContent = '\u9009\u62e9\u5e93'
+    if (elChoose) elChoose.textContent = '\u5e93'
     if (elRefresh) elRefresh.textContent = '\u5237\u65b0'
+    // 绑定二级标签：文件 / 大纲
+    const tabFiles = library.querySelector('#lib-tab-files') as HTMLButtonElement | null
+    const tabOutline = library.querySelector('#lib-tab-outline') as HTMLButtonElement | null
+    const treeEl = library.querySelector('#lib-tree') as HTMLDivElement | null
+    const outlineEl = library.querySelector('#lib-outline') as HTMLDivElement | null
+    function activateLibTab(kind: 'files' | 'outline') {
+      try {
+        tabFiles?.classList.toggle('active', kind === 'files')
+        tabOutline?.classList.toggle('active', kind === 'outline')
+        if (treeEl) treeEl.classList.toggle('hidden', kind !== 'files')
+        if (outlineEl) outlineEl.classList.toggle('hidden', kind !== 'outline')
+        if (kind === 'outline') {
+          try { renderOutlinePanel() } catch {}
+        }
+      } catch {}
+    }
+    tabFiles?.addEventListener('click', () => activateLibTab('files'))
+    tabOutline?.addEventListener('click', () => activateLibTab('outline'))
   } catch {}
   // 动态插入“固定”按钮，允许切换覆盖/固定两种模式
   try {
@@ -1277,7 +1300,7 @@ let _wheelHandlerRef: ((e: WheelEvent)=>void) | null = null
       elPin.className = 'lib-btn'
       elPin.id = 'lib-pin'
       hdr.appendChild(elPin)
-      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.textContent = libraryDocked ? '取消固定' : '固定'; applyLibraryLayout() } catch {} })()
+      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.textContent = libraryDocked ? '自动' : '固定'; applyLibraryLayout() } catch {} })()
       elPin.addEventListener('click', () => { void setLibraryDocked(!libraryDocked) })
     }
   } catch {}
@@ -2856,6 +2879,51 @@ async function setLibrarySort(mode: LibSortMode) {
   } catch {}
 }
 
+// —— 大纲面板：从预览或源码提取 H1~H6，生成可点击目录 ——
+function renderOutlinePanel() {
+  try {
+    const outline = document.getElementById('lib-outline') as HTMLDivElement | null
+    if (!outline) return
+    // 优先从预览 DOM 提取标题
+    const pv = document.querySelector('.preview .preview-body') as HTMLElement | null
+    const heads = pv ? Array.from(pv.querySelectorAll('h1,h2,h3,h4,h5,h6')) as HTMLElement[] : []
+    const items: { level: number; id: string; text: string }[] = []
+    const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5\s-]/gi,'').replace(/\s+/g,'-').slice(0,64) || ('toc-' + Math.random().toString(36).slice(2))
+    if (heads.length > 0) {
+      heads.forEach((h, idx) => {
+        const tag = (h.tagName || 'H1').toUpperCase()
+        const level = Math.min(6, Math.max(1, Number(tag.replace('H','')) || 1))
+        let id = h.getAttribute('id') || ''
+        const text = (h.textContent || '').trim() || ('标题 ' + (idx+1))
+        if (!id) { id = slug(text + '-' + idx); try { h.setAttribute('id', id) } catch {} }
+        items.push({ level, id, text })
+      })
+    } else {
+      // 退化：从源码扫描 # 标题行
+      const src = editor?.value || ''
+      const lines = src.split(/\n/)
+      lines.forEach((ln, i) => {
+        const m = ln.match(/^(#{1,6})\s+(.+?)\s*$/)
+        if (m) { const level = m[1].length; const text = m[2].trim(); const id = slug(text + '-' + i); items.push({ level, id, text }) }
+      })
+    }
+    if (items.length === 0) { outline.innerHTML = '<div class="empty">未检测到标题</div>'; return }
+    outline.innerHTML = items.map(it => `<div class="ol-item lvl-${it.level}" data-id="${it.id}">${it.text}</div>`).join('')
+    outline.querySelectorAll('.ol-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = (el as HTMLDivElement).dataset.id || ''
+        if (!id) return
+        try {
+          const target = document.getElementById(id)
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        } catch {}
+      })
+    })
+  } catch {}
+}
+
 // 粘贴图片默认保存目录（无打开文件时使用）
 async function getDefaultPasteDir(): Promise<string | null> {
   try {
@@ -3122,7 +3190,7 @@ async function setLibraryDocked(docked: boolean) {
   // 更新按钮文案
   try {
     const btn = document.getElementById('lib-pin') as HTMLButtonElement | null
-    if (btn) btn.textContent = libraryDocked ? '取消固定' : '固定'
+    if (btn) btn.textContent = libraryDocked ? '自动' : '固定'
   } catch {}
   applyLibraryLayout()
   // 若当前已显示且切到“非固定”，补绑定悬停自动隐藏

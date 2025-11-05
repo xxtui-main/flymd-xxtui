@@ -378,9 +378,22 @@ body > .block-menu { display: none !important; }
 .library.hidden { display: none; }
 .library .lib-header { position: sticky; top: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border); padding: 8px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
 .library .lib-path { flex: 1; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.library .hidden { display: none !important; }
+.library .lib-tabs { display: inline-flex; align-items: center; gap: 6px; }
+.library .lib-tab { border: 1px solid var(--border); background: transparent; color: var(--fg); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.library .lib-tab.active { background: rgba(127,127,127,0.12); }
 .library .lib-btn { -webkit-app-region: no-drag; cursor: pointer; border: 1px solid var(--border); background: rgba(127,127,127,0.08); color: var(--fg); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
 .library .lib-btn:hover { background: rgba(127,127,127,0.14); }
 .library .lib-tree { padding: 8px 6px 14px 6px; font-size: 13px; }
+.library .lib-outline { padding: 8px 6px 14px 6px; font-size: 13px; }
+.library .lib-outline .ol-item { padding: 3px 4px; border-radius: 6px; cursor: pointer; }
+.library .lib-outline .ol-item:hover { background: rgba(127,127,127,0.08); }
+.library .lib-outline .lvl-1 { margin-left: 0; font-weight: 600; }
+.library .lib-outline .lvl-2 { margin-left: 10px; }
+.library .lib-outline .lvl-3 { margin-left: 20px; }
+.library .lib-outline .lvl-4 { margin-left: 30px; }
+.library .lib-outline .lvl-5 { margin-left: 40px; }
+.library .lib-outline .lvl-6 { margin-left: 50px; }
 .library .lib-node { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: default; user-select: none; }
 .library .lib-node:hover { background: rgba(127,127,127,0.08); }
 .library .lib-dir { cursor: pointer; }
