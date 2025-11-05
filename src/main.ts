@@ -775,6 +775,16 @@ async function setWysiwygEnabled(enable: boolean) {
             pm?.focus()
           } catch {}
         }, 0)
+        // 若大纲面板当前可见，切换到所见模式后立即刷新大纲，并绑定观察/滚动
+        try {
+          const outline = document.getElementById('lib-outline') as HTMLDivElement | null
+          if (outline && !outline.classList.contains('hidden')) {
+            _outlineLastSignature = ''
+            renderOutlinePanel()
+            ensureOutlineObserverBound()
+            bindOutlineScrollSync()
+          }
+        } catch {}
         return
       } catch (e) {
         console.error('启用所见V2失败，将回退到旧模式', e)
@@ -818,6 +828,15 @@ async function setWysiwygEnabled(enable: boolean) {
       wysiwygHoldInlineDollarUntilEnter = false
       wysiwygHoldFenceUntilEnter = false
       stopDotBlink()
+      // 若大纲面板当前可见，退出所见模式后也立即刷新大纲并绑定预览滚动同步
+      try {
+        const outline = document.getElementById('lib-outline') as HTMLDivElement | null
+        if (outline && !outline.classList.contains('hidden')) {
+          _outlineLastSignature = ''
+          // 预览渲染可能稍后完成，延迟一次以确保提取到标题
+          setTimeout(() => { try { renderOutlinePanel(); bindOutlineScrollSync() } catch {} }, 0)
+        }
+      } catch {}
       try { (editor as any).style.paddingBottom = '40px' } catch {}
     }
     // 更新按钮提示
