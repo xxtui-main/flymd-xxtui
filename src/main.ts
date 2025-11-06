@@ -765,7 +765,7 @@ async function renderPreviewLight() {
   await ensureRenderer()
   let raw = editor.value
   try {
-    if (wysiwyg) {
+    if (wysiwyg && mode !== 'preview') {
       const st = editor.selectionStart >>> 0
       const before = raw.slice(0, st)
       const after = raw.slice(st)
@@ -1978,7 +1978,7 @@ async function renderPreview() {
   let raw = editor.value
   // 所见模式：用一个“.”标记插入点，优先不破坏 Markdown 结构
   try {
-    if (wysiwyg) {
+    if (wysiwyg && mode !== 'preview') {
       const st = editor.selectionStart >>> 0
       const before = raw.slice(0, st)
       const after = raw.slice(st)
