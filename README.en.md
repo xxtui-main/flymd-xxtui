@@ -1,127 +1,93 @@
-## FlySpeed Markdown (flyMD)
+# FlySpeed Markdown (flyMD)
 
-[简体中文](README.md) | English
+[中文说明](README.md) | English
 
 [![Version](https://img.shields.io/badge/version-v0.1.6-blue.svg)](https://github.com/flyhunterl/flymd)
 [![License](https://img.shields.io/badge/license-NonCommercial-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/flyhunterl/flymd)
 
-A cross‑platform, lightweight and polished Markdown editor & PDF reader.
+A fast, cross‑platform Markdown editor and PDF reader with a clean UI, safe preview, and a modern WYSIWYG V2 experience.
 
-Highlights
-- Small and instant: tiny installer, millisecond cold start, one‑click code copy
-- Clean UI: minimalist layout (menubar + editor), distraction‑free
-- Library: folder tree with file management (new/rename/move/delete)
-- Safe preview: local‑only app; DOMPurify sanitizes HTML automatically
-- Image bed: S3/R2 integration; paste/drag to upload and insert URL
-- Full stack: Markdown, KaTeX (LaTeX), Mermaid, HTML preview, highlight.js
-- WYSIWYG: live render while typing (v0.0.6) with improved V2 experience (v0.1.3)
-- Performance: lazy‑loaded renderer/highlighter, pure TypeScript
-- Position memory: remember last read/edit position per file
-- Sync: WebDAV extension with logs and conflict prompts
-- Plugins: extension system; install from GitHub/URL
+> Screenshots: see the Chinese README for an up‑to‑date gallery.
 
-Screenshots
-- See the Chinese README for the gallery.
+## Highlights
+- Lightweight & instant: tiny installer, sub‑second cold start
+- Clean layout: minimalist menubar + editor, distraction‑free
+- WYSIWYG V2: real editing view powered by Milkdown (toggle `Ctrl+W`)
+  - Two render modes: Instant render and Enter‑to‑render (`Ctrl+Shift+R`)
+- Edit/Read modes: toggle `Ctrl+E`, quick Read `Ctrl+R`
+- Complete stack: Markdown, KaTeX (LaTeX), Mermaid, HTML, highlight.js
+- Safe preview: DOMPurify sanitizes HTML; external links add `target="_blank"` + `rel="noopener"`
+- Library: folder tree + recent files + context actions (new/rename/move/delete)
+- PDF: built‑in viewer and bookmark Outline (with cache & auto‑invalidate)
+- Image upload: S3/R2 integration; paste/drag to upload and insert URL; robust local fallback
+- Sync: WebDAV extension with logs, progress and conflict prompts
+- Position memory: remember last read/edit caret/scroll per file
+- i18n: English/Chinese UI with Auto mode following system language
 
-Core Features
-- Edit
-  - Native `<textarea>` with zero‑latency input
-  - WYSIWYG toggle: `Ctrl+W`; auto focus on launch; caret location shown
-  - UTF‑8; shortcuts: `Ctrl+B`/`Ctrl+I`; insert link `Ctrl+K`
-- Read
-  - Toggle Edit/Preview: `Ctrl+E`; quick Preview: `Ctrl+R`
-  - markdown‑it + highlight.js; DOMPurify for safe HTML
-  - External links get `target="_blank"` and `rel="noopener"`
-  - Local images auto‑converted to `asset:` in Tauri; KaTeX & Mermaid support
-  - In WYSIWYG, Mermaid editing is silent; it renders after you leave the code block. Parse errors are suppressed to avoid interrupting typing.
-- Files
-  - Open (`Ctrl+O`) for .md/.markdown/.txt; Save/Save As/New `Ctrl+S`/`Ctrl+Shift+S`/`Ctrl+N`
-  - Recent (up to 5); unsaved indicator `*` in title bar; unified native dialogs
-  - Drag & drop: open `.md`; drop images to insert markdown
+## Core Features
 
-Sidebar Outline (Markdown / PDF)
-- Markdown: extract H1–H6 to build a clickable outline; scroll‑sync the active section; highlight the current heading; fold/unfold at H1/H2 with remembered state
-- PDF: parse PDF bookmarks (Outline) and build a clickable TOC; jump to pages; cache per file and auto‑invalidate by mtime
-- Note: `pdfjs-dist` must be installed in dev/build environments; the app lazy‑loads it only when opening the PDF Outline. End users do not need to install it.
+### Edit
+- Native `<textarea>` editor for zero‑latency typing
+- WYSIWYG V2 (Milkdown) for rich, document‑true editing
+  - Toggle: `Ctrl+W`; switch Instant vs Enter‑to‑render: `Ctrl+Shift+R`
+- Chinese IME friendly: safe composition; smart auto‑pair for (), [], {}, "", '', ``````; full‑width pairs like 《》、【】、（） etc.
+- Tab indent that stays consistent across modes:
+  - Tab inserts exactly two `&emsp;` at line start; Shift+Tab removes one set
+  - Works in Edit and WYSIWYG, single‑line and multi‑line; avoids 4‑space code blocks
+- Formatting shortcuts: `Ctrl+B` bold, `Ctrl+I` italic; `Ctrl+K` insert link
+- UTF‑8 throughout; accurate cursor/line/column reporting
 
-Image Upload (S3/R2)
+### Read (Preview)
+- Toggle Edit/Read: `Ctrl+E`; quick Read: `Ctrl+R`
+- markdown‑it + highlight.js; DOMPurify cleans HTML and allows required SVG tags/attrs
+- Local image paths auto‑converted to `asset:` in Tauri so images render without extra config
+- KaTeX for LaTeX; Mermaid for diagrams. Mermaid parse errors are silenced in WYSIWYG to avoid disrupting input
+
+### Sidebar Outline (Markdown & PDF)
+- Markdown: extract H1–H6 into a clickable outline; highlight current heading; scroll‑sync
+- PDF: parse document bookmarks into a clickable Outline; jump to pages; cache per file and auto‑invalidate by mtime
+  - Note: `pdfjs-dist` is an optional dev/build dependency only for the Outline feature. End users do not need to install it
+
+### Images (S3/R2 or Local)
 - Priority
-  - Enabled + configured: upload and insert public URL (no local copy)
-  - Disabled/not configured: save locally (existing doc -> sibling `images/`; unsaved doc -> system Pictures)
-  - Upload failed while enabled: fallback to local save
+  1) Upload enabled + configured → upload and insert public URL (no local copy)
+  2) Disabled/not configured → save locally (existing doc → sibling `images/`; unsaved → system Pictures)
+  3) Upload fails while enabled → fallback to local save
+- Paste/drag an image directly into the editor
 
-UI/UX
-- Windows‑style menubar; File/Mode menus with shortcuts
-- Follow system light/dark theme; flicker‑free overlay preview
-- Window state is persisted
+### Extensions
+- Built‑in extension system; install from GitHub/URL
+- Example: Typecho Publisher → https://github.com/TGU-HansJack/typecho-publisher-flymd
 
-Language Support
-- UI supports Chinese and English
-- Default “Auto” follows the system language; click the globe (🌍) next to “Extensions” to toggle (Auto / 中文 / English)
-- Coverage: top menus, sidebar tabs, dialogs, About, and key UI labels
-- Lightweight implementation with no extra runtime dependency
+## Shortcuts
+- File: `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+Shift+S` Save As
+- Mode: `Ctrl+E` Edit/Read, `Ctrl+R` Quick Read, `Ctrl+W` Toggle WYSIWYG, `Ctrl+Shift+R` Toggle Enter‑to‑render (WYSIWYG)
+- Format: `Ctrl+B` Bold, `Ctrl+I` Italic, `Ctrl+K` Insert Link, `Esc` Close dialogs
 
-Performance
-- Lazy load highlighter and renderer; pure TypeScript; lean event wiring
-
-Development & Build
-- Run
-  - Dev: `npm run dev`
-  - Tauri Dev: `npm run tauri:dev`
-- Build
-  - Frontend: `npm run build`
-  - Tauri Package: `npm run tauri:build`
-- Optional dependency (for PDF Outline only):
-  - `npm i pdfjs-dist`
-  - The app lazy‑loads PDF.js to parse PDF bookmarks and only when the “Outline” tab is viewed for a PDF.
-
-Install
-- Download the latest assets from Releases and run the installer
+## Install
+- Download the latest release and run the installer
 - Requirements: Windows 10/11 (x64) / Linux / macOS; WebView2 on Windows
 
-Shortcuts
-- `Ctrl+N` New | `Ctrl+O` Open | `Ctrl+S` Save | `Ctrl+Shift+S` Save As
-- `Ctrl+E` Edit/Preview | `Ctrl+R` Quick Preview | `Ctrl+W` Toggle WYSIWYG
-- `Ctrl+B` Bold | `Ctrl+I` Italic | `Ctrl+K` Insert Link | `Esc` Close
+## Development & Build
+- Run
+  - Frontend dev: `npm run dev`
+  - Tauri dev: `npm run tauri:dev`
+- Build
+  - Frontend: `npm run build`
+  - Tauri package: `npm run tauri:build`
+- Optional (PDF Outline only): `npm i pdfjs-dist`
+- Android: see BUILD_ANDROID.md
 
-Extensions
-- Build your own extensions or install from GitHub/URL
-- Example: Typecho Publisher — https://github.com/TGU-HansJack/typecho-publisher-flymd
+## Privacy & Security
+- flyMD is a local desktop app. No background network access is performed unless you explicitly enable features (e.g., S3/R2 upload, WebDAV sync)
 
-Changelog
-- v0.1.5 (in progress)
-  - WYSIWYG: silence Mermaid rendering errors to avoid disrupting input
-  - File icons by format: MD unchanged; PDF in red; TXT in purple
-  - New Sidebar Outline: Markdown (Edit/Read) and PDF bookmarks
-  - Fix: remove the persistent “no library selected” prompt after selecting a library
-  - Restore vertical scrollbars with a clean, consistent UI; avoid horizontal scrolling
-  - Tabs: show file name (append parent for duplicates), unsaved marker `*`, window title sync, tooltip shows full path
-- v0.1.4
-  - Sync: add root/dir snapshots to speed up remote scanning
-  - Fix: LaTeX rendering errors in Reading mode; LaTeX global render in WYSIWYG
-  - Fix: no save prompt when closing unsaved docs
-  - Fix: code block formatting in Reading mode
-  - Fix: missing Linux app icon
-- v0.1.3
-  - Refactor: WYSIWYG V2 for better editing experience
-  - Add: save prompts when switching docs; shortcuts `Ctrl+R` (Read) `Ctrl+W` (WYSIWYG)
-  - Change: more flexible library sidebar; multi‑level menus
-  - Fix: add missing macOS update feed
-- v0.1.2
-  - UI: improved extension window/style; richer sync logs and options
-  - Sync: faster scanning; better deletion prompts and recovery
-  - Library: create/delete folders; Fix: print entire document
+## License & Notices
+- Non‑Commercial Open License (flyMD NC 1.0). See [LICENSE](LICENSE)
+- Allowed: use/modify/copy/redistribute for non‑commercial purposes with attribution and a link to the source
+- Commercial use: prohibited without prior written authorization → contact: flyhunterl <flyhunterl@gmail.com>
+- Third‑party notices: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- In case of discrepancy, the Chinese original in LICENSE prevails
 
-License & Compliance
-- Non-Commercial Open License (flyMD NC 1.0). See [LICENSE](LICENSE).
-- Allowed: use/modify/copy/redistribute for non-commercial purposes with attribution and source link.
-- Commercial use: prohibited without prior written authorization. Contact: flyhunterl <flyhunterl@gmail.com>.
-- Third-party licenses: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
-- Translation note: in case of any discrepancy, the Chinese original in LICENSE prevails.
-
-Acknowledgements
-- Tauri, markdown‑it, DOMPurify, highlight.js, KaTeX, Mermaid
-
-FAQ (Linux)
-- Arch/empty window troubleshooting: see arch.md
+## Acknowledgements
+- Tauri, markdown‑it, DOMPurify, highlight.js, KaTeX, Mermaid, Milkdown
