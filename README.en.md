@@ -26,40 +26,49 @@ A fast, cross‑platform Markdown editor and PDF reader with a clean UI, safe pr
 - i18n: English/Chinese UI with Auto mode following system language
 
 ## Core Features
-
-### Edit
-- Native `<textarea>` editor for zero‑latency typing
-- WYSIWYG V2 (Milkdown) for rich, document‑true editing
-  - Toggle: `Ctrl+W`; switch Instant vs Enter‑to‑render: `Ctrl+Shift+R`
-- Chinese IME friendly: safe composition; smart auto‑pair for (), [], {}, "", '', ``````; full‑width pairs like 《》、【】、（） etc.
-- Tab indent that stays consistent across modes:
-  - Tab inserts exactly two `&emsp;` at line start; Shift+Tab removes one set
-  - Works in Edit and WYSIWYG, single‑line and multi‑line; avoids 4‑space code blocks
-- Formatting shortcuts: `Ctrl+B` bold, `Ctrl+I` italic; `Ctrl+K` insert link
-- UTF‑8 throughout; accurate cursor/line/column reporting
-
-### Read (Preview)
-- Toggle Edit/Read: `Ctrl+E`; quick Read: `Ctrl+R`
-- markdown‑it + highlight.js; DOMPurify cleans HTML and allows required SVG tags/attrs
-- Local image paths auto‑converted to `asset:` in Tauri so images render without extra config
-- KaTeX for LaTeX; Mermaid for diagrams. Mermaid parse errors are silenced in WYSIWYG to avoid disrupting input
-
-### Sidebar Outline (Markdown & PDF)
-- Markdown: extract H1–H6 into a clickable outline; highlight current heading; scroll‑sync
-- PDF: parse document bookmarks into a clickable Outline; jump to pages; cache per file and auto‑invalidate by mtime
-  - Note: `pdfjs-dist` is an optional dev/build dependency only for the Outline feature. End users do not need to install it
-
-### Images (S3/R2 or Local)
-- Priority
-  1) Upload enabled + configured → upload and insert public URL (no local copy)
-  2) Disabled/not configured → save locally (existing doc → sibling `images/`; unsaved → system Pictures)
-  3) Upload fails while enabled → fallback to local save
-- Paste/drag an image directly into the editor
-
-### Extensions
-- Built‑in extension system; install from GitHub/URL
-- Example: Typecho Publisher → https://github.com/TGU-HansJack/typecho-publisher-flymd
-
+- Editing Experience (WYSIWYG V2)
+  - Real-time editing / true WYSIWYG powered by Milkdown; two render modes: Instant and Enter-to-render (`Ctrl+W` to toggle, `Ctrl+Shift+R` to choose mode)
+  - Low-latency native pipeline: keep `<textarea>`, IME-friendly composition, smart pairing for brackets/quotes without disrupting input
+  - Consistent indent & multi-line: `Tab/Shift+Tab` behave the same in Edit and WYSIWYG, avoiding accidental 4-space code blocks
+  - Formatting shortcuts: `Ctrl+B` bold, `Ctrl+I` italic, `Ctrl+K` insert link; precise line/column/caret info
+- Reading & Outline
+  - Safe preview: `markdown-it` + `highlight.js` + `DOMPurify`; external links get `target="_blank"` + `rel="noopener"`
+  - Outline navigation: extract `H1-H6` into a clickable TOC; highlight current heading; scroll sync with preview
+  - PDF Outline: built-in PDF viewer with bookmarks; cached per file and auto-invalidated on change
+- Images & Hosting
+  - Paste/drag images; prefer upload to S3/R2 and insert a public URL; when unconfigured/failure, fall back to local save
+  - Local images just work: convert local paths to `asset:` in Tauri so they render without extra config
+- Sync (WebDAV extension)
+  - Visual sync: status hints, logs, progress, and conflict prompts
+  - Conflict strategies: `newest`/`skip`/`last-wins` (default `newest`), based on `mtime/etag` to reduce misjudgment
+  - Remote MOVE optimization: use `MOVE` to avoid duplicate download/upload; better rename/move handling
+- PDF Export (no header/footer)
+  - Save directly as PDF: cross-platform native export with headers/footers removed; supports `A4/margins/background`
+  - Preview-accurate: export from the preview HTML to match what you see
+- i18n & Usability
+  - English/Chinese + Auto follow system language; remember user preference
+  - Position memory: per-file last read/edit caret and scroll position
+- Security & Performance
+  - Local-first, no background network unless you explicitly enable features (image upload, sync, etc.)
+  - Optimized startup/render: lazy loads, chunked assets, controllable logs; target cold start <300ms, preview toggle <16ms (typical 2-3k lines)
+## Getting Started
+- Install
+  - Download the installer for your platform; on Windows, WebView2 is required (usually preinstalled)
+- Create/Open
+  - New: `Ctrl+N`; Open: `Ctrl+O`; Save: `Ctrl+S`; Save As: `Ctrl+Shift+S`
+  - Library: sidebar tree supports new/rename/move/delete and recent files
+- Mode Switch
+  - Edit/Read: `Ctrl+E`; Quick Read: `Ctrl+R`
+  - WYSIWYG: `Ctrl+W`; switch Instant vs Enter-to-render: `Ctrl+Shift+R`
+- Editing
+  - Bold/Italic/Link: `Ctrl+B / Ctrl+I / Ctrl+K`; `Esc` closes dialogs
+  - Images: paste/drag; with S3/R2 configured, auto-upload and insert URL; otherwise fall back to local save
+- Sync (optional)
+  - Enable WebDAV in Extensions; you will see logs/progress/conflicts; start with an empty folder to verify
+- Export to PDF (optional)
+  - Choose `.pdf` in Save As; cross-platform header/footer-free export; defaults to `A4` with `16mm` margins and background on
+- Language
+  - Switch Chinese/English or Auto; your preference is remembered
 ## Shortcuts
 - File: `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+Shift+S` Save As
 - Mode: `Ctrl+E` Edit/Read, `Ctrl+R` Quick Read, `Ctrl+W` Toggle WYSIWYG, `Ctrl+Shift+R` Toggle Enter‑to‑render (WYSIWYG)
@@ -79,6 +88,21 @@ A fast, cross‑platform Markdown editor and PDF reader with a clean UI, safe pr
 - Optional (PDF Outline only): `npm i pdfjs-dist`
 - Android: see BUILD_ANDROID.md
 
+## Roadmap
+### Completed (v0.1.6)
+- WYSIWYG V2 (Milkdown) with instant/enter-to-render; dual Edit/Read views with quick toggle
+- Library + recent files + context actions; Markdown outline with scroll sync
+- PDF reading with Outline cache; PDF export (no header/footer, cross-platform)
+- Image paste/drag + S3/R2 first + local fallback
+- WebDAV sync extension: visual progress and conflict handling (`newest/skip/last-wins`)
+- DOMPurify preview safety; i18n (EN/zh + Auto); position memory; performance and size optimizations
+
+### In Progress (0.1.x)
+- Sync robustness: more precise `etag/mtime` comparison; solid rename/move/interruption handling
+- Image hosting UX: retries and batch insert; broader S3-compatible coverage
+- PDF export details: more paper sizes/margin presets; clarity/pagination tuning
+- Performance & stability: finer-grained lazy loading; smoother large-document scroll/render
+- Usability: more shortcuts and localized menu items; consistent dialogs/status hints
 ## Privacy & Security
 - flyMD is a local desktop app. No background network access is performed unless you explicitly enable features (e.g., S3/R2 upload, WebDAV sync)
 
@@ -91,3 +115,4 @@ A fast, cross‑platform Markdown editor and PDF reader with a clean UI, safe pr
 
 ## Acknowledgements
 - Tauri, markdown‑it, DOMPurify, highlight.js, KaTeX, Mermaid, Milkdown
+
