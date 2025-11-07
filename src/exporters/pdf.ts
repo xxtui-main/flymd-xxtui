@@ -1,52 +1,27 @@
 // src/exporters/pdf.ts
 // 使用 html2pdf.js 将指定 DOM 元素导出为 PDF 字节
 
-async function svgToPngDataUrl(svgEl: SVGElement): Promise<string> {
+function normalizeSvgSize(svgEl: SVGElement, targetWidth: number) {
   try {
-    const serializer = new XMLSerializer()
-    const svgStr = serializer.serializeToString(svgEl)
-    const viewBox = svgEl.getAttribute('viewBox')
-    let width = Number(svgEl.getAttribute('width')) || 0
-    let height = Number(svgEl.getAttribute('height')) || 0
-    if ((!width || !height) && viewBox) {
-      const parts = viewBox.split(/\s+/).map(Number)
-      if (parts.length === 4) { width = parts[2]; height = parts[3] }
+    const vb = svgEl.getAttribute('viewBox')
+    let w = 0, h = 0
+    if (vb) {
+      const p = vb.split(/\s+/).map(Number)
+      if (p.length === 4) { w = p[2]; h = p[3] }
     }
-    if (!width || !height) {
-      width = (svgEl as any).clientWidth || 800
-      height = (svgEl as any).clientHeight || 600
+    const hasWH = Number(svgEl.getAttribute('width')) || Number(svgEl.getAttribute('height'))
+    if ((!w || !h) && hasWH) {
+      w = Number(svgEl.getAttribute('width')) || 800
+      h = Number(svgEl.getAttribute('height')) || 600
     }
-    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-    const url = URL.createObjectURL(svgBlob)
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image()
-        img.onload = () => {
-          try {
-            const ratio = img.width > 0 ? Math.min(1, 2000 / img.width) : 1
-            const cw = Math.max(1, Math.round(img.width * ratio))
-            const ch = Math.max(1, Math.round(img.height * ratio))
-            const canvas = document.createElement('canvas')
-            canvas.width = cw; canvas.height = ch
-            const ctx = canvas.getContext('2d')!
-            ctx.fillStyle = '#fff'; ctx.fillRect(0,0,cw,ch)
-            ctx.drawImage(img, 0, 0, cw, ch)
-            ;(img as any)._dataUrl = canvas.toDataURL('image/png')
-            resolve()
-          } catch (e) { reject(e) }
-        }
-        img.onerror = () => reject(new Error('svg -> png 加载失败'))
-        img.src = url
-      })
-      const imgEl: any = (await (async () => { const im = new Image(); im.src = url; return im })())
-      return String((imgEl as any)._dataUrl || '')
-    } finally {
-      URL.revokeObjectURL(url)
-    }
-  } catch (e) {
-    console.error('svgToPngDataUrl 失败', e)
-    return ''
-  }
+    if (!w || !h) { w = 800; h = 600 }
+    const ratio = targetWidth / w
+    const targetHeight = Math.max(1, Math.round(h * ratio))
+    svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    svgEl.setAttribute('width', String(targetWidth))
+    svgEl.setAttribute('height', String(targetHeight))
+    try { (svgEl.style as any).width = '100%'; (svgEl.style as any).height = 'auto' } catch {}
+  } catch {}
 }
 
 export async function exportPdf(el: HTMLElement, opt?: any): Promise<Uint8Array> {
@@ -62,12 +37,16 @@ export async function exportPdf(el: HTMLElement, opt?: any): Promise<Uint8Array>
     ...opt,
   }
 
-  // 克隆并注入基础样式，保证图片不溢出；并将 Mermaid SVG 转为 PNG
+  // 克隆并约束版心宽度
   const wrap = document.createElement('div')
   wrap.style.position = 'fixed'
   wrap.style.left = '-10000px'
   wrap.style.top = '0'
+  wrap.style.width = '720px' // 约等于 A4 净宽
   const clone = el.cloneNode(true) as HTMLElement
+  clone.style.width = '100%'
+
+  // 基础样式：保证图片不溢出
   const style = document.createElement('style')
   style.textContent = `
     .preview-body img, img { max-width: 100% !important; height: auto !important; }
@@ -75,34 +54,8 @@ export async function exportPdf(el: HTMLElement, opt?: any): Promise<Uint8Array>
   `
   clone.prepend(style)
 
-  // SVG -> IMG(PNG)
+  // 处理 Mermaid：将 code/pre 转为 .mermaid 并渲染为 SVG
   try {
-    const svgs = Array.from(clone.querySelectorAll('svg')) as SVGElement[]
-    for (const svg of svgs) {
-      try {
-        const dataUrl = await svgToPngDataUrl(svg)
-        if (dataUrl) {
-          const img = document.createElement('img')
-          img.src = dataUrl
-          const vb = svg.getAttribute('viewBox') || ''
-          const w = svg.getAttribute('width')
-          const h = svg.getAttribute('height')
-          if (w) img.setAttribute('width', w)
-          if (h) img.setAttribute('height', h)
-          if (!w && vb) {
-            const parts = vb.split(/\s+/)
-            if (parts.length === 4) img.setAttribute('width', parts[2])
-            if (parts.length === 4) img.setAttribute('height', parts[3])
-          }
-          svg.replaceWith(img)
-        }
-      } catch {}
-    }
-  } catch {}
-
-    // 先处理 Mermaid：把 code/pre 转为 <div class="mermaid">，并在克隆体内渲染为 SVG
-  try {
-    // 情况1：<pre><code class="language-mermaid">...</code></pre>
     const codeBlocks = clone.querySelectorAll('pre > code.language-mermaid')
     codeBlocks.forEach((code) => {
       try {
@@ -114,7 +67,6 @@ export async function exportPdf(el: HTMLElement, opt?: any): Promise<Uint8Array>
         pre.replaceWith(div)
       } catch {}
     })
-    // 情况2：<pre class="mermaid">...</pre>
     const preMermaid = clone.querySelectorAll('pre.mermaid')
     preMermaid.forEach((pre) => {
       try {
@@ -125,56 +77,36 @@ export async function exportPdf(el: HTMLElement, opt?: any): Promise<Uint8Array>
         pre.replaceWith(div)
       } catch {}
     })
-    // 渲染 .mermaid 为 SVG
     const nodes = Array.from(clone.querySelectorAll('.mermaid')) as HTMLElement[]
     if (nodes.length > 0) {
       let mermaid: any
-      try { mermaid = (await import('mermaid')).default } catch (e1) { try { mermaid = (await import('mermaid/dist/mermaid.esm.mjs')).default } catch (e2) { mermaid = null } }
+      try { mermaid = (await import('mermaid')).default } catch (e1) { try { mermaid = (await import('mermaid/dist/mermaid.esm.mjs')).default } catch { mermaid = null } }
       if (mermaid) {
-        try {
-          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default', logLevel: 'fatal' as any })
-        } catch {}
+        try { mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default', logLevel: 'fatal' as any }) } catch {}
         for (let i = 0; i < nodes.length; i++) {
-          const el2 = nodes[i]
-          const code = el2.textContent || ''
+          const n = nodes[i]
+          const code = n.textContent || ''
           try {
             const id = 'pdf-mermaid-' + i + '-' + Date.now()
             const { svg } = await mermaid.render(id, code)
             const wrapSvg = document.createElement('div')
             wrapSvg.innerHTML = svg
             const svgEl = wrapSvg.firstElementChild as SVGElement | null
-            if (svgEl) el2.replaceWith(svgEl)
+            if (svgEl) {
+              // 归一化尺寸：按页宽适配
+              normalizeSvgSize(svgEl, 720)
+              n.replaceWith(svgEl)
+            }
           } catch {}
         }
       }
     }
   } catch {}
 
-  // 将所有 SVG 转为 PNG IMG，再进行 PDF 渲染
-  try {
-    const svgs = Array.from(clone.querySelectorAll('svg')) as SVGElement[]
-    for (const svg of svgs) {
-      try {
-        const dataUrl = await svgToPngDataUrl(svg)
-        if (dataUrl) {
-          const img = document.createElement('img')
-          img.src = dataUrl
-          const vb = svg.getAttribute('viewBox') || ''
-          const w = svg.getAttribute('width')
-          const h = svg.getAttribute('height')
-          if (w) img.setAttribute('width', w)
-          if (h) img.setAttribute('height', h)
-          if (!w && vb) {
-            const parts = vb.split(/\s+/)
-            if (parts.length === 4) img.setAttribute('width', parts[2])
-            if (parts.length === 4) img.setAttribute('height', parts[3])
-          }
-          svg.replaceWith(img)
-        }
-      } catch {}
-    }
-  } catch {}
-wrap.appendChild(clone)
+  // 同步归一化所有现存 SVG（包含非 mermaid 的）
+  try { Array.from(clone.querySelectorAll('svg')).forEach((svg) => normalizeSvgSize(svg, 720)) } catch {}
+
+  wrap.appendChild(clone)
   document.body.appendChild(wrap)
   try {
     const ab: ArrayBuffer = await html2pdf().set(options).from(clone).toPdf().output('arraybuffer')
@@ -183,5 +115,3 @@ wrap.appendChild(clone)
     try { document.body.removeChild(wrap) } catch {}
   }
 }
-
-
