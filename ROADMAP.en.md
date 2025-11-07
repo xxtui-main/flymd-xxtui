@@ -2,6 +2,14 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.1.8
+- Added: Export to PDF
+- Added: Export to DOCX and WPS; Mermaid supported
+- Fixed: Chinese recognition issue
+- Optimized: Removed unnecessary hot-reload content
+- Optimized: Build chunk splitting strategy
+- Optimized: Reduced entry chunk size
+
 ## Update v0.1.7
 - Improved: Changed mermaid in WYSIWYG mode to global rendering / double-click image to edit code
 - Improved: Adjusted default mermaid scaling
@@ -168,3 +176,4 @@ This version focuses on stability and detail experience optimization, main chang
 - Added: LaTeX (based on KaTeX) rendering support
 - Added: Mermaid flowchart/sequence diagram etc. rendering support
 - Added shortcuts: Ctrl+B bold, Ctrl+I italic, Ctrl+K insert link
+

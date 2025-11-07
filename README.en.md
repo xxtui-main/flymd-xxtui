@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-v0.1.7-blue.svg)](https://github.com/flyhunterl/flymd)
+[![Version](https://img.shields.io/badge/version-v0.1.8-blue.svg)](https://github.com/flyhunterl/flymd)
 [![License](https://img.shields.io/badge/license-NonCommercial-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/flyhunterl/flymd)
 
@@ -25,6 +25,7 @@ A cross-platform WYSIWYG Markdown editor and PDF reader with image hosting, WebD
 - Auto Sync: WebDAV sync functionality
 - Plugin Extensions: Support for plugin extensions, develop your own or install with one click
 
+- Export formats: Export to PDF, DOCX, WPS
 ## 📸 Interface Preview (v0.0.4)
 <p align="center">
   <img src="https://github.com/user-attachments/assets/917ad246-1208-4585-9e10-7d2da54f2eef" width="32%" alt="Markdown Editor Screenshot 1"/>
@@ -82,6 +83,7 @@ A cross-platform WYSIWYG Markdown editor and PDF reader with image hosting, WebD
 - Language
   - Switch between Chinese/English or select Auto to follow system; language preference is remembered
 
+- Export: Save As (Ctrl+Shift+S) supports PDF, DOCX and WPS
 ## ⌨️ Shortcuts
 
 | Shortcut | Function |
@@ -156,3 +158,4 @@ Issues and Pull Requests are welcome!
 
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />
+
