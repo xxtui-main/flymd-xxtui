@@ -3069,15 +3069,15 @@ async function showUpdateOverlay(resp: CheckUpdateResp) {
 
   // Windows：立即更新 + 发布页
   if (resp.assetWin) {
-    mkBtn('立即更新', () => { ov.classList.add('hidden'); void downloadAndInstallWin(resp.assetWin!, resp) })
-    mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) })
+    { const b = mkBtn('立即更新', () => { ov.classList.add('hidden'); void downloadAndInstallWin(resp.assetWin!, resp) }); try { b.classList.add('btn-primary') } catch {} }
+    { const b = mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
     ov.classList.remove('hidden')
     return
   }
   // macOS：若提供资产，直接下载后 open；否则仅发布页
   if (resp.assetMacosArm || resp.assetMacosX64) {
     const a = (resp.assetMacosArm || resp.assetMacosX64) as UpdateAssetInfo
-    mkBtn('立即更新', async () => {
+    { const b = mkBtn('立即更新', async () => {
       ov.classList.add('hidden')
       try {
         upMsg('正在下载安装包…')
@@ -3090,8 +3090,8 @@ async function showUpdateOverlay(resp: CheckUpdateResp) {
         upMsg('下载完成，正在打开…')
         try { await openPath(savePath) } catch { showInstallFailedOverlay(savePath, resp) }
       } catch { try { await openInBrowser(resp.htmlUrl) } catch {} }
-    })
-    mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) })
+    }); try { b.classList.add('btn-primary') } catch {} }
+    { const b = mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
     ov.classList.remove('hidden')
     return
   }

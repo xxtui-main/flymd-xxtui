@@ -1460,3 +1460,71 @@ textarea:focus {
 }
 
 
+/* === 更新弹窗（#update-overlay）定制样式 === */
+#update-overlay .link-dialog {
+  width: 560px;
+  max-width: calc(100% - 48px);
+}
+#update-overlay .link-header {
+  padding: 14px 18px;
+}
+#update-overlay #update-title {
+  font-weight: 700;
+}
+#update-overlay .link-body {
+  padding: 14px 18px 10px 18px;
+}
+#update-overlay .update-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+#update-overlay .update-notes {
+  max-height: 320px;
+  overflow: auto;
+  background: rgba(127,127,127,0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+@media (prefers-color-scheme: dark) {
+  #update-overlay .update-notes {
+    background: rgba(255,255,255,0.04);
+  }
+}
+#update-overlay .update-links { margin-top: 8px; padding-left: 18px; }
+#update-overlay .update-links a { color: #2563eb; text-decoration: none; }
+#update-overlay .update-links a:hover { text-decoration: underline; }
+
+/* 动作区：两个按钮水平居中，距底部保持内边距，不贴底 */
+#update-overlay .link-actions {
+  justify-content: center;
+  gap: 12px;
+  margin: 14px 0 16px 0;
+  padding: 0;
+}
+
+/* 更新弹窗按钮美化（主次按钮） */
+#update-overlay .link-actions button {
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: rgba(127,127,127,0.08);
+}
+#update-overlay .link-actions button.btn-primary {
+  color: #fff;
+  background: #2563eb;
+  border-color: #1d4ed8;
+  box-shadow: 0 6px 14px rgba(37,99,235,0.25);
+}
+#update-overlay .link-actions button.btn-primary:hover {
+  background: #1e40af;
+}
+#update-overlay .link-actions button.btn-secondary {
+  background: transparent;
+  border-color: var(--border);
+}
+#update-overlay .link-actions button.btn-secondary:hover {
+  background: rgba(127,127,127,0.08);
+}
