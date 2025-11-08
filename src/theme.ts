@@ -248,7 +248,41 @@ export function initThemeUI(): void {
     }
 
     const prefs = loadThemePrefs()
+    let lastSaved = { ...prefs }
     fillSwatches(panel, prefs)
+
+    // 悬停预览：在颜色块上悬停时即时预览对应背景色，离开当前分组时还原
+    const applyPreview = (forWhich: string, color: string) => {
+      try {
+        const c = getContainer(); if (!c) return
+        if (forWhich === 'edit') c.style.setProperty('--bg', color)
+        else if (forWhich === 'read') c.style.setProperty('--preview-bg', color)
+        else c.style.setProperty('--wysiwyg-bg', color)
+      } catch {}
+    }
+    const revertPreview = (forWhich: string) => {
+      try {
+        const c = getContainer(); if (!c) return
+        if (forWhich === 'edit') c.style.setProperty('--bg', lastSaved.editBg)
+        else if (forWhich === 'read') c.style.setProperty('--preview-bg', lastSaved.readBg)
+        else c.style.setProperty('--wysiwyg-bg', lastSaved.wysiwygBg)
+      } catch {}
+    }
+    // 事件委托：在 swatch 上方时应用预览色
+    panel.addEventListener('mouseover', (ev) => {
+      const t = ev.target as HTMLElement
+      const sw = t.closest('.theme-swatch') as HTMLElement | null
+      if (!sw) return
+      const color = sw.dataset.color || '#ffffff'
+      const forWhich = sw.dataset.for || 'edit'
+      applyPreview(forWhich, color)
+    })
+    // 离开每个分组（编辑/阅读/所见）时还原该分组的原值，避免在分组内部移动造成闪烁
+    panel.querySelectorAll('.theme-swatches').forEach((wrap) => {
+      const el = wrap as HTMLElement
+      const target = el.dataset.target || 'edit'
+      el.addEventListener('mouseleave', () => revertPreview(target))
+    })
 
     // 点击颜色：更新、保存、应用
     panel.addEventListener('click', (ev) => {
@@ -263,6 +297,7 @@ export function initThemeUI(): void {
         saveThemePrefs(cur)
         applyThemePrefs(cur)
         fillSwatches(panel!, cur)
+        lastSaved = { ...cur }
       } else if (t.classList.contains('typo-btn')) {
         const id = (t.dataset.typo as TypographyId) || 'default'
         const cur = loadThemePrefs()
@@ -270,6 +305,7 @@ export function initThemeUI(): void {
         saveThemePrefs(cur)
         applyThemePrefs(cur)
         fillSwatches(panel!, cur)
+        lastSaved = { ...cur }
       } else if (t.classList.contains('md-btn')) {
         const id = (t.dataset.md as MdStyleId) || 'standard'
         const cur = loadThemePrefs()
@@ -277,6 +313,7 @@ export function initThemeUI(): void {
         saveThemePrefs(cur)
         applyThemePrefs(cur)
         fillSwatches(panel!, cur)
+        lastSaved = { ...cur }
       }
     })
 
@@ -289,7 +326,18 @@ export function initThemeUI(): void {
           panel!.style.left = 'auto'
           panel!.style.right = '10px'
           panel!.style.top = '38px'
+          const wasHidden = panel!.classList.contains('hidden')
           panel!.classList.toggle('hidden')
+          // 面板关闭时，确保预览被还原为已保存值
+          if (!wasHidden && panel!.classList.contains('hidden')) {
+            try {
+              const c = getContainer(); if (c) {
+                c.style.setProperty('--bg', lastSaved.editBg)
+                c.style.setProperty('--preview-bg', lastSaved.readBg)
+                c.style.setProperty('--wysiwyg-bg', lastSaved.wysiwygBg)
+              }
+            } catch {}
+          }
         } catch {}
       })
     }
@@ -300,6 +348,14 @@ export function initThemeUI(): void {
         const t = ev.target as HTMLElement
         if (!panel || panel.classList.contains('hidden')) return
         if (t.closest('#theme-panel') || t.closest('#btn-theme')) return
+        // 关闭前先还原所有预览变量
+        try {
+          const c = getContainer(); if (c) {
+            c.style.setProperty('--bg', lastSaved.editBg)
+            c.style.setProperty('--preview-bg', lastSaved.readBg)
+            c.style.setProperty('--wysiwyg-bg', lastSaved.wysiwygBg)
+          }
+        } catch {}
         panel.classList.add('hidden')
       } catch {}
     })
