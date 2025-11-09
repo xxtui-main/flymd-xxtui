@@ -11,6 +11,7 @@ export type TypographyId = 'default' | 'serif' | 'modern' | 'reading' | 'academi
 // 运行期依赖（仅在需要时使用）
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile, writeFile, mkdir, exists, remove, BaseDirectory } from '@tauri-apps/plugin-fs'
+import { homeDir, desktopDir, join } from '@tauri-apps/api/path'
 export type MdStyleId = 'standard' | 'github' | 'notion' | 'journal' | 'card' | 'docs'
 
 export interface ThemePrefs {
@@ -394,10 +395,61 @@ export function initThemeUI(): void {
       lastSaved = { ...cur }
     })
 
+    // 简单的操作系统识别（仅用于选择系统字体目录）
+    function detectOS(): 'windows' | 'mac' | 'linux' | 'other' {
+      try {
+        const ua = navigator.userAgent || ''
+        if (/Windows/i.test(ua)) return 'windows'
+        if (/Macintosh|Mac OS X/i.test(ua)) return 'mac'
+        if (/Linux/i.test(ua)) return 'linux'
+      } catch {}
+      return 'other'
+    }
+    // 返回系统字体目录（优先用户目录，其次系统目录），尽量确保真实存在
+    async function getSystemFontsDir(): Promise<string | undefined> {
+      const os = detectOS()
+      const candidates: string[] = []
+      try {
+        if (os === 'windows') {
+          const h = await homeDir()
+          // Windows 用户字体目录（按用户安装）
+          candidates.push(await join(h, 'AppData', 'Local', 'Microsoft', 'Windows', 'Fonts'))
+          // Windows 系统字体目录（可能不在 C 盘，但 C 盘是最常见，找不到则忽略）
+          candidates.push('C\\Windows\\Fonts')
+        } else if (os === 'mac') {
+          const h = await homeDir()
+          // macOS 用户字体目录
+          candidates.push(await join(h, 'Library', 'Fonts'))
+          // macOS 系统字体目录
+          candidates.push('/Library/Fonts')
+        } else if (os === 'linux') {
+          const h = await homeDir()
+          // Linux 常见字体目录（优先用户目录）
+          candidates.push(await join(h, '.local', 'share', 'fonts'))
+          candidates.push(await join(h, '.fonts'))
+          candidates.push('/usr/share/fonts')
+          candidates.push('/usr/local/share/fonts')
+        }
+      } catch {}
+      // 依次尝试，找到第一个存在的目录
+      for (const p of candidates) {
+        try { if (await exists(p as any)) return p } catch {}
+      }
+      // 兜底：桌面目录（保证存在）
+      try { return await desktopDir() } catch {}
+      return undefined
+    }
+
     // 安装字体：拷贝到 AppLocalData/fonts，并注册 @font-face
     if (installBtn) installBtn.addEventListener('click', async () => {
       try {
-        const picked = await openDialog({ multiple: true, filters: [{ name: '字体', extensions: ['ttf','otf','woff','woff2'] }] } as any)
+        const start = await getSystemFontsDir()
+        const picked = await openDialog({
+          multiple: true,
+          // 默认打开系统字体目录，方便用户挑选已安装字体文件
+          defaultPath: start,
+          filters: [{ name: '字体', extensions: ['ttf','otf','woff','woff2'] }],
+        } as any)
         const files: string[] = Array.isArray(picked) ? picked as any : (picked ? [picked as any] : [])
         if (!files.length) return
         await ensureFontsDir()
