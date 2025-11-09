@@ -2,13 +2,13 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-v0.2.2-blue.svg)](https://github.com/flyhunterl/flymd)
+[![Version](https://img.shields.io/badge/version-v0.2.3-blue.svg)](https://github.com/flyhunterl/flymd)
 [![License](https://img.shields.io/badge/license-NonCommercial-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/flyhunterl/flymd)
 
 A cross-platform WYSIWYG Markdown editor and PDF reader with image hosting, WebDAV sync, plugin extensions, fast response, and minimal resource usage.
 
-![lv_0_20251028184941](https://github.com/user-attachments/assets/3d6a5b6a-82e8-4d9d-9657-c9b66ef48f82)
+![app-hero](https://github.com/user-attachments/assets/38f9f007-8a09-4231-9c53-2d3bc6f245be)
 
 
 ## ✨ Highlights
@@ -26,17 +26,13 @@ A cross-platform WYSIWYG Markdown editor and PDF reader with image hosting, WebD
 - Plugin Extensions: Support for plugin extensions, develop your own or install with one click
 
 - Export formats: Export to PDF, DOCX, WPS
-## 📸 Interface Preview (v0.0.4)
+## 📸 Interface Preview (v0.2.2)
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/917ad246-1208-4585-9e10-7d2da54f2eef" width="32%" alt="Markdown Editor Screenshot 1"/>
-  <img src="https://github.com/user-attachments/assets/97012b2d-4457-434d-a436-cdba796d25b4" width="32%" alt="Markdown Editor Screenshot 2"/>
-  <img src="https://github.com/user-attachments/assets/39343b06-3c54-4990-a198-e5f941da6578" width="32%" alt="Markdown Editor Screenshot 3"/>
+  <img src="https://github.com/user-attachments/assets/661c3263-d877-4fcf-a77f-69096b42b9d5" width="32%" alt="Markdown Editor Screenshot 1"/>
+  <img src="https://github.com/user-attachments/assets/1182c443-f93c-4167-bc05-f4cc4b391ab5" width="32%" alt="Markdown Editor Screenshot 2"/>
+  <img src="https://github.com/user-attachments/assets/d51945f9-c227-43eb-8105-0bb07d66db52" width="32%" alt="Markdown Editor Screenshot 3"/>
 </p>
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7f1e9179-6087-4abf-80d5-7965dbbf2600" width="32%" alt="Markdown Editor Screenshot 4"/>
-  <img src="https://github.com/user-attachments/assets/8d549446-6052-4c32-88f8-f473314476fd" width="32%" alt="Markdown Editor Screenshot 5"/>
-  <img src="https://github.com/user-attachments/assets/4283312d-5ff6-43a7-a537-ef503e48604e" width="32%" alt="Markdown Editor Screenshot 6"/>
-</p>
+
 
 ## Core Features
 - Editing Experience

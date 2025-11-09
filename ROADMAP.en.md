@@ -2,6 +2,18 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.2.3
+- Added: Custom font support (Theme panel). Supports picking system fonts and installing user fonts for use in the app.
+- Added: Zoom in/out via Ctrl/Cmd + mouse wheel in Edit, Reading and WYSIWYG modes.
+- Fixed: Repeated clicks in Library mode no longer create duplicate menus.
+- Improved: Unified centered layout between Edit and Reading/WYSIWYG modes.
+
+## Update v0.2.2
+- Fixed: Theme-related CSS compatibility to better respect color variables across modes.
+- Improved: Global icons/visual polish.
+
+
+
 ## Update v0.2.0
 - Added: Theme and background color customization/extension API
 - Added: Image hosting conversion & compression, with on/off switch and quality controls
