@@ -124,6 +124,71 @@ function getMermaidScale(): number {
   // 默认缩放改为 0.75
   return 0.75
 }
+
+// Mermaid 缩放参数（按钮步进与范围）
+const MERMAID_SCALE_MIN = 0.3
+const MERMAID_SCALE_MAX = 3.0
+const MERMAID_SCALE_STEP = 0.1
+
+function adjustExistingMermaidSvgsForScale(): void {
+  try {
+    const scale = getMermaidScale()
+    const svgs = Array.from(document.querySelectorAll(
+      '.preview-body .mmd-figure > svg, .preview-body svg[data-mmd-hash], .preview-body .mermaid svg, #md-wysiwyg-root .ov-mermaid svg, #md-wysiwyg-root .mmd-figure > svg, #md-wysiwyg-root .mermaid-chart-display svg'
+    )) as SVGElement[]
+    for (const svgEl of svgs) {
+      try {
+        let vw = 0
+        const vb = (svgEl.getAttribute('viewBox') || '').trim()
+        if (vb) {
+          const parts = vb.split(/\s+/)
+          const w = parseFloat(parts[2] || '')
+          const h = parseFloat(parts[3] || '')
+          if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) vw = w
+        }
+        if (!vw) {
+          try { const bb = (svgEl as any).getBBox ? (svgEl as any).getBBox() : null; if (bb && bb.width > 0) vw = bb.width } catch {}
+        }
+        const host = (svgEl.closest('.preview-body') as HTMLElement | null) || (svgEl.parentElement as HTMLElement | null)
+        const pbW = Math.max(0, host?.clientWidth || 0)
+        const base = vw ? (pbW > 0 ? Math.min(Math.ceil(pbW), vw) : vw) : pbW
+        const finalW = Math.max(10, Math.round(base * (Number.isFinite(scale) && scale > 0 ? scale : 1)))
+        ;(svgEl.style as any).width = finalW + 'px'
+      } catch {}
+    }
+  } catch {}
+}
+
+function createMermaidTools(): HTMLDivElement {
+  const tools = document.createElement('div')
+  tools.className = 'mmd-tools'
+  const btnOut = document.createElement('button')
+  btnOut.textContent = '-'
+  const btnIn = document.createElement('button')
+  btnIn.textContent = '+'
+  const btnReset = document.createElement('button')
+  btnReset.textContent = 'R'
+  tools.appendChild(btnOut)
+  tools.appendChild(btnIn)
+  tools.appendChild(btnReset)
+  try { btnOut.title = 'Mermaid 缩小' } catch {}
+  try { btnIn.title = 'Mermaid 放大' } catch {}
+  try { btnReset.title = 'Mermaid 重置为100%' } catch {}
+  const step = MERMAID_SCALE_STEP
+  btnOut.addEventListener('click', (ev) => { ev.stopPropagation(); try {
+    const cur = getMermaidScale(); const next = Math.max(MERMAID_SCALE_MIN, Math.round((cur - step) * 100) / 100)
+    ;(window as any).setMermaidScale ? (window as any).setMermaidScale(next) : setMermaidScaleClamped(next)
+  } catch {} })
+  btnIn.addEventListener('click', (ev) => { ev.stopPropagation(); try {
+    const cur = getMermaidScale(); const next = Math.min(MERMAID_SCALE_MAX, Math.round((cur + step) * 100) / 100)
+    ;(window as any).setMermaidScale ? (window as any).setMermaidScale(next) : setMermaidScaleClamped(next)
+  } catch {} })
+  btnReset.addEventListener('click', (ev) => { ev.stopPropagation(); try {
+    const next = 1.0
+    ;(window as any).setMermaidScale ? (window as any).setMermaidScale(next) : setMermaidScaleClamped(next)
+  } catch {} })
+  return tools
+}
 const mermaidSvgCache = new Map<string, { svg: string; renderId: string }>()
 let mermaidSvgCacheVersion = 0
 // 当前 PDF 预览 URL（iframe 使用），用于页内跳转
@@ -406,7 +471,7 @@ try {
     }
     ;(window as any).setMermaidScale = (n: number) => {
       try { const v = (!Number.isFinite(n) || n <= 0) ? '1' : String(n); localStorage.setItem('flymd:mermaidScale', v) } catch {}
-      try { if (mode === 'preview') { void renderPreview() } else if (wysiwyg) { scheduleWysiwygRender() } } catch {}
+      try { adjustExistingMermaidSvgsForScale() } catch {}
     }
     try { if (isMermaidCacheDisabled()) invalidateMermaidSvgCache('startup: cache disabled') } catch {}
 
@@ -1657,6 +1722,15 @@ try {
 // 初始化应用缩放：读取已保存缩放并应用到编辑/预览/WYSIWYG
 try { applyUiZoom() } catch {}
 
+// ===== Mermaid 缩放（全局 API + 工具条复用）=====
+function setMermaidScaleClamped(next: number): void {
+  try {
+    const z = clamp(Math.round(next * 100) / 100, MERMAID_SCALE_MIN, MERMAID_SCALE_MAX)
+    try { localStorage.setItem('flymd:mermaidScale', String(z)) } catch {}
+    try { adjustExistingMermaidSvgsForScale() } catch {}
+  } catch {}
+}
+
 // ===== 缩放气泡（类似 Edge） =====
 let _zoomBubbleTimer: number | null = null
 function ensureZoomBubble(): HTMLDivElement | null {
@@ -2479,7 +2553,11 @@ async function renderPreview() {
             if (svgEl) {
               try { normalizeMermaidSvg(svgEl) } catch {}
               if (!svgEl.id) svgEl.id = desiredId
-              el.replaceWith(svgEl)
+              const fig = document.createElement('div')
+              fig.className = 'mmd-figure'
+              fig.appendChild(svgEl)
+              try { fig.appendChild(createMermaidTools()) } catch {}
+              el.replaceWith(fig)
               try { postAttachMermaidSvgAdjust(svgEl) } catch {}
             }
           } catch {}
@@ -2748,8 +2826,12 @@ async function renderPreview() {
             svgEl.setAttribute('data-mmd-hash', hash)
             svgEl.setAttribute('data-mmd-cache', cacheHit ? 'hit' : 'miss')
             if (!svgEl.id) svgEl.id = desiredId
-            el.replaceWith(svgEl)
-                        try { postAttachMermaidSvgAdjust(svgEl) } catch {}
+            const fig = document.createElement('div')
+            fig.className = 'mmd-figure'
+            fig.appendChild(svgEl)
+            try { fig.appendChild(createMermaidTools()) } catch {}
+            el.replaceWith(fig)
+            try { postAttachMermaidSvgAdjust(svgEl) } catch {}
             console.log(`Mermaid 图表 ${i + 1} 已插入 DOM（${cacheHit ? '缓存命中' : '新渲染'}）`)
             setTimeout(() => {
               const check = document.querySelector(`#${svgEl.id}`)

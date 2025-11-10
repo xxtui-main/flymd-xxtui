@@ -825,6 +825,36 @@ body > .block-menu { display: none !important; }
 .preview table tbody tr:nth-child(even) {
   background: rgba(127,127,127,0.02);
 }
+
+/* Mermaid 图右上角缩放控件 */
+.mmd-figure { position: relative; display: block; }
+.mmd-figure > svg { display: block; }
+.mmd-tools {
+  position: absolute;
+  top: 6px; right: 6px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(40,40,40,0.55);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff;
+  z-index: 2;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+}
+.mmd-tools button {
+  min-width: 20px; height: 20px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 12px; line-height: 1;
+  cursor: pointer;
+}
+.mmd-tools button:hover { background: rgba(255,255,255,0.12); }
+.mmd-tools button:active { background: rgba(255,255,255,0.18); }
 /* 列表样式优化 */
 .preview ul,
 .preview ol {
