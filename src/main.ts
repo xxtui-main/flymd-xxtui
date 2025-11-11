@@ -3455,8 +3455,12 @@ async function openFile(preset?: string) {
       }
     }
 
-    const selected = preset ?? (await open({ multiple: false, filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }] }))
-    if (!selected || Array.isArray(selected)) return
+    let selected: any = preset ?? (await open({ multiple: false, filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }] }))
+    if (!selected) return
+    if (Array.isArray(selected)) {
+      if (selected.length < 1) return
+      selected = selected[0]
+    }
 
     const selectedPath = (typeof selected === 'string')
       ? selected
@@ -3527,13 +3531,17 @@ async function openFile2(preset?: unknown) {
       }
     }
 
-    const selected = (typeof preset === 'string')
+    let selected: any = (typeof preset === 'string')
       ? preset
       : (await open({ multiple: false, filters: [
         { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
         { name: 'PDF', extensions: ['pdf'] },
       ] }))
-    if (!selected || Array.isArray(selected)) return
+    if (!selected) return
+    if (Array.isArray(selected)) {
+      if (selected.length < 1) return
+      selected = selected[0]
+    }
 
     const selectedPath = normalizePath(selected)
     logDebug('openFile2.selected', { typeof: typeof selected, selected })
