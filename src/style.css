@@ -605,7 +605,7 @@ body > .block-menu { display: none !important; }
   opacity: 0;
   pointer-events: none;
 }
-.library .lib-header { position: sticky; top: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border); padding: 8px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+.library .lib-header { position: sticky; top: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border); padding: 8px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; z-index: 1; }
 .library .lib-path { flex: 1; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .library .hidden { display: none !important; }
 .library .lib-tabs { display: inline-flex; align-items: center; gap: 6px; }
@@ -1988,3 +1988,5 @@ textarea:focus {
 #update-overlay .link-actions button.btn-secondary:hover {
   background: rgba(127,127,127,0.08);
 }
+/* 保障标题栏总在侧栏之上，避免滚动时图标越界压住菜单 */
+.titlebar { position: relative; z-index: 20; }
