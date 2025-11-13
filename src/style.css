@@ -193,6 +193,16 @@ html, body {
 }
 .preview.hidden { display: none; }
 
+/* 修复：阅读(预览)模式下 Ctrl+F 计数翻倍
+   原因：预览遮罩显示时，底下的 textarea 仍可被浏览器“页面查找”命中，
+         导致同一段文本在编辑器与预览各匹配一次，计数翻倍。
+   方案：当预览可见时，将编辑器彻底从可见渲染树移除。
+   注意：所见(WYSIWYG)模式已单独隐藏预览，不受本规则影响。 */
+.container:not(.wysiwyg-v2):has(#preview:not(.hidden)) .editor {
+  display: none !important; /* 从布局和查找目标中移除 */
+  visibility: hidden !important; /* 进一步确保不被 find-in-page 计入 */
+}
+
 /* 阅读模式（非所见）背景：仅当不在所见模式时应用，避免影响所见叠加/真实所见 */
 .container:not(.wysiwyg):not(.wysiwyg-v2) .preview {
   /* 羊皮纸效果：底色 + 轻微渐变暗角 + 细纹理（纯 CSS，无外部数据） */
