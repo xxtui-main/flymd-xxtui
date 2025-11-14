@@ -7787,19 +7787,33 @@ async function refreshExtensionsUI(): Promise<void> {
     }
   }
   host.appendChild(st2wrap)
-  // 可安装的扩展
+  // 可安装的扩展（扩展市场）
+  const st3wrap = document.createElement('div'); st3wrap.className = 'ext-section'
+  const hd = document.createElement('div'); hd.className = 'ext-subtitle'; hd.textContent = t('ext.available')
+  const btnRefresh = document.createElement('button'); btnRefresh.className = 'btn'; btnRefresh.textContent = t('ext.refresh')
+  btnRefresh.style.marginLeft = '8px'
+  btnRefresh.addEventListener('click', async () => {
+    try {
+      (btnRefresh as HTMLButtonElement).disabled = true
+      // 强制刷新市场缓存，并重新渲染 UI
+      await loadInstallablePlugins(true)
+      await refreshExtensionsUI()
+    } finally {
+      (btnRefresh as HTMLButtonElement).disabled = false
+    }
+  })
+  hd.appendChild(btnRefresh)
+  st3wrap.appendChild(hd)
+  const list3 = document.createElement('div'); list3.className = 'ext-list'
+  st3wrap.appendChild(list3)
+  host.appendChild(st3wrap)
+  // 默认显示“市场加载中…”，避免加载阶段完全空白
+  list3.textContent = t('ext.market.loading')
   try {
-    const st3wrap = document.createElement('div'); st3wrap.className = 'ext-section'
-const hd = document.createElement('div'); hd.className = 'ext-subtitle'; hd.textContent = t('ext.available')
-const btnRefresh = document.createElement('button'); btnRefresh.className = 'btn'; btnRefresh.textContent = t('ext.refresh')
-btnRefresh.style.marginLeft = '8px'
-btnRefresh.addEventListener('click', async () => { try { (btnRefresh as HTMLButtonElement).disabled = true; await loadInstallablePlugins(true); await refreshExtensionsUI() } finally { (btnRefresh as HTMLButtonElement).disabled = false } })
-hd.appendChild(btnRefresh)
-st3wrap.appendChild(hd)
-const list3 = document.createElement('div'); list3.className = 'ext-list'
-st3wrap.appendChild(list3)
-const items = await loadInstallablePlugins(false)
-for (const it of items) {
+    const items = await loadInstallablePlugins(false)
+    // 清空占位内容
+    list3.textContent = ''
+    for (const it of items) {
   const row = document.createElement('div'); row.className = 'ext-item'
   const meta = document.createElement('div'); meta.className = 'ext-meta'
   const name = document.createElement('div'); name.className = 'ext-name'
@@ -7857,10 +7871,16 @@ for (const it of items) {
   })
   actions.appendChild(btnInstall)
   row.appendChild(meta); row.appendChild(actions)
-  list3.appendChild(row)
-}
-host.appendChild(st3wrap)
-  } catch {}
+    list3.appendChild(row)
+  }
+    // 如果市场返回为空，则维持“市场加载中…”提示，避免整块消失
+    if (!items || items.length === 0) {
+      list3.textContent = t('ext.market.loading')
+    }
+  } catch {
+    // 网络或解析异常时，至少保留“市场加载中…”提示
+    list3.textContent = t('ext.market.loading')
+  }
 }
 
 async function removeDirRecursive(dir: string): Promise<void> {

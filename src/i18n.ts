@@ -173,7 +173,7 @@ const dict = {
     'ext.install.placeholder': '输入 URL 或 username/repository@branch（branch 可省略）',
     'ext.install.btn': '安装',
     'ext.installed': '已安装扩展',
-    'ext.available': '可安装的扩展',
+    'ext.available': '扩展市场',
     'ext.refresh': '刷新',
     'ext.update.btn': '更新',
     'ext.update.ok': '扩展已更新',
@@ -194,6 +194,7 @@ const dict = {
     'ext.enabled.tag.off': '未启用',
     'ext.author': '作者:',
     'ext.homepage': '主页',
+    'ext.market.loading': '市场加载中…',
   },
   en: {
     'menu.file': 'File',
@@ -332,7 +333,7 @@ const dict = {
     'ext.install.placeholder': 'Enter URL or username/repository@branch (branch optional)',
     'ext.install.btn': 'Install',
     'ext.installed': 'Installed',
-    'ext.available': 'Available',
+    'ext.available': 'Extension Marketplace',
     'ext.refresh': 'Refresh',
     'ext.update.btn': 'Update',
     'ext.update.ok': 'Extension updated',
@@ -353,6 +354,7 @@ const dict = {
     'ext.enabled.tag.off': 'Disabled',
     'ext.author': 'Author:',
     'ext.homepage': 'Homepage',
+    'ext.market.loading': 'Marketplace loading…',
   },
 } as const
 
