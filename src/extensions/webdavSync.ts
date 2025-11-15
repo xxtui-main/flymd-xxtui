@@ -368,10 +368,10 @@ if (name.startsWith('.')) { await syncLog('[scan-skip-hidden] ' + (rel ? rel + '
           // 优化：检查是否可以复用上次的哈希
           const lastFile = lastMeta?.files[__relUnix]
           let hash = ''
-          if (lastFile && Math.abs(lastFile.mtime - mt) <= 1000 && lastFile.size === size) {
-            // 文件 mtime 和 size 都没变，复用上次的哈希（不重新计算）
+          if (lastFile && lastFile.size === size && lastFile.hash) {
+            // 文件 size 没变且有哈希记录，复用上次的哈希（不重新计算）
             hash = lastFile.hash
-            await syncLog(`[hash-reuse] ${__relUnix} - mtime和size未变，复用哈希`)
+            // await syncLog(`[hash-reuse] ${__relUnix}`)  // 减少日志输出
           } else {
             // 文件有变化或第一次扫描，需要计算哈希
             const fileData = await readFile(full as any)
@@ -1024,17 +1024,17 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
             await syncLog('[conflict-resolve] ' + act.rel + ' 保留本地版本')
             const full = localRoot + (localRoot.includes('\\') ? '\\' : '/') + act.rel.replace(/\//g, localRoot.includes('\\') ? '\\' : '/')
             const buf = await readFile(full as any)
-            const hash = await calculateFileHash(buf as Uint8Array)
             const relPath = encodePath(act.rel)
             const relDir = relPath.split('/').slice(0, -1).join('/')
             const remoteDir = (cfg.rootPath || '').replace(/\/+$/, '') + (relDir ? '/' + relDir : '')
             await ensureRemoteDir(cfg.baseUrl, auth, remoteDir)
             await uploadFile(cfg.baseUrl, auth, cfg.rootPath.replace(/\/+$/,'') + '/' + encodePath(act.rel), buf as any)
-              // 记录到元数据
+              // 记录到元数据 - 使用扫描时的哈希
             const meta = await stat(full)
+            const local = localIdx.get(act.rel)
             const remote = remoteIdx.get(act.rel)
             newMeta.files[act.rel] = {
-              hash,
+              hash: local?.hash || '',  // 使用扫描时的哈希
               mtime: toEpochMs((meta as any)?.modifiedAt || (meta as any)?.mtime || (meta as any)?.mtimeMs),
               size: Number((meta as any)?.size || 0),
               syncTime: Date.now(),
@@ -1093,23 +1093,22 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
           await syncLog('[upload] ' + act.rel + ' (' + act.reason + ')')
           const full = localRoot + (localRoot.includes('\\') ? '\\' : '/') + act.rel.replace(/\//g, localRoot.includes('\\') ? '\\' : '/')
           const buf = await readFile(full as any)
-          const hash = await calculateFileHash(buf as Uint8Array)
           const relPath = encodePath(act.rel)
           const relDir = relPath.split('/').slice(0, -1).join('/')
           const remoteDir = (cfg.rootPath || '').replace(/\/+$/, '') + (relDir ? '/' + relDir : '')
           await ensureRemoteDir(cfg.baseUrl, auth, remoteDir)
           await uploadFile(cfg.baseUrl, auth, cfg.rootPath.replace(/\/+$/,'') + '/' + encodePath(act.rel), buf as any)
           await syncLog('[ok] upload ' + act.rel)
-          // 记录到元数据
+          // 记录到元数据 - 使用扫描时的哈希
           const meta = await stat(full)
           const local = localIdx.get(act.rel)
           newMeta.files[act.rel] = {
-            hash,
+            hash: local?.hash || '',  // 使用扫描时的哈希,不重新计算
             mtime: toEpochMs((meta as any)?.modifiedAt || (meta as any)?.mtime || (meta as any)?.mtimeMs),
             size: Number((meta as any)?.size || 0),
             syncTime: Date.now(),
-            remoteMtime: local?.mtime,  // 上传后远端mtime应与本地相同
-            remoteEtag: undefined       // 上传后暂时没有etag
+            remoteMtime: local?.mtime,
+            remoteEtag: undefined
           }
         } else if (act.type === 'local-deleted') {
           // 处理本地文件被删除的情况：询问用户
