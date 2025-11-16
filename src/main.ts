@@ -3677,6 +3677,7 @@ async function openFile2(preset?: unknown) {
     } catch {}
 
     // 读取文件内容：优先使用 fs 插件；若因路径权限受限（forbidden path / not allowed）回退到后端命令
+    _currentPdfSrcUrl = null
     let content: string
     try {
       content = await readTextFileAnySafe(selectedPath as any)
@@ -4197,7 +4198,7 @@ async function renderPdfOutline(outlineEl: HTMLDivElement) {
     // 缓存命中直接渲染（mtime 自动失效）
     try {
       const key = String(currentFilePath || '')
-      if (key && _pdfOutlineCache.has(key)) {
+      if (false && key && _pdfOutlineCache.has(key)) {
         // 获取当前 mtime
         let curMtime = 0
         try { const st = await stat(currentFilePath as any); const cand = (st as any)?.mtimeMs ?? (st as any)?.mtime ?? (st as any)?.modifiedAt; curMtime = Number(cand) || 0 } catch {}
@@ -4240,18 +4241,24 @@ async function renderPdfOutline(outlineEl: HTMLDivElement) {
               })
             } catch {}
           }
-          outlineEl.querySelectorAll('.ol-tg').forEach((tgEl) => {
-            tgEl.addEventListener('click', (ev) => {
-              ev.stopPropagation()
-              const el = (tgEl as HTMLElement).closest('.ol-item') as HTMLDivElement | null
-              if (!el) return
-              const idx = el.dataset.idx || ''
-              const m1 = el.className.match(/lvl-(\d)/); const level = parseInt((m1?.[1]||'1'),10)
-              if (!idx || level > 2) return
-              if (collapsed.has(idx)) { collapsed.delete(idx); (tgEl as HTMLElement).textContent = '▾' } else { collapsed.add(idx); (tgEl as HTMLElement).textContent = '▸' }
-              saveCollapsed(); applyCollapse()
-            })
-          })
+          const existingToggleHandler = (outlineEl as any)._pdfToggleHandler
+          if (existingToggleHandler) {
+            outlineEl.removeEventListener('click', existingToggleHandler)
+          }
+          const toggleHandler = (ev: Event) => {
+            const tgEl = (ev.target as HTMLElement)
+            if (!tgEl.classList.contains('ol-tg')) return
+            ev.stopPropagation()
+            const el = tgEl.closest('.ol-item') as HTMLDivElement | null
+            if (!el) return
+            const idx = el.dataset.idx || ''
+            const m1 = el.className.match(/lvl-(\d)/); const level = parseInt((m1?.[1]||'1'),10)
+            if (!idx || level > 2) return
+            if (collapsed.has(idx)) { collapsed.delete(idx); tgEl.textContent = '▾' } else { collapsed.add(idx); tgEl.textContent = '▸' }
+            saveCollapsed(); applyCollapse()
+          }
+          ;(outlineEl as any)._pdfToggleHandler = toggleHandler
+          outlineEl.addEventListener('click', toggleHandler)
           bindPdfOutlineClicks(outlineEl)
           applyCollapse()
           logDebug('PDF 目录：使用缓存', { count: items.length })
@@ -4356,18 +4363,24 @@ async function renderPdfOutline(outlineEl: HTMLDivElement) {
         })
       } catch {}
     }
-    outlineEl.querySelectorAll('.ol-tg').forEach((tgEl) => {
-      tgEl.addEventListener('click', (ev) => {
-        ev.stopPropagation()
-        const el = (tgEl as HTMLElement).closest('.ol-item') as HTMLDivElement | null
-        if (!el) return
-        const idx = el.dataset.idx || ''
-        const m1 = el.className.match(/lvl-(\d)/); const level = parseInt((m1?.[1]||'1'),10)
-        if (!idx || level > 2) return
-        if (collapsed.has(idx)) { collapsed.delete(idx); (tgEl as HTMLElement).textContent = '▾' } else { collapsed.add(idx); (tgEl as HTMLElement).textContent = '▸' }
-        saveCollapsed(); applyCollapse()
-      })
-    })
+    const existingToggleHandler = (outlineEl as any)._pdfToggleHandler
+    if (existingToggleHandler) {
+      outlineEl.removeEventListener('click', existingToggleHandler)
+    }
+    const toggleHandler = (ev: Event) => {
+      const tgEl = (ev.target as HTMLElement)
+      if (!tgEl.classList.contains('ol-tg')) return
+      ev.stopPropagation()
+      const el = tgEl.closest('.ol-item') as HTMLDivElement | null
+      if (!el) return
+      const idx = el.dataset.idx || ''
+      const m1 = el.className.match(/lvl-(\d)/); const level = parseInt((m1?.[1]||'1'),10)
+      if (!idx || level > 2) return
+      if (collapsed.has(idx)) { collapsed.delete(idx); tgEl.textContent = '▾' } else { collapsed.add(idx); tgEl.textContent = '▸' }
+      saveCollapsed(); applyCollapse()
+    }
+    ;(outlineEl as any)._pdfToggleHandler = toggleHandler
+    outlineEl.addEventListener('click', toggleHandler)
     bindPdfOutlineClicks(outlineEl)
     applyCollapse()
   } catch (e) {
@@ -4378,30 +4391,38 @@ async function renderPdfOutline(outlineEl: HTMLDivElement) {
 
 function bindPdfOutlineClicks(outlineEl: HTMLDivElement) {
   try {
-    outlineEl.querySelectorAll('.ol-item').forEach((el) => {
-      el.addEventListener('click', () => {
-        const p = Number((el as HTMLDivElement).dataset.page || '1') || 1
-        try {
-          const iframe = document.querySelector('.pdf-preview iframe') as HTMLIFrameElement | null
-          if (!iframe) { logWarn('PDF 目录：未找到 iframe'); return }
-          const cur = iframe.src || _currentPdfSrcUrl || ''
-          if (!cur) { logWarn('PDF 目录：无有效 iframe.src/base'); return }
-          const baseNoHash = cur.split('#')[0]
-          try { if (iframe.contentWindow) { iframe.contentWindow.location.hash = '#page=' + p; logDebug('PDF 目录：hash 导航', { page: p }) } } catch {}
-          const next = baseNoHash + '#page=' + p
-          try { iframe.src = next; logDebug('PDF 目录：src 导航', { page: p, next }) } catch {}
-          setTimeout(() => {
-            try {
-              const again = document.querySelector('.pdf-preview iframe') as HTMLIFrameElement | null
-              if (!again) return
-              const hard = baseNoHash + '?_=' + Date.now() + '#page=' + p
-              again.src = hard
-              logDebug('PDF 目录：硬刷新导航', { page: p, hard })
-            } catch {}
-          }, 80)
-        } catch (e) { logWarn('PDF 目录：导航异常', e) }
-      })
-    })
+    const existingHandler = (outlineEl as any)._pdfOutlineClickHandler
+    if (existingHandler) {
+      outlineEl.removeEventListener('click', existingHandler)
+    }
+    const handler = (e: Event) => {
+      const clickedEl = e.target as HTMLElement
+      if (clickedEl.classList.contains('ol-tg')) return
+      const target = clickedEl.closest('.ol-item') as HTMLDivElement | null
+      if (!target) return
+      const p = Number(target.dataset.page || '1') || 1
+      try {
+        const iframe = document.querySelector('.pdf-preview iframe') as HTMLIFrameElement | null
+        if (!iframe) { logWarn('PDF 目录：未找到 iframe'); return }
+        const cur = iframe.src || _currentPdfSrcUrl || ''
+        if (!cur) { logWarn('PDF 目录：无有效 iframe.src/base'); return }
+        const baseNoHash = cur.split('#')[0]
+        try { if (iframe.contentWindow) { iframe.contentWindow.location.hash = '#page=' + p; logDebug('PDF 目录：hash 导航', { page: p }) } } catch {}
+        const next = baseNoHash + '#page=' + p
+        try { iframe.src = next; logDebug('PDF 目录：src 导航', { page: p, next }) } catch {}
+        setTimeout(() => {
+          try {
+            const again = document.querySelector('.pdf-preview iframe') as HTMLIFrameElement | null
+            if (!again) return
+            const hard = baseNoHash + '?_=' + Date.now() + '#page=' + p
+            again.src = hard
+            logDebug('PDF 目录：硬刷新导航', { page: p, hard })
+          } catch {}
+        }, 80)
+      } catch (e) { logWarn('PDF 目录：导航异常', e) }
+    }
+    ;(outlineEl as any)._pdfOutlineClickHandler = handler
+    outlineEl.addEventListener('click', handler)
   } catch {}
 }
 
