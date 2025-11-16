@@ -669,6 +669,13 @@ async function moveRemoteFile(baseUrl: string, auth: { username: string; passwor
 // 同步锁：防止并发同步
 let _syncInProgress = false
 
+// 同步完成回调
+let _onSyncComplete: (() => void | Promise<void>) | null = null
+
+export function setOnSyncComplete(callback: (() => void | Promise<void>) | null) {
+  _onSyncComplete = callback
+}
+
 export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; downloaded: number; skipped?: boolean } | null> {
   try {
     // 检查是否已有同步在进行
@@ -1225,6 +1232,9 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
       clearStatus()
     } catch {}
     await syncLog('[done] up=' + up + ' down=' + down + ' moves=' + moves + ' del=' + del + ' conflicts=' + conflicts + ' total=' + __total);
+    if (_onSyncComplete) {
+      try { await _onSyncComplete() } catch (e) { console.warn('[WebDAV Sync] 回调执行失败', e) }
+    }
     return { uploaded: up, downloaded: down }
   } catch (e) { try { await syncLog('[error] ' + ((e as any)?.message || e)) } catch {}
     console.warn('sync failed', e)

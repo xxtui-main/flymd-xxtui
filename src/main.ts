@@ -48,7 +48,7 @@ import goodImgUrl from '../good.png?url'
 import { decorateCodeBlocks } from './decorate'
 import pkg from '../package.json'
 // htmlToMarkdown 改为按需动态导入（仅在粘贴 HTML 时使用）
-import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, syncNow as webdavSyncNow } from './extensions/webdavSync'
+import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, syncNow as webdavSyncNow, setOnSyncComplete } from './extensions/webdavSync'
 // 平台适配层（Android 支持）
 import { initPlatformIntegration, mobileSaveFile, isMobilePlatform } from './platform-integration'
 // 应用版本号（用于窗口标题/关于弹窗）
@@ -7000,6 +7000,9 @@ function bindEvents() {
     })
     ric(async () => {
       try {
+        setOnSyncComplete(async () => {
+          try { await refreshLibraryUiAndTree(true) } catch (e) { console.warn('[WebDAV] 刷新库失败:', e) }
+        })
         await initWebdavSync()
       } catch (e) {
         console.warn('[WebDAV] 延迟初始化失败:', e)
