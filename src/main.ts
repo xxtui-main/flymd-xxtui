@@ -6388,7 +6388,43 @@ function bindEvents() {
     const onDoc = () => hide()
     menu.innerHTML = ''
     if (isDir) {
-      menu.appendChild(mkItem('在此新建文档', async () => { try { const p2 = await newFileSafe(path); await openFile2(p2); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {}; const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() }; const n2 = Array.from((document.getElementById('lib-tree')||document.body).querySelectorAll('.lib-node.lib-dir') as any).find((n:any) => n.dataset?.path === path); if (n2) n2.dispatchEvent(new MouseEvent('click', { bubbles: true })) } catch (e) { showError('新建失败', e) } }))
+      menu.appendChild(mkItem('在此新建文档', async () => {
+        try {
+          let p2 = await newFileSafe(path)
+          // 弹出重命名对话框
+          const oldName = p2.split(/[\\/]+/).pop() || ''
+          const m = oldName.match(/^(.*?)(\.[^.]+)$/)
+          const stem = m ? m[1] : oldName
+          const ext = m ? m[2] : '.md'
+          const newStem = await openRenameDialog(stem, ext)
+          if (newStem && newStem !== stem) {
+            const newName = newStem + ext
+            p2 = await renameFileSafe(p2, newName)
+          }
+          await openFile2(p2)
+          mode='edit'
+          preview.classList.add('hidden')
+          try { (editor as HTMLTextAreaElement).focus() } catch {}
+          const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null
+          if (treeEl && !fileTreeReady) {
+            await fileTree.init(treeEl, {
+              getRoot: getLibraryRoot,
+              onOpenFile: async (p: string) => { await openFile2(p) },
+              onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} },
+              onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} }
+            })
+            fileTreeReady = true
+          } else if (treeEl) {
+            await fileTree.refresh()
+          }
+          const n2 = Array.from((document.getElementById('lib-tree')||document.body).querySelectorAll('.lib-node.lib-dir') as any).find((n:any) => n.dataset?.path === path)
+          if (n2 && !n2.classList.contains('expanded')) {
+            n2.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+          }
+        } catch (e) {
+          showError('新建失败', e)
+        }
+      }))
       menu.appendChild(mkItem('在此新建文件夹', async () => { try { await newFolderSafe(path); const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() }; const n2 = Array.from((document.getElementById('lib-tree')||document.body).querySelectorAll('.lib-node.lib-dir') as any).find((n:any) => n.dataset?.path === path); if (n2 && !n2.classList.contains('expanded')) { n2.dispatchEvent(new MouseEvent('click', { bubbles: true })) } } catch (e) { showError('新建文件夹失败', e) } }))
     }
     // 拖拽托底：右键“移动到…”以便选择目标目录
