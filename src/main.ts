@@ -5423,6 +5423,48 @@ function applyI18nUi() {
         if (saveBtn) saveBtn.textContent = t('sync.save')
       }
     } catch {}
+    // 重命名对话框（若已创建）
+    try {
+      const renameOverlay = document.getElementById('rename-overlay') as HTMLDivElement | null
+      if (renameOverlay) {
+        const titleEl = renameOverlay.querySelector('#rename-title') as HTMLDivElement | null
+        if (titleEl) titleEl.textContent = t('dlg.rename')
+        const closeEl = renameOverlay.querySelector('#rename-close') as HTMLButtonElement | null
+        if (closeEl) closeEl.title = t('about.close')
+        const labels = renameOverlay.querySelectorAll('.link-field > span') as NodeListOf<HTMLSpanElement>
+        if (labels[0]) labels[0].textContent = t('dlg.name')
+        if (labels[1]) labels[1].textContent = t('dlg.ext')
+        const nameInput = renameOverlay.querySelector('#rename-text') as HTMLInputElement | null
+        if (nameInput) nameInput.placeholder = t('dlg.name.ph')
+        const cancelBtn = renameOverlay.querySelector('#rename-cancel') as HTMLButtonElement | null
+        if (cancelBtn) cancelBtn.textContent = t('dlg.cancel')
+        const okBtn = renameOverlay.querySelector('#rename-ok') as HTMLButtonElement | null
+        if (okBtn) okBtn.textContent = t('dlg.ok')
+      }
+    } catch {}
+    // 插入链接对话框（若已创建）
+    try {
+      const linkOverlay = document.getElementById('link-overlay') as HTMLDivElement | null
+      if (linkOverlay) {
+        const titleEl = linkOverlay.querySelector('#link-title') as HTMLDivElement | null
+        if (titleEl) titleEl.textContent = t('dlg.link')
+        const closeEl = linkOverlay.querySelector('#link-close') as HTMLButtonElement | null
+        if (closeEl) closeEl.title = t('about.close')
+        const labels = linkOverlay.querySelectorAll('.link-field > span') as NodeListOf<HTMLSpanElement>
+        if (labels[0]) labels[0].textContent = t('dlg.text')
+        if (labels[1]) labels[1].textContent = t('dlg.url')
+        const textInput = linkOverlay.querySelector('#link-text') as HTMLInputElement | null
+        if (textInput) textInput.placeholder = t('dlg.link.text.ph')
+        const urlInput = linkOverlay.querySelector('#link-url') as HTMLInputElement | null
+        if (urlInput) urlInput.placeholder = t('dlg.url.ph')
+        const testBtn = linkOverlay.querySelector('#link-test') as HTMLButtonElement | null
+        if (testBtn) testBtn.textContent = t('dlg.test')
+        const cancelBtn = linkOverlay.querySelector('#link-cancel') as HTMLButtonElement | null
+        if (cancelBtn) cancelBtn.textContent = t('dlg.cancel')
+        const insertBtn = linkOverlay.querySelector('#link-insert') as HTMLButtonElement | null
+        if (insertBtn) insertBtn.textContent = t('dlg.insert')
+      }
+    } catch {}
   } catch {}
 }
 
