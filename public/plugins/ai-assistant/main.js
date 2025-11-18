@@ -812,6 +812,7 @@ export async function openSettings(context){
     '  <div class="set-row"><label>侧栏宽度(px)</label><input id="set-sidew" type="number" min="240" step="10" placeholder="300"/></div>',
     '  <div class="set-row"><label>上下文截断</label><input id="set-max" type="number" min="1000" step="500" placeholder="6000"/></div>',
     '  <div class="set-row set-link-row"><a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank" rel="noopener noreferrer">点此注册硅基流动得2000万免费Token</a></div>',
+    '  <div class="set-row set-link-row"><a href="https://www.ohmygpt.com/i/dXCKvZ6Q" target="_blank" rel="noopener noreferrer">点此注册OMG获得20美元Claude资源包</a></div>',
     ' </div>',
     ' <div id="ai-set-actions"><button id="ai-set-cancel">取消</button><button class="primary" id="ai-set-ok">保存</button></div>',
     '</div>'
