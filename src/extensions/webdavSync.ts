@@ -257,6 +257,8 @@ export type WebdavSyncConfig = {
   clockSkewMs?: number
   conflictStrategy?: 'ask' | 'newest' | 'last-wins'  // 冲突策略
   skipRemoteScanMinutes?: number  // 跳过远程扫描的时间间隔（分钟）
+  confirmDeleteRemote?: boolean  // 删除远程文件时是否需要确认（默认true）
+  localDeleteStrategy?: 'ask' | 'auto' | 'keep'  // 本地文件删除策略：询问用户/自动删除/保留本地（默认auto）
 }
 
 let _store: Store | null = null
@@ -283,6 +285,8 @@ export async function getWebdavSyncConfig(): Promise<WebdavSyncConfig> {
     clockSkewMs: Number(raw?.clockSkewMs) || 0,
     conflictStrategy: raw?.conflictStrategy || 'newest',  // 默认newest
     skipRemoteScanMinutes: Number(raw?.skipRemoteScanMinutes) >= 0 ? Number(raw?.skipRemoteScanMinutes) : 5,  // 默认5分钟
+    confirmDeleteRemote: raw?.confirmDeleteRemote !== false,  // 默认true（需要确认）
+    localDeleteStrategy: raw?.localDeleteStrategy || 'auto',  // 默认auto（自动删除）
   }
   return cfg
 }
@@ -791,7 +795,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
     // 清除定时器
     clearTimeout(connectionHintTimer)
 
-    const plan: { type: 'upload' | 'download' | 'delete' | 'conflict' | 'move-remote' | 'local-deleted'; rel: string; oldRel?: string; reason?: string }[] = []
+    const plan: { type: 'upload' | 'download' | 'delete' | 'conflict' | 'move-remote' | 'local-deleted' | 'delete-local' | 'remote-deleted-ask'; rel: string; oldRel?: string; reason?: string }[] = []
 
     // 添加对比阶段提示
     updateStatus('正在对比本地和远程文件…')
@@ -846,9 +850,35 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
       // 情况1：本地有，远程无
       if (local && !remote) {
         if (last) {
-          // 上次同步过，现在远程没有了 → 可能是远程被删除，但也可能是编码问题或其他误判
-          // 为了安全起见，不自动删除本地文件，而是记录警告
-          await syncLog('[warn] ' + k + ' 远程未找到，但为了安全不删除本地文件（可能是误判）')
+          // 上次同步过，现在远程没有了
+          // 检查本地文件是否已修改（通过哈希比对）
+          const localHash = local.hash || ''
+          const lastHash = last.hash || ''
+          const localUnchanged = localHash === lastHash
+
+          // 根据localDeleteStrategy配置处理
+          const strategy = cfg.localDeleteStrategy || 'auto'
+
+          if (strategy === 'keep') {
+            // 策略：始终保留本地文件
+            await syncLog('[keep-local] ' + k + ' 远程未找到，根据策略保留本地文件')
+          } else if (strategy === 'ask') {
+            // 策略：询问用户
+            await syncLog('[detect] ' + k + ' 远程未找到，将询问用户如何处理')
+            plan.push({ type: 'remote-deleted-ask', rel: k, reason: 'remote-deleted' } as any)
+          } else {
+            // 策略：auto（默认）
+            if (localUnchanged) {
+              // 本地未改变，远程删除了 → 安全删除本地文件
+              // 这种情况包括：1) 其他设备删除了文件  2) 其他设备移动了文件（MOVE操作会删除旧路径）
+              await syncLog('[infer-remote-deleted] ' + k + ' 远程已删除且本地未修改，将删除本地文件')
+              plan.push({ type: 'delete-local', rel: k, reason: 'remote-deleted' })
+            } else {
+              // 本地已改变，远程删除了 → 可能是冲突，为安全起见保留本地文件
+              await syncLog('[warn] ' + k + ' 远程未找到但本地已修改，为了安全不删除本地文件')
+              // 可以考虑上传本地修改，但这里保守处理，只记录警告
+            }
+          }
         } else {
           // 上次没同步过 → 本地新增，上传
           plan.push({ type: 'upload', rel: k, reason: 'local-new' })
@@ -1103,17 +1133,27 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
             remoteEtag: undefined
           }
         } else if (act.type === 'local-deleted') {
-          // 处理本地文件被删除的情况：询问用户
-          await syncLog('[local-deleted] ' + act.rel + ' 本地文件已被删除，询问用户如何处理')
+          // 处理本地文件被删除的情况：根据配置决定是否询问用户
+          await syncLog('[local-deleted] ' + act.rel + ' 本地文件已被删除，处理中...')
           try {
-            const msg = `检测到文件被删除：${act.rel}\n\n此文件在上次同步后被本地删除。\n\n请选择：\n- 确定：同步删除远程文件\n- 取消：从远程恢复到本地`
             let userChoice = false
-            try {
-              // 使用 Tauri dialog API（更可靠）
-              userChoice = await ask(msg, { title: '文件已删除', kind: 'warning' })
-            } catch {
-              // 降级到浏览器 confirm
-              userChoice = confirm(msg)
+
+            // 检查是否需要用户确认
+            if (cfg.confirmDeleteRemote !== false) {
+              // 需要确认：询问用户
+              await syncLog('[local-deleted] ' + act.rel + ' 询问用户如何处理')
+              const msg = `检测到文件被删除：${act.rel}\n\n此文件在上次同步后被本地删除。\n\n请选择：\n- 确定：同步删除远程文件\n- 取消：从远程恢复到本地`
+              try {
+                // 使用 Tauri dialog API（更可靠）
+                userChoice = await ask(msg, { title: '文件已删除', kind: 'warning' })
+              } catch {
+                // 降级到浏览器 confirm
+                userChoice = confirm(msg)
+              }
+            } else {
+              // 不需要确认：直接删除远程文件
+              await syncLog('[local-deleted] ' + act.rel + ' 自动删除远程文件（已禁用确认）')
+              userChoice = true
             }
 
             if (userChoice) {
@@ -1152,6 +1192,54 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
           // 不再自动删除远程文件，只记录警告
           await syncLog('[skip-delete-remote] ' + act.rel + ' 为了安全，不自动删除远程文件')
           // 从元数据中移除（但不删除实际文件）
+        } else if (act.type === 'delete-local') {
+          // 删除本地文件（通常是因为远程已删除且本地未修改）
+          await syncLog('[delete-local] ' + act.rel + ' 删除本地文件（远程已删除）')
+          try {
+            const full = localRoot + (localRoot.includes('\\') ? '\\' : '/') + act.rel.replace(/\//g, localRoot.includes('\\') ? '\\' : '/')
+            // 检查文件是否存在
+            if (await exists(full as any)) {
+              await remove(full as any)
+              await syncLog('[ok] delete-local ' + act.rel)
+            } else {
+              await syncLog('[skip] delete-local ' + act.rel + ' 文件不存在')
+            }
+            // 从元数据中移除
+            delete newMeta.files[act.rel]
+          } catch (e) {
+            await syncLog('[fail] delete-local ' + act.rel + ' : ' + ((e as any)?.message || e))
+            throw e  // 继续抛出错误，让外层捕获
+          }
+        } else if (act.type === 'remote-deleted-ask') {
+          // 远程文件被删除，询问用户如何处理本地文件
+          await syncLog('[remote-deleted-ask] ' + act.rel + ' 远程已删除，询问用户如何处理')
+          try {
+            const msg = `远程文件已被删除：${act.rel}\n\n此文件在远程服务器上已不存在。\n\n请选择：\n- 确定：同步删除本地文件\n- 取消：保留本地文件`
+            let userChoice = false
+            try {
+              userChoice = await ask(msg, { title: '远程文件已删除', kind: 'warning' })
+            } catch {
+              userChoice = confirm(msg)
+            }
+
+            if (userChoice) {
+              // 用户选择删除本地文件
+              await syncLog('[remote-deleted-ask-action] ' + act.rel + ' 用户选择删除本地文件')
+              const full = localRoot + (localRoot.includes('\\') ? '\\' : '/') + act.rel.replace(/\//g, localRoot.includes('\\') ? '\\' : '/')
+              if (await exists(full as any)) {
+                await remove(full as any)
+                await syncLog('[ok] delete-local ' + act.rel)
+              }
+              // 从元数据中移除
+              delete newMeta.files[act.rel]
+            } else {
+              // 用户选择保留本地文件
+              await syncLog('[remote-deleted-ask-action] ' + act.rel + ' 用户选择保留本地文件')
+              // 保留元数据不变
+            }
+          } catch (e) {
+            await syncLog('[remote-deleted-ask-error] ' + act.rel + ' 处理失败: ' + ((e as any)?.message || e))
+          }
         }
         return { success: true, type: act.type }
       } catch (e) {
@@ -1363,6 +1451,30 @@ export async function openWebdavSyncDialog(): Promise<void> {
               <div class="upl-hint">当本地和远程文件都被修改时的处理策略</div>
             </div>
 
+            <label for="sync-local-delete-strategy">本地文件删除策略</label>
+            <div class="upl-field">
+              <select id="sync-local-delete-strategy" style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #ccc); border-radius: 4px; background: var(--input-bg, #fff); color: var(--text-color, #333); font-size: 14px;">
+                <option value="auto">自动删除（远程已删除且本地未修改）</option>
+                <option value="ask">询问用户</option>
+                <option value="keep">始终保留本地文件</option>
+              </select>
+              <div class="upl-hint">当远程文件被删除时，如何处理本地文件</div>
+            </div>
+
+            <label for="sync-confirm-delete-remote">删除远程文件确认</label>
+            <div class="upl-field">
+              <div class="sync-toggles" style="margin: 0;">
+                <div class="item">
+                  <span class="lbl">删除远程文件时需要用户确认</span>
+                  <label class="switch" for="sync-confirm-delete-remote">
+                    <input id="sync-confirm-delete-remote" type="checkbox"/>
+                    <span class="trk"></span><span class="kn"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="upl-hint">关闭后，删除操作将自动执行</div>
+            </div>
+
             <label for="sync-skip-minutes">${t('sync.smartSkip')}</label>
             <div class="upl-field">
               <input id="sync-skip-minutes" type="number" min="0" step="1" placeholder="5"/>
@@ -1415,6 +1527,8 @@ export async function openWebdavSyncDialog(): Promise<void> {
   const elOnShutdown = overlay.querySelector('#sync-onshutdown') as HTMLInputElement
   const elTimeout = overlay.querySelector('#sync-timeout') as HTMLInputElement
   const elConflictStrategy = overlay.querySelector('#sync-conflict-strategy') as HTMLSelectElement
+  const elLocalDeleteStrategy = overlay.querySelector('#sync-local-delete-strategy') as HTMLSelectElement
+  const elConfirmDeleteRemote = overlay.querySelector('#sync-confirm-delete-remote') as HTMLInputElement
   const elSkipMinutes = overlay.querySelector('#sync-skip-minutes') as HTMLInputElement
   const elBase = overlay.querySelector('#sync-baseurl') as HTMLInputElement
   const elRoot = overlay.querySelector('#sync-root') as HTMLInputElement
@@ -1427,6 +1541,8 @@ export async function openWebdavSyncDialog(): Promise<void> {
   elOnShutdown.checked = !!cfg.onShutdown
   elTimeout.value = String(cfg.timeoutMs || 120000)
   elConflictStrategy.value = cfg.conflictStrategy || 'newest'
+  elLocalDeleteStrategy.value = cfg.localDeleteStrategy || 'auto'
+  elConfirmDeleteRemote.checked = cfg.confirmDeleteRemote !== false
   elSkipMinutes.value = String(cfg.skipRemoteScanMinutes !== undefined ? cfg.skipRemoteScanMinutes : 5)
   elBase.value = cfg.baseUrl || ''
   elRoot.value = cfg.rootPath || '/flymd'
@@ -1442,6 +1558,8 @@ export async function openWebdavSyncDialog(): Promise<void> {
         onShutdown: elOnShutdown.checked,
         timeoutMs: Math.max(1000, Number(elTimeout.value) || 120000),
         conflictStrategy: elConflictStrategy.value as 'ask' | 'newest' | 'last-wins',
+        localDeleteStrategy: elLocalDeleteStrategy.value as 'ask' | 'auto' | 'keep',
+        confirmDeleteRemote: elConfirmDeleteRemote.checked,
         skipRemoteScanMinutes: Math.max(0, Number(elSkipMinutes.value) || 5),
         baseUrl: elBase.value.trim(),
         rootPath: elRoot.value.trim() || '/flymd',
