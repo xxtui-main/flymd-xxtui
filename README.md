@@ -5,6 +5,8 @@
 [![Version](https://img.shields.io/badge/version-v0.3.5-blue.svg)](https://github.com/flyhunterl/flymd)
 [![License](https://img.shields.io/badge/license-NonCommercial-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/flyhunterl/flymd)
+![GitHub Downloads](https://img.shields.io/github/downloads/flyhunterl/flymd/total)
+
 
 跨平台 所见所得 图床上传 WebDav同步 插件扩展 响应迅速 占用极低的 Markdown 编辑 PDF 阅读工具。
 

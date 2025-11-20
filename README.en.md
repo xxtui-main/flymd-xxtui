@@ -5,6 +5,7 @@
 [![Version](https://img.shields.io/badge/version-v0.3.5-blue.svg)](https://github.com/flyhunterl/flymd)
 [![License](https://img.shields.io/badge/license-NonCommercial-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/flyhunterl/flymd)
+![GitHub Downloads](https://img.shields.io/github/downloads/flyhunterl/flymd/total)
 
 A cross-platform WYSIWYG Markdown editor and PDF reader with image hosting, WebDAV sync, plugin extensions, fast response, and minimal resource usage.
 
