@@ -14,7 +14,7 @@ const DEFAULT_CFG = {
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o-mini',
-  win: { x: 60, y: 60, w: 360, h: 440 }, // w 会根据屏幕大小动态调整
+  win: { x: 60, y: 60, w: 400, h: 440 },
   dock: 'left', // 'left'=左侧停靠；'right'=右侧停靠；false=浮动窗口
   limits: { maxCtxChars: 6000 },
   theme: 'auto'
@@ -53,19 +53,8 @@ function gid(){ return 's_' + Math.random().toString(36).slice(2,10) }
 
 function clampCtx(s, n) { const t = String(s || ''); return t.length > n ? t.slice(t.length - n) : t }
 
-// 根据窗口大小计算响应式最小宽度
-function getResponsiveMinWidth() {
-  try {
-    const winWidth = WIN().innerWidth || 1920
-    // 大屏(>=1400px): 400px | 中屏(>=1200px): 360px | 小屏(>=1000px): 320px | 超小屏: 280px
-    if (winWidth >= 1400) return 400
-    if (winWidth >= 1200) return 360
-    if (winWidth >= 1000) return 320
-    return 280
-  } catch {
-    return 320 // 默认值
-  }
-}
+// 最小宽度常量
+const MIN_WIDTH = 400
 
 function DOC(){ return (window.__AI_DOC__ || document) }
 function WIN(){ return (window.__AI_WIN__ || window) }
@@ -82,8 +71,8 @@ function ensureCss() {
     // 容器（浅色友好 UI）；默认走 dock-left 模式（伪装侧栏）
     '#ai-assist-win{position:fixed;z-index:99999;background:#ffffff;color:#0f172a;',
     'border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.15);overflow:hidden}',
-    '#ai-assist-win.dock-left{left:0; top:0; height:100vh; width:360px; border-radius:0; border-left:none; border-top:none; border-bottom:none; box-shadow:none; border-right:1px solid #e5e7eb}',
-    '#ai-assist-win.dock-right{right:0; top:0; height:100vh; width:360px; border-radius:0; border-right:none; border-top:none; border-bottom:none; box-shadow:none; border-left:1px solid #e5e7eb}',
+    '#ai-assist-win.dock-left{left:0; top:0; height:100vh; width:400px; border-radius:0; border-left:none; border-top:none; border-bottom:none; box-shadow:none; border-right:1px solid #e5e7eb}',
+    '#ai-assist-win.dock-right{right:0; top:0; height:100vh; width:400px; border-radius:0; border-right:none; border-top:none; border-bottom:none; box-shadow:none; border-left:1px solid #e5e7eb}',
     // 头部与标题
     '#ai-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:move;',
     'background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e5e7eb}',
@@ -100,7 +89,8 @@ function ensureCss() {
     '#ai-input .btn-group{display:flex;flex-direction:column;gap:6px;min-width:0}',
     '#ai-input button{padding:6px 8px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#0f172a;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
     '#ai-input button:hover{background:#f8fafc}',
-    '#ai-vresizer{position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:transparent}',
+    '#ai-vresizer{position:absolute;right:0;top:0;width:8px;height:100%;cursor:ew-resize;background:transparent;z-index:10}',
+    '#ai-vresizer:hover{background:rgba(59,130,246,0.15)}',
     '#ai-resizer{position:absolute;right:0;bottom:0;width:12px;height:12px;cursor:nwse-resize;background:transparent}',
     '#ai-selects select,#ai-selects input{background:#fff;border:1px solid #e5e7eb;color:#0f172a;border-radius:8px;padding:6px 8px}',
     '#ai-toolbar .btn{padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#0f172a}',
@@ -144,6 +134,7 @@ function ensureCss() {
     '#ai-assist-win.dark #ai-toolbar select,#ai-assist-win.dark #ai-toolbar input{background:#0b1220;border:1px solid #1f2937;color:#e5e7eb}',
     '#ai-assist-win.dark #ai-head button{background:#111827;color:#e5e7eb;border:1px solid #1f2937}',
     '#ai-assist-win.dark #ai-head button:hover{background:#0f172a}',
+    '#ai-assist-win.dark #ai-vresizer:hover{background:rgba(96,165,250,0.2)}',
     // 极窄宽度优化（<300px）
     '@media (max-width: 320px) { #ai-input button { font-size: 11px; padding: 5px 6px; } }',
   ].join('\n')
@@ -189,7 +180,7 @@ function setDockPush(side, width){
       return 0
     })()
     const resolvedWidth = Math.max(0, rawWidth || 0)
-    const fallbackW = getResponsiveMinWidth()
+    const fallbackW = MIN_WIDTH
     cont.classList.remove('with-ai-left', 'with-ai-right')
     if (actual === 'left') {
       cont.classList.add('with-ai-left')
@@ -211,19 +202,19 @@ function bindDockResize(context, el) {
     const rz = el.querySelector('#ai-vresizer')
     if (!rz) return
     let sx = 0, sw = 0, doing = false
-    rz.addEventListener('mousedown', (e) => { doing = true; sx = e.clientX; sw = parseInt(el.style.width)||getResponsiveMinWidth(); e.preventDefault() })
+    rz.addEventListener('mousedown', (e) => { doing = true; sx = e.clientX; sw = parseInt(el.style.width)||MIN_WIDTH; e.preventDefault() })
     WIN().addEventListener('mousemove', (e) => {
       if (!doing) return
       // 右侧停靠时，拖动方向相反
       const isRight = el.classList.contains('dock-right')
       const delta = isRight ? (sx - e.clientX) : (e.clientX - sx)
-      const w = Math.max(getResponsiveMinWidth(), sw + delta)
+      const w = Math.max(MIN_WIDTH, sw + delta)
       el.style.width = w + 'px'
       // 根据当前停靠位置更新推挤
       const dockSide = el.classList.contains('dock-left') ? 'left' : (el.classList.contains('dock-right') ? 'right' : false)
       if (dockSide) setDockPush(dockSide, w)
     })
-    WIN().addEventListener('mouseup', async () => { if (!doing) return; doing = false; try { const cfg = await loadCfg(context); cfg.win = cfg.win || {}; cfg.win.w = parseInt(el.style.width)||getResponsiveMinWidth(); await saveCfg(context, cfg) } catch {} })
+    WIN().addEventListener('mouseup', async () => { if (!doing) return; doing = false; try { const cfg = await loadCfg(context); cfg.win = cfg.win || {}; cfg.win.w = parseInt(el.style.width)||MIN_WIDTH; await saveCfg(context, cfg) } catch {} })
   } catch {}
 }
 
@@ -249,9 +240,8 @@ function bindFloatDragResize(context, el){
           mayUndock = false
           try { el.classList.remove('dock-left', 'dock-right') } catch {}
           setDockPush(false)
-          const minW = getResponsiveMinWidth()
-          const w = parseInt(el.style.width)||minW
-          el.style.width = Math.max(minW, w) + 'px'
+          const w = parseInt(el.style.width)||MIN_WIDTH
+          el.style.width = Math.max(MIN_WIDTH, w) + 'px'
           el.style.height = '440px'
           // 以当前位置为起点
           el.style.left = (e.clientX - 20) + 'px'
@@ -263,7 +253,7 @@ function bindFloatDragResize(context, el){
         }
       }
       if (dragging){ el.style.left = (mx + e.clientX - sx) + 'px'; el.style.top = (my + e.clientY - sy) + 'px' }
-      if (resizing){ el.style.width = Math.max(getResponsiveMinWidth(), sw + e.clientX - sx) + 'px'; el.style.height = Math.max(300, sh + e.clientY - sy) + 'px' }
+      if (resizing){ el.style.width = Math.max(MIN_WIDTH, sw + e.clientX - sx) + 'px'; el.style.height = Math.max(300, sh + e.clientY - sy) + 'px' }
     })
     WIN().addEventListener('mouseup', async ()=>{
       if (mayUndock) { mayUndock = false; undockSide = null }
@@ -514,8 +504,7 @@ async function mountWindow(context){
   ensureCss()
   const cfg = await loadCfg(context)
   const el = DOC().createElement('div'); el.id='ai-assist-win';
-  const minW = getResponsiveMinWidth()
-  const dockWidth = Math.max(minW, Number((cfg && cfg.win && cfg.win.w) || minW))
+  const dockWidth = Math.max(MIN_WIDTH, Number((cfg && cfg.win && cfg.win.w) || MIN_WIDTH))
   if (cfg && cfg.dock === 'left') {
     // 左侧停靠
     el.classList.add('dock-left')
@@ -661,16 +650,14 @@ async function toggleDockMode(context, el){
       // 左侧停靠
       el.classList.add('dock-left')
       try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
-      const minW = getResponsiveMinWidth()
-      const w = Math.max(minW, Number((cfg && cfg.win && cfg.win.w) || minW))
+      const w = Math.max(MIN_WIDTH, Number((cfg && cfg.win && cfg.win.w) || MIN_WIDTH))
       el.style.left = '0px'; el.style.width = w + 'px'; el.style.right = 'auto'
       setDockPush('left', w)
     } else if (nextDock === 'right') {
       // 右侧停靠
       el.classList.add('dock-right')
       try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
-      const minW = getResponsiveMinWidth()
-      const w = Math.max(minW, Number((cfg && cfg.win && cfg.win.w) || minW))
+      const w = Math.max(MIN_WIDTH, Number((cfg && cfg.win && cfg.win.w) || MIN_WIDTH))
       el.style.right = '0px'; el.style.width = w + 'px'; el.style.left = 'auto'
       setDockPush('right', w)
     } else {
@@ -850,7 +837,7 @@ export async function openSettings(context){
     '  <div class="set-row"><label>Base URL</label><select id="set-base-select"><option value="https://api.openai.com/v1">OpenAI</option><option value="https://api.siliconflow.cn/v1">硅基流动</option><option value="https://apic1.ohmycdn.com/api/v1/ai/openai/cc-omg/v1">OMG资源包</option><option value="custom">自定义</option></select><input id="set-base" type="text" placeholder="https://api.openai.com/v1"/></div>',
     '  <div class="set-row"><label>API Key</label><input id="set-key" type="password" placeholder="sk-..."/></div>',
     '  <div class="set-row"><label>模型</label><input id="set-model" type="text" placeholder="gpt-4o-mini"/></div>',
-    '  <div class="set-row"><label>侧栏宽度(px)</label><input id="set-sidew" type="number" min="280" step="10" placeholder="响应式调整"/></div>',
+    '  <div class="set-row"><label>侧栏宽度(px)</label><input id="set-sidew" type="number" min="400" step="10" placeholder="400"/></div>',
     '  <div class="set-row"><label>上下文截断</label><input id="set-max" type="number" min="1000" step="500" placeholder="6000"/></div>',
     '  <div class="set-row set-link-row"><a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank" rel="noopener noreferrer">点此注册硅基流动得2000万免费Token</a></div>',
     '  <div class="set-row set-link-row"><a href="https://www.ohmygpt.com/i/dXCKvZ6Q" target="_blank" rel="noopener noreferrer">点此注册OMG获得20美元Claude资源包</a></div>',
@@ -875,7 +862,7 @@ export async function openSettings(context){
   elKey.value = cfg.apiKey || ''
   elModel.value = cfg.model || 'gpt-4o-mini'
   elMax.value = String((cfg.limits?.maxCtxChars) || 6000)
-  elSideW.value = String((cfg.win?.w) || getResponsiveMinWidth())
+  elSideW.value = String((cfg.win?.w) || MIN_WIDTH)
   if (elBaseSel) {
     const cur = String(cfg.baseUrl || '').trim()
     if (cur === 'https://api.siliconflow.cn/v1') elBaseSel.value = 'https://api.siliconflow.cn/v1'
@@ -898,8 +885,7 @@ export async function openSettings(context){
     const apiKey = String(elKey.value || '').trim()
     const model = String(elModel.value || '').trim() || 'gpt-4o-mini'
     const n = Math.max(1000, parseInt(String(elMax.value || '6000'),10) || 6000)
-    const minW = getResponsiveMinWidth()
-    const sidew = Math.max(280, parseInt(String(elSideW.value || minW),10) || minW)
+    const sidew = Math.max(MIN_WIDTH, parseInt(String(elSideW.value || MIN_WIDTH),10) || MIN_WIDTH)
     const next = { ...cfg, baseUrl, apiKey, model, limits: { maxCtxChars: n }, win: { ...(cfg.win||{}), w: sidew, x: cfg.win?.x||60, y: cfg.win?.y||60, h: cfg.win?.h||440 } }
     await saveCfg(context, next)
     const m = el('ai-model'); if (m) m.value = model
