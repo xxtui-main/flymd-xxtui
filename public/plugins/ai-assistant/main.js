@@ -91,13 +91,6 @@ function ensureCss() {
     '#ai-toolbar .btn{padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#0f172a}',
     '#ai-toolbar .btn:hover{background:#f8fafc}',
     '.small{font-size:12px;opacity:.85}',
-    // 推挤主编辑区：使用 CSS 变量 --ai-left 和 --ai-right
-    '.container.with-ai-left .editor, .container.with-ai-left .preview{ padding-left:var(--ai-left, 300px) }',
-    '.container.with-ai-left #md-wysiwyg-root{ left:var(--ai-left, 300px); width:calc(100% - var(--ai-left, 300px)) }',
-    '.container.wysiwyg-v2.with-ai-left #md-wysiwyg-root{ left:0; width:100% }',
-    '.container.with-ai-right .editor, .container.with-ai-right .preview{ padding-right:var(--ai-right, 300px) }',
-    '.container.with-ai-right #md-wysiwyg-root{ right:var(--ai-right, 300px); width:calc(100% - var(--ai-right, 300px)) }',
-    '.container.wysiwyg-v2.with-ai-right #md-wysiwyg-root{ right:0; width:100% }',
     '#ai-assist-win.dock-left #ai-resizer{display:none}',
     '#ai-assist-win.dock-right #ai-resizer{display:none}',
     '#ai-assist-win:not(.dock-left):not(.dock-right) #ai-vresizer{display:none}',
@@ -156,15 +149,42 @@ function renderMsgs(root) {
   root.scrollTop = root.scrollHeight
 }
 
-function setDockPush(side){
+function setDockPush(side, width){
   try {
     const cont = DOC().querySelector('.container')
     if (!cont) return
-    // 移除所有停靠类
+    const winEl = el('ai-assist-win')
+    const detectSide = () => {
+      if (side === true) {
+        if (winEl?.classList?.contains('dock-left')) return 'left'
+        if (winEl?.classList?.contains('dock-right')) return 'right'
+        return false
+      }
+      return side
+    }
+    const actual = detectSide()
+    const rawWidth = (() => {
+      if (typeof width === 'number' && Number.isFinite(width)) return width
+      const inline = winEl ? parseInt(winEl.style.width) : NaN
+      if (Number.isFinite(inline)) return inline
+      const rect = winEl?.getBoundingClientRect()
+      if (rect && rect.width) return rect.width
+      return 0
+    })()
+    const resolvedWidth = Math.max(0, rawWidth || 0)
     cont.classList.remove('with-ai-left', 'with-ai-right')
-    // 根据停靠位置添加相应的类
-    if (side === 'left') cont.classList.add('with-ai-left')
-    else if (side === 'right') cont.classList.add('with-ai-right')
+    if (actual === 'left') {
+      cont.classList.add('with-ai-left')
+      cont.style.setProperty('--ai-left', (resolvedWidth || 300) + 'px')
+      cont.style.setProperty('--ai-right', '0px')
+    } else if (actual === 'right') {
+      cont.classList.add('with-ai-right')
+      cont.style.setProperty('--ai-right', (resolvedWidth || 300) + 'px')
+      cont.style.setProperty('--ai-left', '0px')
+    } else {
+      cont.style.setProperty('--ai-left', '0px')
+      cont.style.setProperty('--ai-right', '0px')
+    }
   } catch {}
 }
 
@@ -183,7 +203,7 @@ function bindDockResize(context, el) {
       el.style.width = w + 'px'
       // 根据当前停靠位置更新推挤
       const dockSide = el.classList.contains('dock-left') ? 'left' : (el.classList.contains('dock-right') ? 'right' : false)
-      if (dockSide) setDockPush(dockSide)
+      if (dockSide) setDockPush(dockSide, w)
     })
     WIN().addEventListener('mouseup', async () => { if (!doing) return; doing = false; try { const cfg = await loadCfg(context); cfg.win = cfg.win || {}; cfg.win.w = parseInt(el.style.width)||300; await saveCfg(context, cfg) } catch {} })
   } catch {}
@@ -241,7 +261,7 @@ function bindFloatDragResize(context, el){
           const topH = (()=>{ try { const bar = DOC().querySelector('.menubar'); return (bar && bar.clientHeight) || 0 } catch { return 0 } })()
           el.style.top = topH + 'px'; el.style.left = '0px'; el.style.right = 'auto'; el.style.height = 'calc(100vh - ' + topH + 'px)'
           const w = parseInt(el.style.width)||300; el.style.width = w + 'px'
-          setDockPush('left')
+          setDockPush('left', w)
           try { const cfg = await loadCfg(context); cfg.dock = 'left'; cfg.win = cfg.win||{}; cfg.win.w = w; await saveCfg(context,cfg); await refreshHeader(context) } catch {}
         } else if (!el.classList.contains('dock-left') && !el.classList.contains('dock-right') && right <= 16) {
           // 右边缘吸附
@@ -249,7 +269,7 @@ function bindFloatDragResize(context, el){
           const topH = (()=>{ try { const bar = DOC().querySelector('.menubar'); return (bar && bar.clientHeight) || 0 } catch { return 0 } })()
           el.style.top = topH + 'px'; el.style.right = '0px'; el.style.left = 'auto'; el.style.height = 'calc(100vh - ' + topH + 'px)'
           const w = parseInt(el.style.width)||300; el.style.width = w + 'px'
-          setDockPush('right')
+          setDockPush('right', w)
           try { const cfg = await loadCfg(context); cfg.dock = 'right'; cfg.win = cfg.win||{}; cfg.win.w = w; await saveCfg(context,cfg); await refreshHeader(context) } catch {}
         } else {
           // 保存浮动窗口位置
@@ -475,18 +495,17 @@ async function mountWindow(context){
   ensureCss()
   const cfg = await loadCfg(context)
   const el = DOC().createElement('div'); el.id='ai-assist-win';
+  const dockWidth = Math.max(300, Number((cfg && cfg.win && cfg.win.w) || 300))
   if (cfg && cfg.dock === 'left') {
     // 左侧停靠
     el.classList.add('dock-left')
     try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
-    const sideW = Math.max(300, Number((cfg && cfg.win && cfg.win.w) || 300))
-    el.style.left = '0px'; el.style.width = sideW + 'px'
+    el.style.left = '0px'; el.style.width = dockWidth + 'px'
   } else if (cfg && cfg.dock === 'right') {
     // 右侧停靠
     el.classList.add('dock-right')
     try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
-    const sideW = Math.max(300, Number((cfg && cfg.win && cfg.win.w) || 300))
-    el.style.right = '0px'; el.style.width = sideW + 'px'
+    el.style.right = '0px'; el.style.width = dockWidth + 'px'
   } else {
     // 浮动窗口
     el.style.top = ((cfg && cfg.win && cfg.win.y) || 60) + 'px'
@@ -515,7 +534,7 @@ async function mountWindow(context){
     '</div><div id="ai-vresizer" title="拖动调整宽度"></div><div id="ai-resizer" title="拖动调整尺寸"></div>'
   ].join('')
   DOC().body.appendChild(el)
-  if (cfg && (cfg.dock === 'left' || cfg.dock === 'right')) setDockPush(cfg.dock)
+  if (cfg && (cfg.dock === 'left' || cfg.dock === 'right')) setDockPush(cfg.dock, dockWidth)
   // 绑定拖拽/调整
   try { bindDockResize(context, el) } catch {}
   try { bindFloatDragResize(context, el) } catch {}
@@ -624,14 +643,14 @@ async function toggleDockMode(context, el){
       try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
       const w = Math.max(300, Number((cfg && cfg.win && cfg.win.w) || 300))
       el.style.left = '0px'; el.style.width = w + 'px'; el.style.right = 'auto'
-      setDockPush('left')
+      setDockPush('left', w)
     } else if (nextDock === 'right') {
       // 右侧停靠
       el.classList.add('dock-right')
       try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
       const w = Math.max(300, Number((cfg && cfg.win && cfg.win.w) || 300))
       el.style.right = '0px'; el.style.width = w + 'px'; el.style.left = 'auto'
-      setDockPush('right')
+      setDockPush('right', w)
     } else {
       // 浮动窗口
       el.style.top = ((cfg && cfg.win && cfg.win.y) || 60) + 'px'
@@ -868,7 +887,7 @@ export async function openSettings(context){
         const dockSide = pane.classList.contains('dock-left') ? 'left' : (pane.classList.contains('dock-right') ? 'right' : false)
         if (dockSide) {
           pane.style.width = sidew + 'px'
-          setDockPush(dockSide)
+          setDockPush(dockSide, sidew)
         }
       }
     } catch {}

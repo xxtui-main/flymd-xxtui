@@ -2278,8 +2278,6 @@ try {
       }
       // Shift + 滚轮：调整阅读/所见最大宽度
       if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        // 仅在阅读/所见模式下响应，编辑模式下保持默认滚动行为
-        if (mode !== 'preview' && !wysiwyg && !wysiwygV2Active) return
         if (!dy) return
         e.preventDefault()
         const cur = getPreviewWidth()
