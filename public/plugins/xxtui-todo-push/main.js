@@ -628,38 +628,40 @@ export function activate(context) {
 
             const condition = (ctx) => !ctx || ctx.mode === 'edit' || ctx.mode === 'wysiwyg'
 
-            const menus = [
-                {
-                    label: '推送全部',
-                    icon: '📝',
-                    condition,
-                    onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_ALL)
-                },
-                {
-                    label: '推送已完成',
-                    icon: '✅',
-                    condition,
-                    onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_DONE)
-                },
-                {
-                    label: '推送未完成',
-                    icon: '⭕',
-                    condition,
-                    onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_TODO)
-                },
-                {
-                    label: '创建提醒 (@时间)',
-                    icon: '⏰',
-                    condition,
-                    onClick: () => handleMenuAction(context, MENU_ACTIONS.CREATE_REMINDER)
-                }
-            ]
+            // 一级：推送（含二级细分）
+            const pushDisposer = context.addContextMenuItem({
+                label: '推送待办',
+                icon: '📤',
+                condition,
+                children: [
+                    {
+                        label: '推送全部',
+                        icon: '📝',
+                        onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_ALL)
+                    },
+                    {
+                        label: '推送已完成',
+                        icon: '✅',
+                        onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_DONE)
+                    },
+                    {
+                        label: '推送未完成',
+                        icon: '⭕',
+                        onClick: () => handleMenuAction(context, MENU_ACTIONS.PUSH_TODO)
+                    }
+                ]
+            })
 
-            menus.forEach((m) => {
-                try {
-                    const disposer = context.addContextMenuItem(m)
-                    if (typeof disposer === 'function') CTX_MENU_DISPOSERS.push(disposer)
-                } catch {}
+            // 一级：创建提醒（单项）
+            const reminderDisposer = context.addContextMenuItem({
+                label: '创建提醒 (@时间)',
+                icon: '⏰',
+                condition,
+                onClick: () => handleMenuAction(context, MENU_ACTIONS.CREATE_REMINDER)
+            })
+
+            ;[pushDisposer, reminderDisposer].forEach((d) => {
+                if (typeof d === 'function') CTX_MENU_DISPOSERS.push(d)
             })
         }
     } catch (e) {
