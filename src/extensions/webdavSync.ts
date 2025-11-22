@@ -968,6 +968,12 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
     let __fail = 0; let __lastErr = ""
     updateStatus(`正在同步… 0/${__total}`)
     let up = 0, down = 0, del = 0, conflicts = 0, moves = 0
+    type SummaryAction = 'upload' | 'download' | 'delete' | 'update'
+    const actionSummaries: { type: SummaryAction; rel: string }[] = []
+    const recordAction = (type: SummaryAction, rel: string) => {
+      if (!rel) return
+      actionSummaries.push({ type, rel })
+    }
 
     // 全量覆盖：初始化 newMeta 时复制 lastMeta.files，保留未变化的条目
     const newMeta: SyncMetadata = {
@@ -1013,6 +1019,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
           }
           // 删除旧路径的元数据
           if (act.oldRel) delete newMeta.files[act.oldRel]
+          recordAction('update', act.rel)
         } else if (act.type === 'conflict') {
           // 处理冲突：根据策略自动选择或询问用户
           await syncLog('[conflict] ' + act.rel + ' - 策略: ' + cfg.conflictStrategy)
@@ -1063,6 +1070,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
               remoteMtime: toEpochMs((meta as any)?.modifiedAt || (meta as any)?.mtime || (meta as any)?.mtimeMs),
               remoteEtag: remote?.etag
             }
+            recordAction('upload', act.rel)
           } else {
             // 保留远程 → 下载
             await syncLog('[conflict-resolve] ' + act.rel + ' 保留远程版本')
@@ -1083,6 +1091,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
               remoteMtime: remote?.mtime,
               remoteEtag: remote?.etag
             }
+            recordAction('download', act.rel)
           }
         } else if (act.type === 'download') {
           if (act.reason === 'remote-deleted') {
@@ -1110,6 +1119,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
               remoteMtime: remote?.mtime,  // 保存远端mtime
               remoteEtag: remote?.etag     // 保存远端etag
             }
+            recordAction('download', act.rel)
           }
         } else if (act.type === 'upload') {
           await syncLog('[upload] ' + act.rel + ' (' + act.reason + ')')
@@ -1132,6 +1142,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
             remoteMtime: local?.mtime,
             remoteEtag: undefined
           }
+          recordAction('upload', act.rel)
         } else if (act.type === 'local-deleted') {
           // 处理本地文件被删除的情况：根据配置决定是否询问用户
           await syncLog('[local-deleted] ' + act.rel + ' 本地文件已被删除，处理中...')
@@ -1163,6 +1174,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
                   await syncLog('[ok] delete-remote ' + act.rel)
               // 从元数据中移除
               delete newMeta.files[act.rel]
+              recordAction('delete', act.rel)
             } else {
               // 用户选择从远程恢复
               await syncLog('[local-deleted-action] ' + act.rel + ' 用户选择从远程恢复')
@@ -1184,6 +1196,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
                 remoteMtime: remote?.mtime,
                 remoteEtag: remote?.etag
               }
+              recordAction('download', act.rel)
             }
           } catch (e) {
             await syncLog('[local-deleted-error] ' + act.rel + ' 处理失败: ' + ((e as any)?.message || e))
@@ -1206,6 +1219,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
             }
             // 从元数据中移除
             delete newMeta.files[act.rel]
+            recordAction('delete', act.rel)
           } catch (e) {
             await syncLog('[fail] delete-local ' + act.rel + ' : ' + ((e as any)?.message || e))
             throw e  // 继续抛出错误，让外层捕获
@@ -1232,6 +1246,7 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
               }
               // 从元数据中移除
               delete newMeta.files[act.rel]
+              recordAction('delete', act.rel)
             } else {
               // 用户选择保留本地文件
               await syncLog('[remote-deleted-ask-action] ' + act.rel + ' 用户选择保留本地文件')
@@ -1313,6 +1328,26 @@ export async function syncNow(reason: SyncReason): Promise<{ uploaded: number; d
       if (del > 0) msg += `✗${del} `
       if (conflicts > 0) msg += `⚠${conflicts} `
       msg += `）`
+
+      if (actionSummaries.length > 0) {
+        const labelMap: Record<SummaryAction, string> = {
+          upload: '上传远程',
+          download: '下载本地',
+          delete: '删除文档',
+          update: '同步更新'
+        }
+        const trimRel = (rel: string) => rel.length > 35 ? '...' + rel.slice(-32) : rel
+        const detailItems: string[] = []
+        const maxItems = 5
+        for (const item of actionSummaries.slice(0, maxItems)) {
+          detailItems.push(`${labelMap[item.type]}：${trimRel(item.rel)}`)
+        }
+        if (actionSummaries.length > maxItems) {
+          detailItems.push('其余同步内容请查看同步日志')
+        }
+        msg += ' ' + detailItems.join(' / ')
+      }
+
       updateStatus(msg)
       clearStatus()
     } catch {}
