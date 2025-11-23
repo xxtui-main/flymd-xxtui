@@ -4205,6 +4205,7 @@ body.focus-mode .library .lib-action-btn.active {
 /* 专注模式下调整内容区域，为自定义标题栏留出空间 */
 body.focus-mode.custom-titlebar-active .container {
   padding-top: 30px;
+  height: calc(100% - 30px) !important;
 }
 
 /* 专注模式下原生的触发区域要隐藏 */
