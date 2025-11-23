@@ -42,7 +42,22 @@ Cross-platform support for Windows / Linux / macOS. Lightweight yet powerful, bu
 - **WebDAV Sync** - Multi-device data sync with complete history
 - **Extension Plugin System** - Custom extensions, unlimited possibilities
 
-## 🎯 AI + Todo Integration: Your Intelligent Life Assistant
+## 🎯 Focus Mode: Immersive Writing Experience
+
+> **Hide everything, keep only inspiration**
+
+Press `Ctrl+Shift+F` to enter Focus Mode and enjoy true immersive writing:
+
+- **Zero distraction, no boundaries** - Hide all UI elements, leaving only a clean editing area
+- **Pure space, pure creation** - No title bar, no menu, no distractions—let your thoughts flow freely
+- **Focus, let words flow freely** - One-click switch, instantly enter your flow state
+
+### Use Cases
+- 📝 When writing long-form content, need full-screen focus
+- ✍️ When inspiration strikes, don't want to be interrupted by any elements
+- 🎨 When presenting documents, achieve the best visual effect
+
+## 🤖 AI + Todo Integration: Your Intelligent Life Assistant
 
 **This isn't cyberpunk—this is real life.** When AI Assistant meets Todo Plugin, your notebook transforms into an intelligent life manager.
 
@@ -91,6 +106,7 @@ Download the installer for your platform from [Releases](https://github.com/flyh
 | Open File | `Ctrl+O` |
 | Save File | `Ctrl+S` |
 | Save As | `Ctrl+Shift+S` |
+| Focus Mode | `Ctrl+Shift+F` |
 | Toggle Edit/Preview | `Ctrl+E` |
 | Toggle WYSIWYG Mode | `Ctrl+W` |
 | Quick Reading | `Ctrl+R` |
