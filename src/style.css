@@ -1148,6 +1148,12 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
+/* 阅读模式和所见模式下隐藏状态栏 */
+.container.wysiwyg-v2 .statusbar,
+.preview:not(.hidden) ~ .statusbar {
+  display: none;
+}
+
 .sync-status {
   position: absolute;
   right: 14px;
