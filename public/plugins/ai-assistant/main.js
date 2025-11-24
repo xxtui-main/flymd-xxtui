@@ -320,8 +320,23 @@ function bindFloatDragResize(context, el){
           setDockPush('right', w)
           try { const cfg = await loadCfg(context); cfg.dock = 'right'; cfg.win = cfg.win||{}; cfg.win.w = w; await saveCfg(context,cfg); await refreshHeader(context) } catch {}
         } else {
+          // 边界检查：确保窗口在可见范围内
+          const winWidth = WIN().innerWidth
+          const winHeight = WIN().innerHeight
+          let posX = parseInt(el.style.left) || 60
+          let posY = parseInt(el.style.top) || 60
+          const elWidth = parseInt(el.style.width) || 520
+          const elHeight = parseInt(el.style.height) || 440
+          // 至少保留 100px 在屏幕内
+          const minVisible = 100
+          if (posX < -elWidth + minVisible) posX = -elWidth + minVisible
+          if (posX > winWidth - minVisible) posX = winWidth - minVisible
+          if (posY < 0) posY = 0
+          if (posY > winHeight - minVisible) posY = winHeight - minVisible
+          el.style.left = posX + 'px'
+          el.style.top = posY + 'px'
           // 保存浮动窗口位置
-          const cfg = await loadCfg(context); cfg.win = cfg.win||{}; cfg.win.x = parseInt(el.style.left)||60; cfg.win.y = parseInt(el.style.top)||60; cfg.win.w = parseInt(el.style.width)||520; cfg.win.h = parseInt(el.style.height)||440;
+          const cfg = await loadCfg(context); cfg.win = cfg.win||{}; cfg.win.x = posX; cfg.win.y = posY; cfg.win.w = elWidth; cfg.win.h = elHeight;
           cfg.dock = el.classList.contains('dock-left') ? 'left' : (el.classList.contains('dock-right') ? 'right' : false);
           await saveCfg(context,cfg)
         }
@@ -573,11 +588,23 @@ async function mountWindow(context){
     try { const bar = DOC().querySelector('.menubar'); const topH = ((bar && bar.clientHeight) || 0); el.style.top = topH + 'px'; el.style.height = 'calc(100vh - ' + topH + 'px)'; } catch { el.style.top = '0px'; el.style.height = '100vh' }
     el.style.right = '0px'; el.style.width = dockWidth + 'px'
   } else {
-    // 浮动窗口
-    el.style.top = ((cfg && cfg.win && cfg.win.y) || 60) + 'px'
-    el.style.left = ((cfg && cfg.win && cfg.win.x) || 60) + 'px'
-    el.style.width = ((cfg && cfg.win && cfg.win.w) || 520) + 'px'
-    el.style.height = ((cfg && cfg.win && cfg.win.h) || 440) + 'px'
+    // 浮动窗口 - 带边界检查
+    const winWidth = WIN().innerWidth
+    const winHeight = WIN().innerHeight
+    let posX = (cfg && cfg.win && cfg.win.x) || 60
+    let posY = (cfg && cfg.win && cfg.win.y) || 60
+    const elWidth = (cfg && cfg.win && cfg.win.w) || 520
+    const elHeight = (cfg && cfg.win && cfg.win.h) || 440
+    const minVisible = 100
+    // 确保窗口在可见范围内
+    if (posX < -elWidth + minVisible) posX = 60
+    if (posX > winWidth - minVisible) posX = Math.max(60, winWidth - elWidth - 20)
+    if (posY < 0) posY = 60
+    if (posY > winHeight - minVisible) posY = Math.max(60, winHeight - elHeight - 20)
+    el.style.top = posY + 'px'
+    el.style.left = posX + 'px'
+    el.style.width = elWidth + 'px'
+    el.style.height = elHeight + 'px'
   }
   el.innerHTML = [
     '<div id="ai-head"><div id="ai-title">AI 写作助手</div><div> <button id="ai-btn-theme" title="切换深/浅色">🌙</button><button id="ai-btn-set" title="设置">设置</button> <button id="ai-btn-close" title="关闭">×</button></div></div>',
