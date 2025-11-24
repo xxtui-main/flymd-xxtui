@@ -83,6 +83,19 @@ As a manager, you record this week's meeting schedule in your notes
 
 > 💡 Install both "AI Assistant" and "Todo Reminder" extensions from the Extensions market to experience this powerful feature.
 
+### 🆓 Built-in Free AI Service
+
+includes a built-in free AI service—ready to use out of the box, no API key required. The free service is powered by SiliconFlow.
+
+<a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="public/plugins/ai-assistant/Powered-by-light.png">
+    <img alt="Powered by SiliconFlow" src="public/plugins/ai-assistant/Powered-by-light.png" width="200">
+  </picture>
+</a>
+
+> We recommend [registering a SiliconFlow account](https://cloud.siliconflow.cn/i/X96CT74a) for access to top-tier models.
 
 ## 🚀 Getting Started
 

@@ -84,6 +84,19 @@ FlyMD 是一款仅 **7MB** 的高性能 Markdown 编辑器，支持**所见所�
 
 > 💡 在扩展市场分别安装"AI 助手"和"待办推送"扩展，即可体验这一强大功能。
 
+### 🆓 内置免费 AI 服务
+
+内置免费 AI 服务，开箱即用，无需配置 API Key。免费服务由硅基流动提供支持。
+
+<a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="public/plugins/ai-assistant/Powered-by-light.png">
+    <img alt="Powered by SiliconFlow" src="public/plugins/ai-assistant/Powered-by-light.png" width="200">
+  </picture>
+</a>
+
+> 推荐[注册硅基流动账号](https://cloud.siliconflow.cn/i/X96CT74a)获得顶级模型体验。
 
 ## 🚀 快速开始
 
