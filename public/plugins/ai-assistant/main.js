@@ -777,7 +777,7 @@ async function mountWindow(context){
     el.style.height = elHeight + 'px'
   }
   el.innerHTML = [
-    '<div id="ai-head"><div id="ai-title">AI 写作助手</div><div> <button id="ai-btn-theme" title="切换深/浅色">🌙</button><button id="ai-btn-set" title="设置">设置</button> <button id="ai-btn-close" title="关闭">×</button></div></div>',
+    '<div id="ai-head"><div id="ai-title">AI 写作助手</div><div> <button id="ai-btn-theme" title="切换深/浅色">🌙</button><button id="ai-btn-set" title="设置">设置</button><button id="ai-dock-toggle" title="在侧栏/浮窗之间切换">浮动</button> <button id="ai-btn-close" title="关闭">×</button></div></div>',
     '<div id="ai-body">',
     ' <div id="ai-toolbar">',
     '  <div class="ai-toolbar-row ai-toolbar-meta">',
@@ -788,7 +788,6 @@ async function mountWindow(context){
     '    <div class="ai-session-picker"><label class="ai-session-label" for="ai-sel-session">会话</label><select id="ai-sel-session" style="max-width:180px"></select></div>',
     '    <button class="btn session-btn" id="ai-s-new" title="新建会话">新建</button>',
     '    <button class="btn session-btn" id="ai-s-del" title="删除当前会话">删除</button>',
-    '    <button class="btn session-btn" id="ai-dock-toggle" title="在侧栏/浮窗之间切换">浮动</button>',
     '   </div>',
     '  </div>',
     '  <div class="ai-toolbar-row ai-toolbar-actions">',
