@@ -173,9 +173,13 @@ function ensureCss() {
     '#ai-vresizer:hover{background:rgba(59,130,246,0.15)}',
     '#ai-resizer{position:absolute;right:0;bottom:0;width:12px;height:12px;cursor:nwse-resize;background:transparent}',
     '#ai-selects select,#ai-selects input{background:#fff;border:1px solid #e5e7eb;color:#0f172a;border-radius:8px;padding:6px 8px}',
-    '#ai-selects{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;min-width:220px}',
+    '#ai-selects{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;flex:0 1 auto}',
+    '#ai-selects label{font-size:13px;color:#6b7280;white-space:nowrap}',
     '.ai-session-picker{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end}',
     '.ai-session-label{font-size:15px;font-weight:600;color:#0f172a}',
+    '.ai-mode-switch{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;flex-shrink:0}',
+    '.ai-mode-switch .mode-label{font-size:13px;color:#6b7280;white-space:nowrap;transition:all .2s}',
+    '.ai-mode-switch .mode-label.active{color:#2563eb;font-weight:600}',
     '#ai-toolbar .btn{padding:7px 12px;border-radius:8px;border:1px solid #d1d5db;background:#ffffff;color:#0f172a;display:inline-flex;align-items:center;justify-content:center;font-weight:500;gap:4px;min-height:34px}',
     '#ai-toolbar .btn:hover{background:#f3f4f6}',
     '#ai-toolbar .btn.session-btn{padding:0;border:none;background:none;color:#64748b;font-size:14px;cursor:pointer;text-decoration:none;transition:color .2s;width:auto;min-height:auto}',
@@ -227,9 +231,13 @@ function ensureCss() {
     '#ai-assist-win.dark #ai-toolbar .btn.action{background:none;color:#9ca3af;border:none}',
     '#ai-assist-win.dark #ai-toolbar .btn.action:hover{background:none;color:#e5e7eb}',
     '#ai-assist-win.dark #ai-toolbar select,#ai-assist-win.dark #ai-toolbar input{background:#0b1220;border:1px solid #1f2937;color:#e5e7eb}',
+    '#ai-assist-win.dark #ai-selects label{color:#9ca3af}',
     '#ai-assist-win.dark #ai-head button{background:#111827;color:#e5e7eb;border:1px solid #1f2937}',
     '#ai-assist-win.dark #ai-head button:hover{background:#0f172a}',
     '#ai-assist-win.dark #ai-vresizer:hover{background:rgba(96,165,250,0.2)}',
+    '#ai-assist-win.dark .ai-mode-switch{background:#0b1220;border:1px solid #1f2937}',
+    '#ai-assist-win.dark .ai-mode-switch .mode-label{color:#9ca3af}',
+    '#ai-assist-win.dark .ai-mode-switch .mode-label.active{color:#60a5fa}',
     // 极窄宽度优化（<300px）
     '@media (max-width: 320px) { #ai-input button { font-size: 11px; padding: 5px 6px; } }',
     // toggle 开关样式
@@ -668,6 +676,22 @@ async function refreshHeader(context){
       }
     }
   } catch {}
+  // 更新工具栏模式切换开关
+  try {
+    const isFree = isFreeProvider(cfg)
+    const providerToggle = el('ai-provider-toggle')
+    const modeLabelCustom = el('mode-label-custom-toolbar')
+    const modeLabelFree = el('mode-label-free-toolbar')
+    if (providerToggle) providerToggle.checked = isFree
+    if (modeLabelCustom) {
+      if (isFree) modeLabelCustom.classList.remove('active')
+      else modeLabelCustom.classList.add('active')
+    }
+    if (modeLabelFree) {
+      if (isFree) modeLabelFree.classList.add('active')
+      else modeLabelFree.classList.remove('active')
+    }
+  } catch {}
 }
 
 async function refreshSessionSelect(context) {
@@ -781,8 +805,13 @@ async function mountWindow(context){
     '<div id="ai-body">',
     ' <div id="ai-toolbar">',
     '  <div class="ai-toolbar-row ai-toolbar-meta">',
-    '   <div id="ai-selects" class="small">',
-    '    <label id="ai-model-label">模型</label> <input id="ai-model" placeholder="如 gpt-4o-mini" style="width:160px"/><a id="ai-model-powered" href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank" rel="noopener noreferrer" style="display:none;border:none;outline:none;"><img id="ai-model-powered-img" src="" alt="Powered by" style="height:20px;width:auto;border:none;outline:none;vertical-align:middle;"/></a><span id="ai-free-model-label" style="display:none;margin:0 4px 0 12px;">模型：</span><select id="ai-free-model" title="选择免费模型" style="display:none;margin-left:0;"><option value="qwen">Qwen</option><option value="glm">GLM</option></select>',
+    '   <div class="ai-mode-switch">',
+    '    <span class="mode-label" id="mode-label-custom-toolbar">自定义</span>',
+    '    <label class="toggle-switch"><input type="checkbox" id="ai-provider-toggle"/><span class="toggle-slider"></span></label>',
+    '    <span class="mode-label" id="mode-label-free-toolbar">免费</span>',
+    '   </div>',
+    '   <div id="ai-selects">',
+    '    <label id="ai-model-label">模型</label> <input id="ai-model" placeholder="如 gpt-4o-mini" style="width:140px"/><a id="ai-model-powered" href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank" rel="noopener noreferrer" style="display:none;border:none;outline:none;"><img id="ai-model-powered-img" src="" alt="Powered by" style="height:20px;width:auto;border:none;outline:none;vertical-align:middle;"/></a><span id="ai-free-model-label" style="display:none;margin:0 4px;">模型</span><select id="ai-free-model" title="选择免费模型" style="display:none;width:100px;"><option value="qwen">Qwen</option><option value="glm">GLM</option></select>',
     '   </div>',
     '   <div class="ai-toolbar-controls">',
     '    <div class="ai-session-picker"><label class="ai-session-label" for="ai-sel-session">会话</label><select id="ai-sel-session" style="max-width:180px"></select></div>',
@@ -831,6 +860,17 @@ async function mountWindow(context){
       cfg.freeModel = normalizeFreeModelKey(freeModelSelect.value)
       await saveCfg(context, cfg)
       await refreshHeader(context)
+    })
+  } catch {}
+  // 工具栏模式切换
+  try {
+    const providerToggle = el.querySelector('#ai-provider-toggle')
+    providerToggle?.addEventListener('change', async () => {
+      const cfg = await loadCfg(context)
+      cfg.provider = providerToggle.checked ? 'free' : 'openai'
+      await saveCfg(context, cfg)
+      await refreshHeader(context)
+      context.ui.notice(providerToggle.checked ? '已切换到免费模式' : '已切换到自定义模式', 'ok', 1600)
     })
   } catch {}
   el.querySelector('#ai-send').addEventListener('click',()=>{ sendFromInput(context) })
