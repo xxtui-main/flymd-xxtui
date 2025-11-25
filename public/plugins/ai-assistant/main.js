@@ -304,14 +304,17 @@ function ensureCss() {
     '.ai-toolbar-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}',
     '.ai-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:16px;width:100%}',
     '#ai-chat{flex:1;overflow:auto;padding:16px 18px;background:#fff;display:flex;flex-direction:column}',
-    '.msg-wrapper{display:flex;flex-direction:column;margin:8px 0;max-width:88%}',
-    '.msg-wrapper:has(.msg.u){margin-left:auto;align-items:flex-end}',
-    '.msg-wrapper:has(.msg.a){margin-right:auto;align-items:flex-start}',
-    '.msg{white-space:pre-wrap;line-height:1.55;border-radius:16px;padding:12px 14px;box-shadow:0 6px 16px rgba(15,23,42,.08);position:relative;font-size:14px;width:100%}',
+    '.msg-wrapper{display:flex;margin:8px 0;max-width:88%;gap:8px}',
+    '.msg-wrapper:has(.msg.u){margin-left:auto;flex-direction:row-reverse}',
+    '.msg-wrapper:has(.msg.a){margin-right:auto;flex-direction:row}',
+    '.msg-wrapper .ai-avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.1)}',
+    '.msg-wrapper .msg-content-wrapper{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}',
+    '.msg-wrapper .ai-nickname{font-size:12px;color:#6b7280;padding-left:4px}',
+    '.msg{white-space:pre-wrap;line-height:1.55;border-radius:16px;padding:12px 14px;box-shadow:0 6px 16px rgba(15,23,42,.08);position:relative;font-size:14px;max-width:100%;word-wrap:break-word}',
     '.msg.u{background:linear-gradient(135deg,#e0f2ff,#f0f7ff);border:1px solid rgba(59,130,246,.3)}',
     '.msg.a{background:#fefefe;border:1px solid #e5e7eb}',
     '.msg.u::before{content:"";display:none}',
-    '.msg.a::before{content:"AI";position:absolute;top:-9px;left:12px;font-size:11px;color:#0f172a;background:#fff;border-radius:10px;padding:0 6px;border:1px solid rgba(15,23,42,.15)}',
+    '.msg.a::before{content:"";display:none}',
     '.msg-actions{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}',
     '.msg-action-btn{padding:0;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer;text-decoration:none;transition:color .2s}',
     '.msg-action-btn:hover{color:#0f172a;text-decoration:underline}',
@@ -376,7 +379,7 @@ function ensureCss() {
     '#ai-assist-win.dark #ai-chat{background:#0b1220}',
     '#ai-assist-win.dark .msg.u{background:linear-gradient(135deg,#1f3352,#0f172a);border:1px solid #1d4ed8}',
     '#ai-assist-win.dark .msg.a{background:#111827;border:1px solid #1f2937}',
-    '#ai-assist-win.dark .msg.a::before{background:#111827;color:#f8fafc;border-color:#1f2937}',
+    '#ai-assist-win.dark .ai-nickname{color:#9ca3af}',
     '#ai-assist-win.dark .msg-action-btn{color:#9ca3af}',
     '#ai-assist-win.dark .msg-action-btn:hover{color:#e5e7eb}',
     '#ai-assist-win.dark #ai-input{background:#0f172a;border-top:1px solid #1f2937}',
@@ -520,11 +523,34 @@ function renderMsgs(root) {
     const wrapper = DOC().createElement('div')
     wrapper.className = 'msg-wrapper'
 
+    // 如果是 AI 消息，添加头像
+    if (m.role === 'assistant') {
+      const avatar = DOC().createElement('img')
+      avatar.className = 'ai-avatar'
+      avatar.src = 'Flymdnew.png'
+      avatar.alt = 'AI'
+      wrapper.appendChild(avatar)
+    }
+
+    // 创建内容容器（昵称+消息+操作按钮）
+    const contentWrapper = DOC().createElement('div')
+    contentWrapper.className = 'msg-content-wrapper'
+
+    // 如果是 AI 消息，添加昵称
+    if (m.role === 'assistant') {
+      const nickname = DOC().createElement('div')
+      nickname.className = 'ai-nickname'
+      nickname.textContent = 'AI'
+      contentWrapper.appendChild(nickname)
+    }
+
     // 创建消息气泡
     const d = DOC().createElement('div')
     d.className = 'msg ' + (m.role === 'user' ? 'u' : 'a')
     d.textContent = String(m.content || '')
-    wrapper.appendChild(d)
+    contentWrapper.appendChild(d)
+
+    wrapper.appendChild(contentWrapper)
 
     // 为 AI 回复添加操作按钮
     if (m.role === 'assistant' && m.content) {
@@ -578,7 +604,7 @@ function renderMsgs(root) {
       btnGroup.appendChild(btnCopy)
       btnGroup.appendChild(btnInsert)
       btnGroup.appendChild(btnReplace)
-      wrapper.appendChild(btnGroup)
+      contentWrapper.appendChild(btnGroup)
     }
 
     root.appendChild(wrapper)
