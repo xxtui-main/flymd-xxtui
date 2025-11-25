@@ -289,7 +289,7 @@ function ensureCss() {
   css.id = 'ai-assist-style'
   css.textContent = [
     // 容器（浅色友好 UI）；默认走 dock-left 模式（伪装侧栏）
-    '#ai-assist-win{position:fixed;z-index:5000;background:#ffffff;color:#0f172a;',
+    '#ai-assist-win{position:fixed;z-index:30;background:#ffffff;color:#0f172a;',
     'border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.15);overflow:hidden}',
     '#ai-assist-win.dock-left{left:0; top:0; height:100vh; width:400px; border-radius:0; border-left:none; border-top:none; border-bottom:none; box-shadow:none; border-right:1px solid #e5e7eb}',
     '#ai-assist-win.dock-right{right:0; top:0; height:100vh; width:400px; border-radius:0; border-right:none; border-top:none; border-bottom:none; box-shadow:none; border-left:1px solid #e5e7eb}',
@@ -338,7 +338,7 @@ function ensureCss() {
     '#ai-assist-win.dock-right #ai-resizer{display:none}',
     '#ai-assist-win:not(.dock-left):not(.dock-right) #ai-vresizer{display:none}',
     // 设置面板（内置模态）
-    '#ai-set-overlay{position:absolute;inset:0;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:5100}',
+    '#ai-set-overlay{position:absolute;inset:0;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:100}',
     '#ai-set-dialog{width:520px;max-width:92vw;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.18);overflow:hidden}',
     '#ai-set-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e5e7eb}',
     '#ai-set-title{font-weight:600}',
@@ -893,7 +893,18 @@ async function refreshHeader(context){
       modelPowered.style.display = isFree ? 'inline-block' : 'none'
       if (isFree) {
         const mainWin = el('ai-assist-win')
-        const isDark = mainWin ? mainWin.classList.contains('dark') : (WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+        let isDark = false
+        if (mainWin && mainWin.classList.contains('dark')) {
+          isDark = true
+        } else {
+          try {
+            const mainBody = WIN().document.body
+            isDark = mainBody && mainBody.classList.contains('dark-mode')
+          } catch {}
+          if (!isDark) {
+            isDark = !!(WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+          }
+        }
         modelPoweredImg.src = isDark ? 'plugins/ai-assistant/Powered-by-dark.png' : 'plugins/ai-assistant/Powered-by-light.png'
       }
     }
@@ -2071,7 +2082,7 @@ export async function openSettings(context){
   host.appendChild(overlay)
   // 若挂到 body：用固定定位覆盖全局
   if (host === document.body) {
-    try { overlay.style.position = 'fixed'; overlay.style.inset = '0'; overlay.style.zIndex = '2147483000' } catch {}
+    try { overlay.style.position = 'fixed'; overlay.style.inset = '0'; overlay.style.zIndex = '100000' } catch {}
   }
   // 赋初值
   const elProviderToggle = overlay.querySelector('#set-provider-toggle')
@@ -2131,7 +2142,18 @@ export async function openSettings(context){
       if (isFree) {
         // 根据主题选择图片：检查主窗口是否有 dark 类
         const mainWin = document.getElementById('ai-assist-win')
-        const isDark = mainWin ? mainWin.classList.contains('dark') : (WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+        let isDark = false
+        if (mainWin && mainWin.classList.contains('dark')) {
+          isDark = true
+        } else {
+          try {
+            const mainBody = WIN().document.body
+            isDark = mainBody && mainBody.classList.contains('dark-mode')
+          } catch {}
+          if (!isDark) {
+            isDark = !!(WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+          }
+        }
         elPoweredByImg.src = isDark ? 'plugins/ai-assistant/Powered-by-dark.png' : 'plugins/ai-assistant/Powered-by-light.png'
       }
     }
@@ -2374,9 +2396,30 @@ async function applyWinTheme(context, rootEl){
     const cfg = await loadCfg(context)
     const mode = cfg.theme || 'auto'
     let isDark = false
-    if (mode === 'dark') isDark = true
-    else if (mode === 'light') isDark = false
-    else if (mode === 'auto') isDark = !!(WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+
+    // 优先检查主应用的主题状态
+    try {
+      const mainBody = WIN().document.body
+      if (mainBody && mainBody.classList.contains('dark-mode')) {
+        // 主应用是夜间模式，AI 助手跟随
+        isDark = true
+      } else {
+        // 主应用是日间模式，根据 AI 助手自己的配置
+        if (mode === 'dark') isDark = true
+        else if (mode === 'light') isDark = false
+        else if (mode === 'auto') {
+          isDark = !!(WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+        }
+      }
+    } catch {
+      // 无法检测主应用，使用 AI 助手自己的配置
+      if (mode === 'dark') isDark = true
+      else if (mode === 'light') isDark = false
+      else if (mode === 'auto') {
+        isDark = !!(WIN().matchMedia && WIN().matchMedia('(prefers-color-scheme: dark)').matches)
+      }
+    }
+
     if (isDark) rootEl.classList.add('dark'); else rootEl.classList.remove('dark')
     // 更新更多菜单中的主题文本
     const menuTheme = rootEl.querySelector('#ai-menu-theme')
@@ -2388,10 +2431,17 @@ async function applyWinTheme(context, rootEl){
         modelPoweredImg.src = isDark ? 'plugins/ai-assistant/Powered-by-dark.png' : 'plugins/ai-assistant/Powered-by-light.png'
       }
     }
-    if (mode === 'auto' && WIN().matchMedia && !__AI_MQ_BOUND__){
+    if (!__AI_MQ_BOUND__){
       try {
-        const mq = WIN().matchMedia('(prefers-color-scheme: dark)')
-        mq.addEventListener('change', () => { try { applyWinTheme(context, rootEl) } catch {} })
+        // 监听主应用的夜间模式切换事件（始终监听）
+        WIN().addEventListener('flymd:darkmode:changed', () => {
+          try { applyWinTheme(context, rootEl) } catch {}
+        })
+        // 监听系统主题偏好变化
+        if (WIN().matchMedia) {
+          const mq = WIN().matchMedia('(prefers-color-scheme: dark)')
+          mq.addEventListener('change', () => { try { applyWinTheme(context, rootEl) } catch {} })
+        }
         __AI_MQ_BOUND__ = true
       } catch {}
     }
