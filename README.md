@@ -1,4 +1,4 @@
-# 飞速MarkDown（FlyMD）
+<h1 align="center">飞速MarkDown</h1>
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -110,11 +110,11 @@ FlyMD 是一款仅 **7MB** 的高性能 Markdown 编辑器，支持**所见所�
 
 ### 🆓 内置免费 AI 服务
 
-> 💡 **自 v0.4.0 版本起提供支持**
+>  **自 v0.4.0 版本起**
 
 内置免费 AI 服务，**开箱即用**，无需配置 API Key。免费服务由硅基流动提供支持。
 
-<div align="center">
+<div align="left">
   <a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
@@ -217,7 +217,7 @@ FlyMD 支持通过扩展插件增强功能：
 - [Mermaid](https://mermaid.js.org/) - 图表绘制
 - [Siliconflow](https://cloud.siliconflow.cn/i/X96CT74a) - 模型支持
 
-<div align="center">
+<div align="left">
   <a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">

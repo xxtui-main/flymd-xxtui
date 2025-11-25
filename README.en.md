@@ -1,4 +1,4 @@
-# FlySpeed Markdown (FlyMD)
+<h1 align="center">Fly Markdown (FlyMD)</h1>
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -109,11 +109,11 @@ As a manager, you record this week's meeting schedule in your notes
 
 ### 🆓 Built-in Free AI Service
 
-> 💡 **Available since v0.4.0**
+>  **Available since v0.4.0**
 
 Built-in free AI service—**ready to use out of the box**, no API key required. The free service is powered by SiliconFlow.
 
-<div align="center">
+<div align="left">
   <a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
@@ -215,7 +215,7 @@ Full License: [LICENSE](LICENSE) | Third-Party Components: [THIRD-PARTY-NOTICES.
 - [Mermaid](https://mermaid.js.org/) - Diagram drawing
 - [Siliconflow](https://cloud.siliconflow.cn/i/X96CT74a) - Model support
 
-<div align="center">
+<div align="left">
   <a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
