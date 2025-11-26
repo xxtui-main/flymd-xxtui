@@ -4852,16 +4852,8 @@ function wrapSelection(before: string, after: string, placeholder = '') {
 async function formatBold() {
   if (wysiwygV2Active) {
     try {
-      // 直接在源码中操作：获取选中文本，在源码中替换，刷新所见模式
-      const selectedText = wysiwygV2GetSelectedText()
-      if (!selectedText) return
-      const val = editor.value
-      const idx = val.indexOf(selectedText)
-      if (idx === -1) return
-      editor.value = val.slice(0, idx) + '**' + selectedText + '**' + val.slice(idx + selectedText.length)
-      dirty = true
-      refreshTitle()
-      scheduleWysiwygRender()
+      // 所见模式 V2：直接在 Milkdown 内部对选区应用加粗命令，避免重置整个文档导致光标跳转
+      await wysiwygV2ToggleBold()
       return
     } catch {}
   }
@@ -4870,16 +4862,8 @@ async function formatBold() {
 async function formatItalic() {
   if (wysiwygV2Active) {
     try {
-      // 直接在源码中操作：获取选中文本，在源码中替换，刷新所见模式
-      const selectedText = wysiwygV2GetSelectedText()
-      if (!selectedText) return
-      const val = editor.value
-      const idx = val.indexOf(selectedText)
-      if (idx === -1) return
-      editor.value = val.slice(0, idx) + '*' + selectedText + '*' + val.slice(idx + selectedText.length)
-      dirty = true
-      refreshTitle()
-      scheduleWysiwygRender()
+      // 所见模式 V2：直接在 Milkdown 内部对选区应用斜体命令
+      await wysiwygV2ToggleItalic()
       return
     } catch {}
   }
@@ -9062,8 +9046,27 @@ function bindEvents() {
       await handleToggleModeShortcut();
       return
     }
-    if (e.ctrlKey && e.key.toLowerCase() === 'b') { e.preventDefault(); await formatBold(); if (mode === 'preview') void renderPreview(); else if (wysiwyg) scheduleWysiwygRender(); return }
-    if (e.ctrlKey && e.key.toLowerCase() === 'i') { e.preventDefault(); await formatItalic(); if (mode === 'preview') void renderPreview(); else if (wysiwyg) scheduleWysiwygRender(); return }
+    if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault()
+      await formatBold()
+      if (mode === 'preview') {
+        void renderPreview()
+      } else if (wysiwyg && !wysiwygV2Active) {
+        // 仅旧所见模式需要从 Markdown 重渲染；V2 直接在编辑视图内部操作
+        scheduleWysiwygRender()
+      }
+      return
+    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+      e.preventDefault()
+      await formatItalic()
+      if (mode === 'preview') {
+        void renderPreview()
+      } else if (wysiwyg && !wysiwygV2Active) {
+        scheduleWysiwygRender()
+      }
+      return
+    }
     // 专注模式快捷键 Ctrl+Shift+F
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); await toggleFocusMode(); return }
     // 文件操作快捷键
