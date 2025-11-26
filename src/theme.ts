@@ -69,10 +69,21 @@ export function applyThemePrefs(prefs: ThemePrefs): void {
   try {
     const c = getContainer()
     if (!c) return
-    // 仅作用于容器作用域，避免 titlebar/弹窗等也跟随变色
-    c.style.setProperty('--bg', prefs.editBg)
-    c.style.setProperty('--preview-bg', prefs.readBg)
-    c.style.setProperty('--wysiwyg-bg', prefs.wysiwygBg)
+
+    // 检测是否为夜间模式（系统深色或用户手动开启）
+    const isDarkMode = document.body.classList.contains('dark-mode')
+
+    if (isDarkMode) {
+      // 夜间模式：移除背景变量，让 CSS 夜间模式样式使用默认深色
+      c.style.removeProperty('--bg')
+      c.style.removeProperty('--preview-bg')
+      c.style.removeProperty('--wysiwyg-bg')
+    } else {
+      // 日间模式：应用用户设置的背景色
+      c.style.setProperty('--bg', prefs.editBg)
+      c.style.setProperty('--preview-bg', prefs.readBg)
+      c.style.setProperty('--wysiwyg-bg', prefs.wysiwygBg)
+    }
     // 字体变量（为空则移除，回退默认）
     try {
       const bodyFont = (prefs.bodyFont || '').trim()
@@ -143,6 +154,18 @@ export function loadThemePrefs(): ThemePrefs {
 }
 
 export function applySavedTheme(): void {
+  // 首先检测系统深色模式，如果是则强制启用夜间模式
+  try {
+    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (isSystemDark) {
+      document.body.classList.add('dark-mode')
+    } else {
+      // 非系统深色模式时，读取用户保存的设置
+      const savedDark = localStorage.getItem('flymd:darkmode') === 'true'
+      document.body.classList.toggle('dark-mode', savedDark)
+    }
+  } catch {}
+
   const prefs = loadThemePrefs()
   applyThemePrefs(prefs)
 }
@@ -702,7 +725,15 @@ export function initThemeUI(): void {
     const darkModeToggle = panel.querySelector('#dark-mode-toggle') as HTMLInputElement | null
     if (darkModeToggle) {
       const DARK_MODE_KEY = 'flymd:darkmode'
+      // 检测系统是否为深色模式
+      const isSystemDarkMode = (): boolean => {
+        try {
+          return window.matchMedia('(prefers-color-scheme: dark)').matches
+        } catch { return false }
+      }
       const getDarkMode = (): boolean => {
+        // 如果系统是深色模式，强制启用夜间模式
+        if (isSystemDarkMode()) return true
         try {
           const v = localStorage.getItem(DARK_MODE_KEY)
           return v === 'true'
@@ -717,9 +748,10 @@ export function initThemeUI(): void {
           window.dispatchEvent(ev)
         } catch {}
       }
-      // 初始化开关状态
+      // 初始化开关状态（系统深色模式会强制开启）
       const isDark = getDarkMode()
       darkModeToggle.checked = isDark
+      darkModeToggle.disabled = isSystemDarkMode() // 系统深色模式时禁用开关
       document.body.classList.toggle('dark-mode', isDark)
       // 监听开关变化
       darkModeToggle.addEventListener('change', () => {
