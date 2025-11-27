@@ -7264,6 +7264,21 @@ async function ensureMinWindowSize(): Promise<void> {
   } catch {}
 }
 
+// 兜底：启动时将窗口居中显示
+async function centerWindow(): Promise<void> {
+  try {
+    const win = getCurrentWindow()
+    const size = await win.innerSize()
+    const screenW = window?.screen?.availWidth || window?.screen?.width || 0
+    const screenH = window?.screen?.availHeight || window?.screen?.height || 0
+    if (!screenW || !screenH) return
+    const x = Math.max(0, Math.round((screenW - size.width) / 2))
+    const y = Math.max(0, Math.round((screenH - size.height) / 2))
+    const { LogicalPosition } = await import('@tauri-apps/api/dpi')
+    await win.setPosition(new LogicalPosition(x, y))
+  } catch {}
+}
+
 // 兜底：强制退出专注模式，恢复原生标题栏（等价于“手动切换一次专注模式再切回来”的效果）
 async function resetFocusModeDecorations(): Promise<void> {
   try {
@@ -9978,7 +9993,7 @@ function bindEvents() {
       console.warn('[便签模式] 检测启动参数失败:', e)
     }
 
-    // 非便签模式启动时，检查是否有便签前保存的状态需要恢复（若存在则恢复并清除记录）
+    // 非便签模式启动时，检查是否有便签前保存的状态需要恢复（若存在则恢复并清除记录），并将窗口居中
     if (!isStickyNoteStartup) {
       // 1) 若存在便签前窗口状态，先恢复
       try { await restoreWindowStateBeforeSticky() } catch {}
@@ -9986,6 +10001,8 @@ function bindEvents() {
       try { await ensureMinWindowSize() } catch {}
       // 3) 兜底：强制退出专注模式并恢复原生标题栏，防止异常无标题栏状态
       try { await resetFocusModeDecorations() } catch {}
+      // 4) 统一将窗口居中显示，避免位置跑偏
+      try { await centerWindow() } catch {}
 
       // 移除透明度 CSS 变量，确保主窗口不透明
       try { document.documentElement.style.removeProperty('--sticky-opacity') } catch {}
