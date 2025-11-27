@@ -6621,6 +6621,44 @@ function getStickyEditIcon(isEditing: boolean): string {
   </svg>`
 }
 
+// 在便签模式中在文末插入一行待办项 "- [ ] "
+async function addStickyTodoLine(editBtn: HTMLButtonElement) {
+  try {
+    // 所见模式下风险较高：暂不支持，避免破坏 WYSIWYG 状态
+    if (wysiwyg || wysiwygV2Active) {
+      try { alert('当前所见模式下暂不支持快速待办插入，请先切换回源码编辑模式。') } catch {}
+      return
+    }
+
+    // 确保处于编辑模式（必要时等价于用户点了一次“编辑”按钮）
+    if (mode !== 'edit') {
+      try { await toggleStickyEditMode(editBtn) } catch {}
+    }
+
+    const ta = editor as HTMLTextAreaElement | null
+    if (!ta) return
+
+    const prev = String(ta.value || '')
+    const needsNewline = prev.length > 0 && !prev.endsWith('\n')
+    const insert = (needsNewline ? '\n' : '') + '- [ ] '
+    const next = prev + insert
+
+    ta.value = next
+    const pos = next.length
+    try {
+      ta.selectionStart = pos
+      ta.selectionEnd = pos
+    } catch {}
+    try { ta.focus() } catch {}
+
+    try {
+      dirty = true
+      refreshTitle()
+      refreshStatus()
+    } catch {}
+  } catch {}
+}
+
 // 切换便签编辑/阅读模式
 async function toggleStickyEditMode(btn: HTMLButtonElement) {
   const isCurrentlyEditing = mode === 'edit'
@@ -6719,9 +6757,17 @@ function createStickyNoteControls() {
   topBtn.innerHTML = getStickyTopIcon(false)
   topBtn.addEventListener('click', async () => await toggleStickyWindowOnTop(topBtn))
 
+  // 待办按钮：在文末插入一行 "- [ ] "
+  const todoBtn = document.createElement('button')
+  todoBtn.className = 'sticky-note-btn'
+  todoBtn.title = '添加待办'
+  todoBtn.textContent = '+'
+  todoBtn.addEventListener('click', async () => { await addStickyTodoLine(editBtn) })
+
   container.appendChild(editBtn)
   container.appendChild(lockBtn)
   container.appendChild(topBtn)
+  container.appendChild(todoBtn)
   document.body.appendChild(container)
 }
 
