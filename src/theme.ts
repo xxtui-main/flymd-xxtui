@@ -7,12 +7,12 @@
 // - 实现策略：
 //   使用 .container 作用域内的 CSS 变量覆盖（--bg / --wysiwyg-bg / --preview-bg），避免影响标题栏等外围 UI。
 
-export type TypographyId = 'default' | 'serif' | 'modern' | 'reading' | 'academic'
+export type TypographyId = 'default' | 'serif' | 'modern' | 'reading' | 'academic' | 'compact' | 'elegant' | 'minimal'
 // 运行期依赖（仅在需要时使用）
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile, writeFile, mkdir, exists, remove, BaseDirectory } from '@tauri-apps/plugin-fs'
 import { homeDir, desktopDir, join } from '@tauri-apps/api/path'
-export type MdStyleId = 'standard' | 'github' | 'notion' | 'journal' | 'card' | 'docs'
+export type MdStyleId = 'standard' | 'github' | 'notion' | 'journal' | 'card' | 'docs' | 'typora' | 'obsidian' | 'bear'
 
 export interface ThemePrefs {
   editBg: string
@@ -95,14 +95,13 @@ export function applyThemePrefs(prefs: ThemePrefs): void {
     } catch {}
 
     // 排版：通过类名挂到 .container 上，覆盖 .preview-body 与 .ProseMirror
-    c.classList.remove('typo-serif', 'typo-modern', 'typo-reading', 'typo-academic')
-    if (prefs.typography === 'serif') c.classList.add('typo-serif')
-    else if (prefs.typography === 'modern') c.classList.add('typo-modern')
-    else if (prefs.typography === 'reading') c.classList.add('typo-reading')
-    else if (prefs.typography === 'academic') c.classList.add('typo-academic')
+    c.classList.remove('typo-serif', 'typo-modern', 'typo-reading', 'typo-academic', 'typo-compact', 'typo-elegant', 'typo-minimal')
+    if (prefs.typography && prefs.typography !== 'default') {
+      c.classList.add(`typo-${prefs.typography}`)
+    }
 
     // Markdown 风格类名
-    c.classList.remove('md-standard', 'md-github', 'md-notion', 'md-journal', 'md-card', 'md-docs')
+    c.classList.remove('md-standard', 'md-github', 'md-notion', 'md-journal', 'md-card', 'md-docs', 'md-typora', 'md-obsidian', 'md-bear')
     const mdClass = `md-${prefs.mdStyle || 'standard'}`
     c.classList.add(mdClass)
 
@@ -142,8 +141,8 @@ export function loadThemePrefs(): ThemePrefs {
       editBg: obj.editBg || DEFAULT_PREFS.editBg,
       readBg: obj.readBg || DEFAULT_PREFS.readBg,
       wysiwygBg: obj.wysiwygBg || DEFAULT_PREFS.wysiwygBg,
-      typography: (['default','serif','modern','reading','academic'] as string[]).includes(obj.typography) ? obj.typography : 'default',
-      mdStyle: (['standard','github','notion','journal','card','docs'] as string[]).includes(mdStyle) ? mdStyle : 'standard',
+      typography: (['default','serif','modern','reading','academic','compact','elegant','minimal'] as string[]).includes(obj.typography) ? obj.typography : 'default',
+      mdStyle: (['standard','github','notion','journal','card','docs','typora','obsidian','bear'] as string[]).includes(mdStyle) ? mdStyle : 'standard',
       themeId: obj.themeId || undefined,
       bodyFont: (typeof obj.bodyFont === 'string') ? obj.bodyFont : undefined,
       monoFont: (typeof obj.monoFont === 'string') ? obj.monoFont : undefined,
@@ -180,8 +179,8 @@ function registerPalette(label: string, color: string, id?: string): void {
   _palettes.push({ id: _id, label, color })
 }
 function registerTypography(id: TypographyId, label: string, css?: string): void {
-  // 仅允许 'default' | 'serif' | 'modern' 三选；如需更多可扩展此处分支
-  if (!['default', 'serif', 'modern', 'reading', 'academic'].includes(id)) return
+  // 允许的排版风格
+  if (!['default', 'serif', 'modern', 'reading', 'academic', 'compact', 'elegant', 'minimal'].includes(id)) return
   if (css) {
     try {
       const style = document.createElement('style')
@@ -193,7 +192,7 @@ function registerTypography(id: TypographyId, label: string, css?: string): void
 }
 
 function registerMdStyle(id: MdStyleId, label: string, css?: string): void {
-  if (!['standard','github','notion','journal','card','docs'].includes(id)) return
+  if (!['standard','github','notion','journal','card','docs','typora','obsidian','bear'].includes(id)) return
   if (css) {
     try {
       const style = document.createElement('style')
@@ -313,6 +312,9 @@ function createPanel(): HTMLDivElement {
         <button class="typo-btn" data-typo="modern">现代</button>
         <button class="typo-btn" data-typo="reading">阅读</button>
         <button class="typo-btn" data-typo="academic">学术</button>
+        <button class="typo-btn" data-typo="compact">紧凑</button>
+        <button class="typo-btn" data-typo="elegant">优雅</button>
+        <button class="typo-btn" data-typo="minimal">极简</button>
       </div>
     </div>
     <div class="theme-section">
@@ -324,6 +326,9 @@ function createPanel(): HTMLDivElement {
         <button class="md-btn" data-md="journal">出版风</button>
         <button class="md-btn" data-md="card">卡片风</button>
         <button class="md-btn" data-md="docs">Docs</button>
+        <button class="md-btn" data-md="typora">Typora</button>
+        <button class="md-btn" data-md="obsidian">Obsidian</button>
+        <button class="md-btn" data-md="bear">Bear</button>
       </div>
     </div>
     <div class="theme-section">

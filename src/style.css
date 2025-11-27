@@ -2115,6 +2115,54 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .container.typo-academic .preview-body h3 { font-size: 1.6em; font-weight: 600; }
 .container.typo-academic .preview-body blockquote { border-left-width: 5px; }
 
+/* 主题排版：紧凑风格（更小字号、更紧凑的行距） */
+.container.typo-compact .preview-body,
+.container.typo-compact.wysiwyg-v2 .ProseMirror {
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+.container.typo-compact .preview-body p,
+.container.typo-compact.wysiwyg-v2 .ProseMirror p { margin: 0.7em 0; }
+.container.typo-compact .preview-body h1 { font-size: 1.8em; margin: 0.8em 0 0.5em; }
+.container.typo-compact .preview-body h2 { font-size: 1.5em; margin: 0.7em 0 0.4em; }
+.container.typo-compact .preview-body h3 { font-size: 1.25em; margin: 0.6em 0 0.3em; }
+.container.typo-compact .preview-body ul,
+.container.typo-compact .preview-body ol { margin: 0.5em 0; }
+.container.typo-compact .preview-body li { margin: 0.25em 0; }
+
+/* 主题排版：优雅风格（大间距、精致衬线） */
+.container.typo-elegant .preview-body,
+.container.typo-elegant.wysiwyg-v2 .ProseMirror {
+  font-family: var(--font-body, 'Playfair Display', Georgia, 'Source Han Serif SC', serif);
+  font-size: 17px;
+  line-height: 2;
+  letter-spacing: 0.01em;
+}
+.container.typo-elegant .preview-body p,
+.container.typo-elegant.wysiwyg-v2 .ProseMirror p { margin: 1.3em 0; }
+.container.typo-elegant .preview-body h1 { font-size: 2.5em; font-weight: 500; letter-spacing: -0.02em; }
+.container.typo-elegant .preview-body h2 { font-size: 2em; font-weight: 500; letter-spacing: -0.01em; }
+.container.typo-elegant .preview-body h3 { font-size: 1.5em; font-weight: 500; }
+.container.typo-elegant .preview-body blockquote { font-style: italic; border-left: 2px solid rgba(127,127,127,0.3); }
+.container.typo-elegant .preview-body hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, rgba(127,127,127,0.3), transparent); }
+
+/* 主题排版：极简风格（无装饰、干净利落） */
+.container.typo-minimal .preview-body,
+.container.typo-minimal.wysiwyg-v2 .ProseMirror {
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+  font-size: 15px;
+  line-height: 1.75;
+}
+.container.typo-minimal .preview-body h1,
+.container.typo-minimal .preview-body h2 { border-bottom: none; padding-bottom: 0; font-weight: 600; }
+.container.typo-minimal .preview-body h1 { font-size: 1.75em; }
+.container.typo-minimal .preview-body h2 { font-size: 1.4em; }
+.container.typo-minimal .preview-body h3 { font-size: 1.15em; font-weight: 600; }
+.container.typo-minimal .preview-body blockquote { border-left: 2px solid #e5e7eb; background: transparent; padding: 0.5em 1em; }
+.container.typo-minimal .preview-body pre { border-radius: 4px; }
+.container.typo-minimal .preview-body :not(pre) > code { background: #f3f4f6; border: none; }
+
 /* Markdown 风格：GitHub 风（轻微调整以更接近 GitHub 渲染） */
 .container.md-github .preview h1,
 .container.md-github .preview h2 { border-bottom-color: #e5e7eb; }
@@ -2232,6 +2280,55 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 
 /* Markdown 风格：终端风（已移除） */
 
+/* Markdown 风格：Typora 风（简洁优雅、强调内容） */
+.container.md-typora .preview h1,
+.container.md-typora .preview h2 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+.container.md-typora .preview h1 { font-size: 2em; font-weight: 600; }
+.container.md-typora .preview h2 { font-size: 1.5em; font-weight: 600; }
+.container.md-typora .preview pre { background: #f6f8fa; border: none; border-radius: 3px; box-shadow: none; }
+.container.md-typora .preview :not(pre) > code { background: #f3f4f6; border: none; border-radius: 3px; padding: 0.2em 0.4em; color: #e83e8c; }
+.container.md-typora .preview blockquote { border-left: 4px solid #dfe2e5; background: transparent; color: #6a737d; }
+.container.md-typora .preview table { border-collapse: collapse; }
+.container.md-typora .preview th,
+.container.md-typora .preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }
+.container.md-typora .preview th { background: #f6f8fa; font-weight: 600; }
+.container.md-typora .preview hr { height: 2px; background: #e1e4e8; border: none; }
+.container.md-typora { --c-key: #d73a49; --c-str: #032f62; --c-num: #005cc5; --c-fn: #6f42c1; --c-com: #6a737d; }
+
+/* Markdown 风格：Obsidian 风（深色调、紫色强调） */
+.container.md-obsidian .preview h1,
+.container.md-obsidian .preview h2 { border-bottom: none; }
+.container.md-obsidian .preview h1 { font-size: 2em; font-weight: 700; color: #7c3aed; }
+.container.md-obsidian .preview h2 { font-size: 1.6em; font-weight: 600; color: #6d28d9; }
+.container.md-obsidian .preview h3 { font-size: 1.3em; font-weight: 600; color: #5b21b6; }
+.container.md-obsidian .preview a { color: #7c3aed; }
+.container.md-obsidian .preview a:hover { color: #6d28d9; }
+.container.md-obsidian .preview pre { background: #1e1e2e; border: none; border-radius: 6px; }
+.container.md-obsidian .preview pre code { color: #cdd6f4; }
+.container.md-obsidian .preview :not(pre) > code { background: #f3e8ff; border: none; border-radius: 4px; color: #7c3aed; }
+.container.md-obsidian .preview blockquote { border-left: 3px solid #7c3aed; background: rgba(124, 58, 237, 0.05); }
+.container.md-obsidian .preview table th { background: rgba(124, 58, 237, 0.1); }
+.container.md-obsidian .preview mark { background: #fef08a; }
+.container.md-obsidian { --c-key: #cba6f7; --c-str: #a6e3a1; --c-num: #fab387; --c-fn: #89b4fa; --c-com: #6c7086; }
+
+/* Markdown 风格：Bear 风（红色标题、优雅极简） */
+.container.md-bear .preview h1,
+.container.md-bear .preview h2 { border-bottom: none; padding-bottom: 0; }
+.container.md-bear .preview h1 { font-size: 2em; font-weight: 700; color: #e53935; }
+.container.md-bear .preview h2 { font-size: 1.5em; font-weight: 600; color: #d32f2f; }
+.container.md-bear .preview h3 { font-size: 1.25em; font-weight: 600; color: #c62828; }
+.container.md-bear .preview a { color: #e53935; text-decoration: none; }
+.container.md-bear .preview a:hover { text-decoration: underline; }
+.container.md-bear .preview pre { background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; box-shadow: none; }
+.container.md-bear .preview :not(pre) > code { background: #fff3e0; border: none; border-radius: 4px; color: #e65100; }
+.container.md-bear .preview blockquote { border-left: 3px solid #e53935; background: rgba(229, 57, 53, 0.04); font-style: italic; }
+.container.md-bear .preview table { border-collapse: collapse; border-radius: 8px; overflow: hidden; }
+.container.md-bear .preview th,
+.container.md-bear .preview td { border: 1px solid #f0f0f0; padding: 10px 14px; }
+.container.md-bear .preview th { background: #fafafa; font-weight: 600; }
+.container.md-bear .preview hr { height: 1px; background: #e0e0e0; border: none; }
+.container.md-bear { --c-key: #e53935; --c-str: #43a047; --c-num: #fb8c00; --c-fn: #8e24aa; --c-com: #78909c; }
+
 /* 所见 V2 映射（卡片风、终端风） */
 .container.md-card.wysiwyg-v2 .ProseMirror pre { background: #ffffff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); --code-pre-pad-y: 18px; padding: var(--code-pre-pad-y) 20px; }
 .container.md-card.wysiwyg-v2 .ProseMirror :not(pre) > code { background: #f7f7f7; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; }
@@ -2245,6 +2342,37 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .container.md-terminal.wysiwyg-v2 .ProseMirror :not(pre) > code {}
 .container.md-terminal.wysiwyg-v2 .ProseMirror th,
 .container.md-terminal.wysiwyg-v2 .ProseMirror td {}
+
+/* 所见 V2 映射：Typora 风 */
+.container.md-typora.wysiwyg-v2 .ProseMirror pre { background: #f6f8fa; border: none; border-radius: 3px; }
+.container.md-typora.wysiwyg-v2 .ProseMirror :not(pre) > code { background: #f3f4f6; border: none; border-radius: 3px; color: #e83e8c; }
+.container.md-typora.wysiwyg-v2 .ProseMirror blockquote { border-left: 4px solid #dfe2e5; background: transparent; }
+.container.md-typora.wysiwyg-v2 .ProseMirror th,
+.container.md-typora.wysiwyg-v2 .ProseMirror td { border: 1px solid #dfe2e5; }
+.container.md-typora.wysiwyg-v2 .ProseMirror th { background: #f6f8fa; }
+
+/* 所见 V2 映射：Obsidian 风 */
+.container.md-obsidian.wysiwyg-v2 .ProseMirror h1 { color: #7c3aed; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror h2 { color: #6d28d9; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror h3 { color: #5b21b6; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror pre { background: #1e1e2e; border: none; border-radius: 6px; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror pre code { color: #cdd6f4; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror :not(pre) > code { background: #f3e8ff; border: none; color: #7c3aed; }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror blockquote { border-left: 3px solid #7c3aed; background: rgba(124, 58, 237, 0.05); }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror th { background: rgba(124, 58, 237, 0.1); }
+.container.md-obsidian.wysiwyg-v2 .ProseMirror a { color: #7c3aed; }
+
+/* 所见 V2 映射：Bear 风 */
+.container.md-bear.wysiwyg-v2 .ProseMirror h1 { color: #e53935; }
+.container.md-bear.wysiwyg-v2 .ProseMirror h2 { color: #d32f2f; }
+.container.md-bear.wysiwyg-v2 .ProseMirror h3 { color: #c62828; }
+.container.md-bear.wysiwyg-v2 .ProseMirror pre { background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; }
+.container.md-bear.wysiwyg-v2 .ProseMirror :not(pre) > code { background: #fff3e0; border: none; color: #e65100; }
+.container.md-bear.wysiwyg-v2 .ProseMirror blockquote { border-left: 3px solid #e53935; background: rgba(229, 57, 53, 0.04); }
+.container.md-bear.wysiwyg-v2 .ProseMirror th,
+.container.md-bear.wysiwyg-v2 .ProseMirror td { border: 1px solid #f0f0f0; }
+.container.md-bear.wysiwyg-v2 .ProseMirror th { background: #fafafa; }
+.container.md-bear.wysiwyg-v2 .ProseMirror a { color: #e53935; }
 
 @media (prefers-color-scheme: dark) {
   .container.md-card .preview pre { background: #0f1114; border-color: #262a33; box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
