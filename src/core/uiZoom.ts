@@ -15,7 +15,7 @@ const PREVIEW_WIDTH_KEY = 'flymd:previewWidth'
 const PREVIEW_WIDTH_DEFAULT = 860
 const PREVIEW_WIDTH_MIN = 600
 const PREVIEW_WIDTH_MAX = 1600
-const PREVIEW_WIDTH_STEP = 40
+export const PREVIEW_WIDTH_STEP = 40
 
 function clamp(n: number, a: number, b: number): number { return Math.max(a, Math.min(b, n)) }
 

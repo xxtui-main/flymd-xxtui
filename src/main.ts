@@ -56,7 +56,7 @@ import { initPlatformIntegration, mobileSaveFile, isMobilePlatform } from './pla
 const APP_VERSION: string = (pkg as any)?.version ?? '0.0.0'
 
 // UI 缩放与预览宽度（已拆分到 core/uiZoom.ts）
-import { getUiZoom, setUiZoom, applyUiZoom, zoomIn, zoomOut, zoomReset, getPreviewWidth, setPreviewWidth, applyPreviewWidth, resetPreviewWidth } from './core/uiZoom'
+import { getUiZoom, setUiZoom, applyUiZoom, zoomIn, zoomOut, zoomReset, getPreviewWidth, setPreviewWidth, applyPreviewWidth, resetPreviewWidth, PREVIEW_WIDTH_STEP } from './core/uiZoom'
 
 type Mode = 'edit' | 'preview'
 type LibSortMode = 'name_asc' | 'name_desc' | 'mtime_asc' | 'mtime_desc'
