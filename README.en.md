@@ -335,6 +335,6 @@ Not yet—`- [ ]` / `- [x]` checkboxes only work in source/preview modes for now
 
 ## Open Source Support
 
-Signing up for OMG (OhMyGPT: a high-quality AI service platform) through this link helps me reduce development costs, and you also get a $20 bonus: [https://x.dogenet.win/i/dXCKvZ6Q](https://x.dogenet.win/i/dXCKvZ6Q)
+Signing up for OMG (OhMyGPT: a high-quality AI service platform) through this link helps me reduce development costs, and you also get a $20 bonus: [OhMyGPT: a high-quality AI service platform](https://x.dogenet.win/i/dXCKvZ6Q)
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />

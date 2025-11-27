@@ -335,6 +335,6 @@ FlyMD 支持通过扩展插件增强功能：
 
 ## 开源不易
 
-通过该链接注册 OMG（OhMyGPT：一个优质的 AI 服务平台）可以帮助我节省开发成本，您也能获得 20 美元赠金：[https://x.dogenet.win/i/dXCKvZ6Q](https://x.dogenet.win/i/dXCKvZ6Q)
+通过该链接注册 OMG（OhMyGPT：一个优质的 AI 服务平台）可以帮助我节省开发成本，您也能获得 20 美元赠金：[OhMyGPT：一个优质的 AI 服务平台](https://x.dogenet.win/i/dXCKvZ6Q)
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />
