@@ -372,6 +372,16 @@ export class TabManager {
   }
 
   /**
+   * 更新指定标签的文件路径（重命名等场景）
+   */
+  updateTabPath(tabId: string, newPath: string): void {
+    const tab = this.findTabById(tabId)
+    if (!tab) return
+    tab.filePath = newPath
+    this.emit({ type: 'tab-updated', tab })
+  }
+
+  /**
    * 标记当前标签为已保存
    */
   markCurrentTabSaved(): void {

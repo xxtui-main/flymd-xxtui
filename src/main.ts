@@ -6507,6 +6507,7 @@ try {
     ;(window as any).flymdOpenFile = openFile2
     ;(window as any).flymdNewFile = newFile
     ;(window as any).flymdSaveFile = saveFile
+    ;(window as any).flymdRenamePathWithDialog = (path: string) => renamePathWithDialog(path)
     // 确认对话框
     ;(window as any).flymdConfirmNative = confirmNative
     // 所见模式内容替换
@@ -7318,6 +7319,64 @@ async function renameFileSafe(p: string, newName: string): Promise<string> {
   await moveFileSafe(p, dst)
   return dst
 }
+
+// 通用重命名帮助函数：弹出对话框并在文件树/当前文档中同步路径
+async function renamePathWithDialog(path: string): Promise<string | null> {
+  try {
+    const base = path.replace(/[\\/][^\\/]*$/, '')
+    const oldFull = path.split(/[\\/]+/).pop() || ''
+    const m = oldFull.match(/^(.*?)(\.[^.]+)?$/)
+    const oldStem = (m?.[1] || oldFull)
+    const oldExt = (m?.[2] || '')
+    const newStem = await openRenameDialog(oldStem, oldExt)
+    if (!newStem || newStem === oldStem) return null
+    const name = newStem + oldExt
+    const dst = base + (base.includes('\\') ? '\\' : '/') + name
+    if (await exists(dst)) {
+      alert('同名已存在')
+      return null
+    }
+    await moveFileSafe(path, dst)
+    if (currentFilePath === path) {
+      currentFilePath = dst as any
+      refreshTitle()
+    }
+    const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null
+    if (treeEl && !fileTreeReady) {
+      await fileTree.init(treeEl, {
+        getRoot: getLibraryRoot,
+        onOpenFile: async (p: string) => { await openFile2(p) },
+        onOpenNewFile: async (p: string) => {
+          await openFile2(p)
+          mode = 'edit'
+          preview.classList.add('hidden')
+          try { (editor as HTMLTextAreaElement).focus() } catch {}
+        },
+        onMoved: async (src: string, dst2: string) => {
+          try {
+            if (currentFilePath === src) {
+              currentFilePath = dst2 as any
+              refreshTitle()
+            }
+          } catch {}
+        }
+      })
+      fileTreeReady = true
+    } else if (treeEl) {
+      await fileTree.refresh()
+    }
+    try {
+      const nodes = Array.from(((document.getElementById('lib-tree') || document.body).querySelectorAll('.lib-node') as any)) as HTMLElement[]
+      const node = nodes.find(n => (n as any).dataset?.path === dst)
+      if (node) node.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    } catch {}
+    return dst
+  } catch (e) {
+    showError('重命名失败', e)
+    return null
+  }
+}
+
 // 安全删除：优先直接删除；若为目录或遇到占用异常，尝试递归删除目录内容后再删
 async function deleteFileSafe(p: string, permanent = false): Promise<void> {
   console.log('[deleteFileSafe] 开始删除:', { path: p, permanent })
@@ -8885,7 +8944,7 @@ function bindEvents() {
       } catch (e) { showError('移动失败', e) }
     }))
     // 重命名操作
-    const doRename = async () => { try { const base = path.replace(/[\\/][^\\/]*$/, ''); const oldFull = path.split(/[\\/]+/).pop() || ''; const m = oldFull.match(/^(.*?)(\.[^.]+)?$/); const oldStem = (m?.[1] || oldFull); const oldExt = (m?.[2] || ''); const newStem = await openRenameDialog(oldStem, oldExt); if (!newStem || newStem === oldStem) return; const name = newStem + oldExt; const dst = base + (base.includes('\\') ? '\\' : '/') + name; if (await exists(dst)) { alert('同名已存在'); return } await moveFileSafe(path, dst); if (currentFilePath === path) { currentFilePath = dst as any; refreshTitle() } const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() }; try { const nodes = Array.from((document.getElementById('lib-tree')||document.body).querySelectorAll('.lib-node') as any) as HTMLElement[]; const node = nodes.find(n => (n as any).dataset?.path === dst); if (node) node.dispatchEvent(new MouseEvent('click', { bubbles: true })) } catch {} } catch (e) { showError('重命名失败', e) } }
+    const doRename = async () => { void renamePathWithDialog(path) }
     // 删除操作
     const doDelete = async () => { try { console.log('[删除] 右键菜单删除, 路径:', path); const confirmMsg = isDir ? '确定删除该文件夹及其所有内容？将移至回收站' : '确定删除该文件？将移至回收站'; const ok = await confirmNative(confirmMsg); console.log('[删除] 用户确认结果:', ok); if (!ok) return; console.log('[删除] 开始删除', isDir ? '文件夹' : '文件'); await deleteFileSafe(path, false); console.log('[删除] 删除完成'); if (currentFilePath === path) { currentFilePath = null as any; if (editor) (editor as HTMLTextAreaElement).value = ''; if (preview) preview.innerHTML = ''; refreshTitle() } const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() } } catch (e) { showError('删除失败', e) } }
     menu.appendChild(mkItem(t('ctx.rename'), doRename))

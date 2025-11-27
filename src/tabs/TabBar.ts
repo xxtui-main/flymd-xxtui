@@ -301,7 +301,8 @@ export class TabBar {
     const menu = document.createElement('div')
     menu.className = 'tabbar-context-menu'
     menu.style.display = 'none'
-    const actions: Array<{ label: string; action: 'close-right' | 'close-others' | 'close-all' }> = [
+    const actions: Array<{ label: string; action: 'rename' | 'close-right' | 'close-others' | 'close-all' }> = [
+      { label: '重命名文档…', action: 'rename' },
       { label: '关闭右侧所有标签', action: 'close-right' },
       { label: '关闭其他标签', action: 'close-others' },
       { label: '关闭所有标签', action: 'close-all' },
@@ -324,10 +325,13 @@ export class TabBar {
   /**
    * 处理上下文菜单动作
    */
-  private async handleContextMenuAction(action: 'close-right' | 'close-others' | 'close-all'): Promise<void> {
+  private async handleContextMenuAction(action: 'rename' | 'close-right' | 'close-others' | 'close-all'): Promise<void> {
     const targetId = this.contextMenuTargetTabId
     this.hideContextMenu()
     switch (action) {
+      case 'rename':
+        if (targetId) await this.renameTabFile(targetId)
+        break
       case 'close-right':
         if (targetId) await this.closeTabsToRight(targetId)
         break
@@ -364,6 +368,28 @@ export class TabBar {
     for (const id of tabIds) {
       const ok = await this.closeTab(id)
       if (!ok) break
+    }
+  }
+
+  private async renameTabFile(tabId: string): Promise<void> {
+    const tab = this.tabManager.findTabById(tabId)
+    if (!tab) return
+    if (!tab.filePath) {
+      alert('当前标签尚未保存为文件，无法重命名。\n请先保存到磁盘后再重命名。')
+      return
+    }
+    const flymd = (window as any)
+    const renameFn = flymd?.flymdRenamePathWithDialog as ((path: string) => Promise<string | null>) | undefined
+    if (typeof renameFn !== 'function') {
+      alert('当前环境不支持从标签栏重命名，请在左侧文件树中重命名。')
+      return
+    }
+    try {
+      const dst = await renameFn(tab.filePath)
+      if (!dst) return
+      this.tabManager.updateTabPath(tabId, dst)
+    } catch (e) {
+      console.error('[TabBar] 重命名文档失败:', e)
     }
   }
 
