@@ -5461,10 +5461,18 @@ body.dark-mode .sticky-color-swatch {
 }
 
 /* 颜色按钮显示完全不透明的颜色，不受便签透明度影响 */
-.sticky-color-swatch.white { background: #ffffff !important; }
-.sticky-color-swatch.gray { background: #e5e7eb !important; }
-.sticky-color-swatch.black { background: #111827 !important; }
-.sticky-color-swatch.yellow { background: #facc15 !important; }
+.sticky-color-swatch.sticky-color-white {
+  background: #ffffff !important;
+  border: 2px solid rgba(0, 0, 0, 0.3) !important; /* 白色按钮加深边框，便于在浅色背景上识别 */
+}
+.sticky-color-swatch.sticky-color-gray { background: #e5e7eb !important; }
+.sticky-color-swatch.sticky-color-black { background: #111827 !important; }
+.sticky-color-swatch.sticky-color-yellow { background: #fcd34d !important; }
+.sticky-color-swatch.sticky-color-pink { background: #fce7f3 !important; }
+.sticky-color-swatch.sticky-color-blue { background: #dbeafe !important; }
+.sticky-color-swatch.sticky-color-green { background: #d1fae5 !important; }
+.sticky-color-swatch.sticky-color-orange { background: #fed7aa !important; }
+.sticky-color-swatch.sticky-color-purple { background: #e9d5ff !important; }
 
 .sticky-color-swatch.active {
   outline: 2px solid #2563eb;

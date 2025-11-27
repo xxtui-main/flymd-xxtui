@@ -60,7 +60,7 @@ import { getUiZoom, setUiZoom, applyUiZoom, zoomIn, zoomOut, zoomReset, getPrevi
 
 type Mode = 'edit' | 'preview'
 type LibSortMode = 'name_asc' | 'name_desc' | 'mtime_asc' | 'mtime_desc'
-type StickyNoteColor = 'white' | 'gray' | 'black' | 'yellow'
+type StickyNoteColor = 'white' | 'gray' | 'black' | 'yellow' | 'pink' | 'blue' | 'green' | 'orange' | 'purple'
 
 // 最近文件最多条数
 const RECENT_MAX = 5
@@ -6864,6 +6864,16 @@ function applyStickyNoteColorToDom(color: StickyNoteColor) {
     fg = '#e5e7eb'                // 浅字色，增强对比度
   } else if (color === 'yellow') {
     rgb = '252, 211, 77'          // 便签黄
+  } else if (color === 'pink') {
+    rgb = '252, 231, 243'         // 粉色
+  } else if (color === 'blue') {
+    rgb = '219, 234, 254'         // 蓝色
+  } else if (color === 'green') {
+    rgb = '209, 250, 229'         // 绿色
+  } else if (color === 'orange') {
+    rgb = '254, 215, 170'         // 橙色
+  } else if (color === 'purple') {
+    rgb = '233, 213, 255'         // 紫色
   }
   root.style.setProperty('--sticky-rgb', rgb)
   if (fg) root.style.setProperty('--sticky-fg', fg)
@@ -6924,7 +6934,12 @@ function toggleStickyColorPicker(btn: HTMLButtonElement) {
     { key: 'white', title: '白色背景' },
     { key: 'gray', title: '灰色背景' },
     { key: 'black', title: '黑色背景' },
-    { key: 'yellow', title: '便签黄背景' }
+    { key: 'yellow', title: '便签黄' },
+    { key: 'pink', title: '粉色' },
+    { key: 'blue', title: '蓝色' },
+    { key: 'green', title: '绿色' },
+    { key: 'orange', title: '橙色' },
+    { key: 'purple', title: '紫色' }
   ]
 
   colors.forEach(({ key, title }) => {
@@ -7274,8 +7289,9 @@ async function enterStickyNoteMode(filePath: string) {
         stickyNoteOpacity = savedOpacity
       }
       const savedColor = await store.get('stickyNoteColor') as string | null
-      if (savedColor === 'white' || savedColor === 'gray' || savedColor === 'black' || savedColor === 'yellow') {
-        stickyNoteColor = savedColor
+      const validColors: StickyNoteColor[] = ['white', 'gray', 'black', 'yellow', 'pink', 'blue', 'green', 'orange', 'purple']
+      if (savedColor && validColors.includes(savedColor as StickyNoteColor)) {
+        stickyNoteColor = savedColor as StickyNoteColor
       }
     }
     // 应用 CSS 变量
