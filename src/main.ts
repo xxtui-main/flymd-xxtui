@@ -6334,7 +6334,7 @@ function createCustomTitleBar() {
 
   // 最大化/还原按钮
   const maxBtn = document.createElement('button')
-  maxBtn.className = 'custom-titlebar-btn'
+  maxBtn.className = 'custom-titlebar-btn custom-titlebar-maximize'
   maxBtn.innerHTML = '＋'
   maxBtn.title = '最大化'
   maxBtn.addEventListener('click', async () => {

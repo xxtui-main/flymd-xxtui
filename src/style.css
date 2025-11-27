@@ -4998,10 +4998,11 @@ body.focus-mode .library .lib-action-btn.active {
   margin-left: 4px;
 }
 
-/* 便签模式下隐藏退出专注模式按钮和最小化按钮 */
+/* 便签模式下隐藏退出专注模式按钮、最小化按钮和最大化按钮 */
 body.sticky-note-mode .custom-titlebar-btn.custom-titlebar-exit-focus,
 body.sticky-note-mode .custom-titlebar-separator,
-body.sticky-note-mode .custom-titlebar-btn.custom-titlebar-minimize {
+body.sticky-note-mode .custom-titlebar-btn.custom-titlebar-minimize,
+body.sticky-note-mode .custom-titlebar-btn.custom-titlebar-maximize {
   display: none !important;
 }
 
@@ -5301,6 +5302,48 @@ body.focus-mode #tabbar-container + .container {
 
 /* ============ 便签模式控制按钮 ============ */
 
+/* 便签模式：完全隐藏侧边栏和切换按钮 */
+body.sticky-note-mode #library,
+body.sticky-note-mode .library,
+body.sticky-note-mode #lib-toggle,
+body.sticky-note-mode .lib-toggle-btn,
+body.sticky-note-mode #lib-edge,
+body.sticky-note-mode .lib-float-toggle {
+  display: none !important;
+}
+
+/* 便签模式：移除容器的侧边栏偏移和间距 */
+body.sticky-note-mode .container,
+body.sticky-note-mode .container.with-library,
+body.sticky-note-mode .container.with-library-left,
+body.sticky-note-mode .container.with-library-right {
+  --gap-left-library: 0px !important;
+  --gap-right-library: 0px !important;
+  --workspace-left-gap: 0px !important;
+  --workspace-right-gap: 0px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* 便签模式：预览区域样式优化 */
+body.sticky-note-mode .preview {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+body.sticky-note-mode .preview,
+body.sticky-note-mode .preview-body,
+body.sticky-note-mode .preview-body p,
+body.sticky-note-mode .preview-body li {
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+body.sticky-note-mode li.task-list-item {
+  margin: 2px 0 !important;
+  padding: 1px 0 !important;
+}
+
 /* 按钮容器 - 窗口顶部中央 */
 .sticky-note-controls {
   position: fixed;
@@ -5317,13 +5360,13 @@ body.sticky-note-mode .sticky-note-controls {
   display: flex;
 }
 
-/* 通用按钮样式 */
+/* 便签模式顶部控制按钮：简洁无背景样式 */
 .sticky-note-btn {
-  background: rgba(127, 127, 127, 0.15);
-  border: 1px solid var(--border);
+  background: none;
+  border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5331,48 +5374,40 @@ body.sticky-note-mode .sticky-note-controls {
   transition: all 0.2s ease;
   color: var(--muted);
   -webkit-app-region: no-drag;
-  backdrop-filter: blur(8px);
+  opacity: 0.5;
 }
 
 .sticky-note-btn:hover {
-  background: rgba(127, 127, 127, 0.25);
+  opacity: 0.9;
   color: var(--fg);
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 /* 激活状态 */
 .sticky-note-btn.active {
-  background: rgba(37, 99, 235, 0.2);
-  border-color: rgba(37, 99, 235, 0.4);
+  opacity: 1;
   color: #2563eb;
 }
 
 .sticky-note-btn.active:hover {
-  background: rgba(37, 99, 235, 0.3);
+  opacity: 1;
 }
 
-/* 深色模式适配 */
+/* 深色/夜间模式适配 */
 @media (prefers-color-scheme: dark) {
   .sticky-note-btn.active {
-    background: rgba(96, 165, 250, 0.2);
-    border-color: rgba(96, 165, 250, 0.4);
     color: #60a5fa;
-  }
-
-  .sticky-note-btn.active:hover {
-    background: rgba(96, 165, 250, 0.3);
   }
 }
 
-/* 夜间模式适配 */
 body.dark-mode .sticky-note-btn.active {
-  background: rgba(96, 165, 250, 0.2);
-  border-color: rgba(96, 165, 250, 0.4);
   color: #60a5fa;
 }
 
-body.dark-mode .sticky-note-btn.active:hover {
-  background: rgba(96, 165, 250, 0.3);
+/* 新建待办按钮（+号）样式调整 */
+.sticky-note-btn:last-child {
+  font-size: 20px;
+  font-weight: 300;
 }
 
 /* 便签模式锁定拖动 */
@@ -5401,12 +5436,24 @@ body.sticky-note-mode .flymd-context-menu .context-menu-icon {
 
 /* ============ 便签模式待办项按钮 ============ */
 
-/* 便签模式下待办项使用flex布局 */
+/* 便签模式下任务列表样式 */
+body.sticky-note-mode .preview-body ul.task-list,
+body.sticky-note-mode .preview-body ol.task-list {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  list-style: none;
+}
+
+/* 便签模式下待办项使用flex布局：内容左对齐，按钮右对齐 */
 body.sticky-note-mode li.task-list-item {
   display: flex;
   align-items: center;
   gap: 8px;
   position: relative;
+  width: 100%;
+  padding: 2px 0;
 }
 
 /* 待办项内容容器（文字部分） */
@@ -5418,13 +5465,14 @@ body.sticky-note-mode li.task-list-item .task-content {
   white-space: nowrap;
 }
 
-/* 待办项按钮容器 */
-.sticky-todo-actions {
+/* 便签模式：待办项按钮容器（右对齐） */
+body.sticky-note-mode .sticky-todo-actions {
   display: inline-flex;
-  gap: 4px;
+  gap: 2px;
   opacity: 1;
   transition: opacity 0.2s ease;
   flex-shrink: 0;
+  align-items: center;
   margin-left: auto;
 }
 
@@ -5446,121 +5494,67 @@ body.sticky-note-mode li.task-list-item:hover .task-time-icon {
   opacity: 0.8;
 }
 
-/* 通用tooltip悬浮窗口样式 */
+/* 便签模式：简洁tooltip样式 */
 body.sticky-note-mode .task-tooltip {
   position: absolute;
-  left: 0;
-  top: calc(100% + 8px);
-  background: rgba(127, 127, 127, 0.7);
+  left: 50%;
+  top: calc(100% + 4px);
+  transform: translateX(-50%) translateY(-2px);
+  background: rgba(0, 0, 0, 0.75);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 10000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  max-width: 300px;
-  word-wrap: break-word;
-  white-space: normal;
-}
-
-/* 添加小箭头 */
-body.sticky-note-mode .task-tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 12px;
-  border: 6px solid transparent;
-  border-bottom-color: rgba(127, 127, 127, 0.7);
+  font-weight: 400;
 }
 
 /* 鼠标悬停时显示tooltip */
 body.sticky-note-mode li.task-list-item:hover .task-tooltip {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
-/* 深色模式适配 */
+/* 深色/夜间模式适配 */
 @media (prefers-color-scheme: dark) {
   body.sticky-note-mode .task-tooltip {
-    background: rgba(60, 60, 60, 0.7);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  body.sticky-note-mode .task-tooltip::after {
-    border-bottom-color: rgba(60, 60, 60, 0.7);
+    background: rgba(255, 255, 255, 0.88);
+    color: #1a1a1a;
   }
 }
 
-/* 夜间模式适配 */
 body.dark-mode.sticky-note-mode .task-tooltip {
-  background: rgba(60, 60, 60, 0.7);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  color: #1a1a1a;
 }
 
-body.dark-mode.sticky-note-mode .task-tooltip::after {
-  border-bottom-color: rgba(60, 60, 60, 0.7);
-}
-
-/* 待办项按钮基础样式 */
-.sticky-todo-btn {
-  background: rgba(127, 127, 127, 0.1);
-  border: 1px solid var(--border);
+/* 便签模式：待办项按钮简洁样式 */
+body.sticky-note-mode .sticky-todo-btn {
+  background: none;
+  border: none;
   border-radius: 4px;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 12px;
+  font-size: 14px;
   padding: 0;
   line-height: 1;
+  opacity: 0.4;
+  color: inherit;
 }
 
-.sticky-todo-btn:hover {
-  background: rgba(127, 127, 127, 0.2);
-  transform: scale(1.1);
-  border-color: var(--fg);
-}
-
-/* 推送按钮特殊样式 */
-.sticky-todo-push-btn:hover {
-  background: rgba(37, 99, 235, 0.15);
-  border-color: rgba(37, 99, 235, 0.4);
-}
-
-/* 提醒按钮特殊样式 */
-.sticky-todo-reminder-btn:hover {
-  background: rgba(234, 88, 12, 0.15);
-  border-color: rgba(234, 88, 12, 0.4);
-}
-
-/* 深色模式适配 */
-@media (prefers-color-scheme: dark) {
-  .sticky-todo-btn {
-    background: rgba(127, 127, 127, 0.15);
-  }
-
-  .sticky-todo-btn:hover {
-    background: rgba(127, 127, 127, 0.25);
-  }
-}
-
-/* 夜间模式适配 */
-body.dark-mode .sticky-todo-btn {
-  background: rgba(127, 127, 127, 0.15);
-}
-
-body.dark-mode .sticky-todo-btn:hover {
-  background: rgba(127, 127, 127, 0.25);
+body.sticky-note-mode .sticky-todo-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.15);
+  background: none;
 }
 
 body.sticky-note-mode .flymd-context-menu .context-menu-note {
