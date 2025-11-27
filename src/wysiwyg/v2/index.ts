@@ -687,8 +687,11 @@ function positionCodeCopyWrap(pre: HTMLElement, wrap: HTMLDivElement, rootRc: DO
     const btn = wrap.querySelector('button.code-copy') as HTMLButtonElement | null
     const btnRc = btn ? btn.getBoundingClientRect() : wrap.getBoundingClientRect()
     const btnW = btnRc.width || btn?.offsetWidth || wrap.offsetWidth || 0
-    const left = Math.max(0, (preRc.left - rootRc.left) + Math.max(0, preRc.width - btnW - 16))
-    const top = Math.max(0, (preRc.top - rootRc.top) + 14)
+    // 获取滚动偏移量，修复按钮定位问题
+    const scrollTop = (_root as HTMLElement)?.scrollTop || 0
+    const scrollLeft = (_root as HTMLElement)?.scrollLeft || 0
+    const left = Math.max(0, (preRc.left - rootRc.left) + Math.max(0, preRc.width - btnW - 16) + scrollLeft)
+    const top = Math.max(0, (preRc.top - rootRc.top) + 14 + scrollTop)
     wrap.style.left = left + 'px'
     wrap.style.top = top + 'px'
   } catch {}
