@@ -2712,19 +2712,22 @@ const aboutBtn = document.createElement('div')
       } catch {}
 }
 const containerEl = document.querySelector('.container') as HTMLDivElement
-// Ctrl/Cmd + 滚轮：缩放/放大编辑、预览、所见模式字号
+// Ctrl/Cmd + 滚轮：缩放/放大编辑、预览、所见模式字号；Shift + 滚轮：调整阅读宽度
 try {
   const wheelZoom = (e: WheelEvent) => {
     try {
-      const dy = e.deltaY || 0
+      const dyRaw = e.deltaY
+      const dxRaw = e.deltaX
+      const dy = (Math.abs(dyRaw) >= Math.abs(dxRaw) ? dyRaw : dxRaw) || 0
       // Ctrl/Cmd + 滚轮：优先处理，避免与其他组合键冲突
       if (e.ctrlKey || e.metaKey) {
+        if (!dy) return
         e.preventDefault()
         if (dy < 0) zoomIn(); else if (dy > 0) zoomOut()
         showZoomBubble()
         return
       }
-      // Shift + 滚轮：调整阅读/所见最大宽度
+      // Shift + 滚轮：调整阅读/所见最大宽度（部分系统下 Shift 会把滚轮映射为横向滚动，需要兼容 deltaX）
       if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
         if (!dy) return
         e.preventDefault()
@@ -7053,6 +7056,25 @@ async function enterStickyNoteMode(filePath: string) {
 
 // ========== 便签模式结束 ==========
 
+// 恢复便签前的窗口大小和位置（供下次正常启动或关闭便签窗口时使用）
+async function restoreWindowStateBeforeSticky(): Promise<void> {
+  try {
+    if (!store) return
+    const saved = await store.get('windowStateBeforeSticky') as { width: number; height: number; x: number; y: number } | null
+    if (!saved || !saved.width || !saved.height) return
+    const win = getCurrentWindow()
+    const { LogicalSize, LogicalPosition } = await import('@tauri-apps/api/dpi')
+    await win.setSize(new LogicalSize(saved.width, saved.height))
+    if (typeof saved.x === 'number' && typeof saved.y === 'number') {
+      await win.setPosition(new LogicalPosition(saved.x, saved.y))
+    }
+    await store.delete('windowStateBeforeSticky')
+    await store.save()
+  } catch (e) {
+    console.warn('[便签模式] 恢复窗口状态失败:', e)
+  }
+}
+
 async function pickLibraryRoot(): Promise<string | null> {
   try {
     const sel = await open({ directory: true, multiple: false } as any)
@@ -9470,6 +9492,10 @@ function bindEvents() {
       }
 
       if (shouldExit) {
+        // 便签模式：关闭前先恢复窗口大小和位置，避免 tauri-plugin-window-state 记住便签的小窗口尺寸
+        if (stickyNoteMode) {
+          try { await restoreWindowStateBeforeSticky() } catch {}
+        }
         await runPortableExportOnExit()
         // 若启用“关闭前同步”，沿用后台隐藏 + 同步 + 退出的策略
         try {
@@ -9750,28 +9776,9 @@ function bindEvents() {
       console.warn('[便签模式] 检测启动参数失败:', e)
     }
 
-    // 非便签模式启动时，检查是否有便签前保存的状态需要恢复
+    // 非便签模式启动时，检查是否有便签前保存的状态需要恢复（若存在则恢复并清除记录）
     if (!isStickyNoteStartup) {
-      // 恢复便签前的窗口状态（大小+位置）
-      try {
-        if (store) {
-          const savedState = await store.get('windowStateBeforeSticky') as { width: number; height: number; x: number; y: number } | null
-          if (savedState && savedState.width && savedState.height) {
-            // 有便签前状态记录：恢复大小和位置，并清除记录
-            const win = getCurrentWindow()
-            const { LogicalSize, LogicalPosition } = await import('@tauri-apps/api/dpi')
-            await win.setSize(new LogicalSize(savedState.width, savedState.height))
-            if (typeof savedState.x === 'number' && typeof savedState.y === 'number') {
-              await win.setPosition(new LogicalPosition(savedState.x, savedState.y))
-            }
-            await store.delete('windowStateBeforeSticky')
-            await store.save()
-          }
-          // 没有便签前状态记录：不干预，让 tauri-plugin-window-state 正常恢复
-        }
-      } catch (e) {
-        console.warn('[启动] 恢复窗口状态失败:', e)
-      }
+      try { await restoreWindowStateBeforeSticky() } catch {}
 
       // 恢复专注模式状态（优先使用便签前记录的状态）
       try {
