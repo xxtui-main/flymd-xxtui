@@ -2,6 +2,13 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.5.1
+- Added: Open collaborative editing support with an open-source FlyMD collaboration server sample (the `OSserver` directory) and the companion "Collaboration (Open Server)" extension, enabling room + password based multi-user editing on your own server (Beta).
+- Added: Plugin host APIs for registering/consuming custom namespaces and listening to source-editor selection changes, providing the foundation for collaboration and other advanced extensions.
+- Improved: File-tree click/double-click integration with the multi-tab system to avoid tab mix-ups or overwritten content when using Ctrl+click or switching libraries.
+- Improved: Editor layout sizing and scrolling logic, fixing cases where repeated Enter presses could push the menubar/tabbar off-screen and where edit/preview area heights were miscalculated.
+- Fixed: Layout glitches where using `Ctrl+Shift+V` to paste long "plain text" could make the menubar/tabbar disappear or become inconsistent.
+
 ## Update v0.5.0
 - Added: Sticky Note mode to open the current document in a compact, dedicated note window that automatically switches to Focus + Reading mode, hides the sidebar, and keeps only the content area—ideal for todos, small reference notes, and ideas that should stay on the desktop.
 - Added: Sticky Note controls with round "Lock position" and "Always on top" buttons, so you can disable window dragging to avoid accidental moves and keep notes floating above other apps.

@@ -80,6 +80,7 @@ Stay connected for the latest updates, preview builds, and tips:
 | **One-Click Publish** | Typecho / WordPress / Halo blog platforms |
 | **AI Assistant Extension** | Writing assistance, polishing, and error correction with Markdown rendering and code highlighting |
 | **Smart Todo Reminder** | Auto-detect TODOs, push via WeChat, SMS, Email, DingTalk, Feishu |
+| **Collaborative Editing (Beta)** | Use the open-source collaboration server + extension to co-edit documents with others on your own server (install the "Collaboration (Open Server)" extension and configure its WebSocket endpoint); to join the official collaboration server beta, join QQ Group `343638913` to request access |
 | **iframe Embedding** | Embed music, videos, maps, online documents |
 | **Selection-Aware AI** | Right-click actions target only selected text for precise editing |
 | **Tabs & Sticky Notes Toolkit** | Tab right-click menu supports opening in a new instance, renaming files, and one-click creating sticky note windows that stay on your desktop |
