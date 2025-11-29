@@ -560,6 +560,19 @@ body {
               inset 0 -30px 50px rgba(0, 0, 0, 0.02);
 }
 
+/* 阅读模式纯白背景：当用户选择“纯白”时，关闭羊皮纸纹理，仅保留纯色背景，保证视觉上是真正的纯白纸面 */
+.container.preview-plain:not(.wysiwyg):not(.wysiwyg-v2) .preview {
+  background-color: var(--preview-bg);
+  background-image: none;
+  box-shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  .container.preview-plain:not(.wysiwyg):not(.wysiwyg-v2) .preview {
+    background-image: none;
+    box-shadow: none;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .container:not(.wysiwyg):not(.wysiwyg-v2) .preview {
     background-image:

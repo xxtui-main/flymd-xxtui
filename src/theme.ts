@@ -84,6 +84,14 @@ export function applyThemePrefs(prefs: ThemePrefs): void {
       c.style.setProperty('--preview-bg', prefs.readBg)
       c.style.setProperty('--wysiwyg-bg', prefs.wysiwygBg)
     }
+
+    // 阅读模式“纯白背景”特殊处理：当阅读背景为纯白且非夜间模式时，移除羊皮纸纹理，让预览真正呈现纯白纸面
+    try {
+      const readColor = (prefs.readBg || '').trim().toLowerCase()
+      const isPureWhite = readColor === '#ffffff' || readColor === '#fff'
+      c.classList.toggle('preview-plain', !isDarkMode && isPureWhite)
+    } catch {}
+
     // 字体变量（为空则移除，回退默认）
     try {
       const bodyFont = (prefs.bodyFont || '').trim()
