@@ -24,7 +24,9 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/77b207ab-ee59-4362-ae11-27c95d0732b8" alt="FlyMD Preview" />
+  <img src="https://github.com/user-attachments/assets/f007f4cd-4c3f-46f7-8080-72e2128990e1" alt="FlyMD main interface" width="32%" />
+  <img src="https://github.com/user-attachments/assets/391ef7ec-9741-4c3e-b5ef-b8573ebf021c" alt="Library and multi-pane layout" width="32%" />
+  <img src="https://github.com/user-attachments/assets/2d84d6fe-623b-48cf-8d6f-3e925a9d6b12" alt="AI assistant and sticky notes" width="32%" />
 </p>
 
 ---
@@ -99,6 +101,7 @@ Stay connected for the latest updates, preview builds, and tips:
 
 - **Cross-Platform**: Windows / Linux / macOS
 - **Multi-Format Export**: PDF / DOCX
+> ⚠️ Linux tip: On Arch / Manjaro and other Arch-based distributions, the AppImage may show white/blank screens due to WebKitGTK or GPU driver issues. It is recommended to convert the `.deb` package into a pacman package via debtap / PKGBUILD instead; see [Arch installation & troubleshooting guide](arch.md) for details.
 
 ### 🔐 Security & Performance
 
