@@ -9348,20 +9348,6 @@ function bindEvents() {
         }
       }))
       menu.appendChild(mkItem(t('ctx.newFolder'), async () => { try { await newFolderSafe(path); const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() }; const n2 = Array.from((document.getElementById('lib-tree')||document.body).querySelectorAll('.lib-node.lib-dir') as any).find((n:any) => n.dataset?.path === path); if (n2 && !n2.classList.contains('expanded')) { n2.dispatchEvent(new MouseEvent('click', { bubbles: true })) } } catch (e) { showError('新建文件夹失败', e) } }))
-      menu.appendChild(mkItem(t('ctx.customIcon'), async () => {
-        try {
-          const folderName = path.split(/[\\/]+/).pop() || '文件夹'
-          const choice = await folderIconModal(folderName, FOLDER_ICONS)
-          if (choice !== null) {
-            const customIcons = JSON.parse(localStorage.getItem('flymd:folderIcons') || '{}')
-            customIcons[path] = FOLDER_ICONS[choice]
-            localStorage.setItem('flymd:folderIcons', JSON.stringify(customIcons))
-            // 刷新文件树以显示新图标
-            const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null
-            if (treeEl) await fileTree.refresh()
-          }
-        } catch (e) { console.error('设置图标失败:', e) }
-      }))
     }
     // 拖拽托底：右键"移动到…"以便选择目标目录
     menu.appendChild(mkItem(t('ctx.moveTo'), async () => {

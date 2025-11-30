@@ -161,14 +161,14 @@ function toMtimeMs(meta: any): number {
 }
 
 async function listDir(root: string, dir: string): Promise<{ name: string; path: string; isDir: boolean }[]> {
-  const items: { name: string; path: string; isDir: boolean; mtime?: number }[] = []
+  const items: { name: string; path: string; isDir: boolean; mtime?: number; ext?: string }[] = []
   let ents: any[] = []
   try { ents = await readDir(dir, { recursive: false } as any) as any[] } catch { ents = [] }
   const dirs: { name: string; path: string; isDir: boolean; mtime?: number }[] = []
   // 仅展示指定后缀的文档（md / markdown / txt / pdf）
   const allow = new Set(['md', 'markdown', 'txt', 'pdf'])
   for (const it of ents) {
-  const needMtime = (state.sortMode === 'mtime_asc' || state.sortMode === 'mtime_desc')
+    const needMtime = (state.sortMode === 'mtime_asc' || state.sortMode === 'mtime_desc')
     const p: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
     let isDir = !!(it as any)?.isDirectory
     let st: any = null
@@ -186,19 +186,31 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
     } else {
       const nm = nameOf(p)
       const ext = (nm.split('.').pop() || '').toLowerCase()
-       if (allow.has(ext)) items.push({ name: nm, path: p, isDir: false, mtime: needMtime ? toMtimeMs(st) : undefined })
+      if (allow.has(ext)) {
+        items.push({ name: nm, path: p, isDir: false, mtime: needMtime ? toMtimeMs(st) : undefined, ext })
+      }
     }
   }
+  const isPdf = (e: any) => (e.ext || '').toLowerCase() === 'pdf'
+  const pdfGrouped = (base: (a: any, b: any) => number) => (a: any, b: any) => {
+    const ap = isPdf(a)
+    const bp = isPdf(b)
+    // pdf 永远成组：非 pdf 在前，pdf 在后
+    if (ap && !bp) return 1
+    if (!ap && bp) return -1
+    return base(a, b)
+  }
+
   const byNameAsc = (a: any, b: any) => a.name.localeCompare(b.name)
   const byNameDesc = (a: any, b: any) => -a.name.localeCompare(b.name)
-  const byMtimeAsc = (a: any, b: any) => ((a.mtime ?? 0) - (b.mtime ?? 0))
-  const byMtimeDesc = (a: any, b: any) => ((b.mtime ?? 0) - (a.mtime ?? 0))
+  const byMtimeAsc = (a: any, b: any) => ((a.mtime ?? 0) - (b.mtime ?? 0)) || a.name.localeCompare(b.name)
+  const byMtimeDesc = (a: any, b: any) => ((b.mtime ?? 0) - (a.mtime ?? 0)) || a.name.localeCompare(b.name)
 
-  if (state.sortMode === 'name_asc') { dirs.sort(byNameAsc); items.sort(byNameAsc) }
-  else if (state.sortMode === 'name_desc') { dirs.sort(byNameDesc); items.sort(byNameDesc) }
-  else if (state.sortMode === 'mtime_asc') { dirs.sort(byMtimeAsc); items.sort(byMtimeAsc) }
-  else if (state.sortMode === 'mtime_desc') { dirs.sort(byMtimeDesc); items.sort(byMtimeDesc) }
-  else { dirs.sort(byNameAsc); items.sort(byNameAsc) }
+  if (state.sortMode === 'name_asc') { dirs.sort(byNameAsc); items.sort(pdfGrouped(byNameAsc)) }
+  else if (state.sortMode === 'name_desc') { dirs.sort(byNameDesc); items.sort(pdfGrouped(byNameDesc)) }
+  else if (state.sortMode === 'mtime_asc') { dirs.sort(byMtimeAsc); items.sort(pdfGrouped(byMtimeAsc)) }
+  else if (state.sortMode === 'mtime_desc') { dirs.sort(byMtimeDesc); items.sort(pdfGrouped(byMtimeDesc)) }
+  else { dirs.sort(byNameAsc); items.sort(pdfGrouped(byNameAsc)) }
   return [...dirs, ...items]
 }
 
