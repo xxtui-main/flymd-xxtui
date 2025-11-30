@@ -2928,7 +2928,7 @@ async function sendFromInputWithAction(context){
       if (downgradedFromVision) {
         try {
           if (context && context.ui && typeof context.ui.notice === 'function') {
-            context.ui.notice('当前接口可能不支持内嵌图片或图片过大，已自动降级为仅使用文字描述。建议开启图床功能后再使用视觉模式。', 'warn', 4200)
+            context.ui.notice('未开启视觉或模型不支持，已降级为文字描述。纯本地图片可能会因过大引起此报错，建议开启图床功能获得更加体验。', 'warn', 4200)
           }
         } catch {}
       }
