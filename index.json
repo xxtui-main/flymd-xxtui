@@ -96,6 +96,17 @@
         "ref": "xf959211192/telegraph-image-flymd@main",
         "type": "github"
       }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "Typecho 博文管理",
+      "description": "从 Typecho 拉取博文列表并下载为本地 Markdown，支持按时间 / 分类筛选，同时支持从当前文档覆盖远端文章。",
+      "author": "flyMD",
+      "id": "typecho-manager",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/typecho-manager/manifest.json",
+        "type": "manifest"
+      }
     }
   ]
 }
