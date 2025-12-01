@@ -89,6 +89,7 @@ Stay connected for the latest updates, preview builds, and tips:
 | **Tabs & Sticky Notes Toolkit** | Tab right-click menu supports opening in a new instance, renaming files, and one-click creating sticky note windows that stay on your desktop |
 
 > 💡 The AI Assistant extension installs silently on first launch. If you uninstall it, FlyMD will never auto-install it again.
+> ⚠️ The built-in AI models are designed to lower the barrier to using AI so more people can benefit from its convenience and efficiency. To keep the writing experience stable for everyone, FlyMD applies strict rate limits to these built-in models—please do not abuse this free quota.
 
 ### Smart Document Recognition & Desktop Sticky Notes
 
