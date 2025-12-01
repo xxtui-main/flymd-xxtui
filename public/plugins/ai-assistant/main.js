@@ -1376,18 +1376,31 @@ async function refreshHeader(context){
       }
     }
   } catch {}
-  // Omin 视觉模型：若当前已选择且尚未提示过，则在会话中发送一次提示
+  // Omin 视觉模型：若当前已选择且最近一次助手消息不是提示文案，则在会话中发送一次提示
   try {
-    if (isFreeProvider(cfg) && !cfg.qwenOmniHintShown && normalizeFreeModelKey(cfg.freeModel) === 'qwen_omni') {
+    if (isFreeProvider(cfg) && normalizeFreeModelKey(cfg.freeModel) === 'qwen_omni') {
       await ensureSessionForDoc(context)
       const tip = '当前使用的是 Omin 视觉模型：免费体验但每日有用量和速率限制，请按需使用。'
-      pushMsg('assistant', tip)
-      __AI_LAST_REPLY__ = tip
-      const chat = el('ai-chat')
-      if (chat) renderMsgs(chat)
-      try { await syncCurrentSessionToDB(context) } catch {}
-      cfg.qwenOmniHintShown = true
-      await saveCfg(context, cfg)
+      let lastAssistant = null
+      try {
+        const msgs = Array.isArray(__AI_SESSION__?.messages) ? __AI_SESSION__.messages : []
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i] && msgs[i].role === 'assistant') {
+            lastAssistant = msgs[i]
+            break
+          }
+        }
+      } catch {}
+      const lastText = lastAssistant && typeof lastAssistant.content === 'string'
+        ? lastAssistant.content
+        : ''
+      if (!lastText || !lastText.includes('当前使用的是 Omin 视觉模型')) {
+        pushMsg('assistant', tip)
+        __AI_LAST_REPLY__ = tip
+        const chat = el('ai-chat')
+        if (chat) renderMsgs(chat)
+        try { await syncCurrentSessionToDB(context) } catch {}
+      }
     }
   } catch {}
   // 更新工具栏模式切换开关
@@ -2926,8 +2939,8 @@ async function sendFromInputWithAction(context){
       if (isFree) {
         // 免费代理模式：直接走非流式一次性请求，由后端持有真实 Key
         let r = await fetchWithRetry(url, { method: 'POST', headers, body: JSON.stringify({ model: modelId, messages: finalMsgs, stream: false }) })
-        // 如果带图请求被 4xx 拒绝且启用了视觉，则优先尝试将 HTTP 图片 URL 转为 base64 再重试，失败后再降级为纯文本
-        if (usedVision && r && !r.ok && r.status >= 400 && r.status < 500) {
+        // 如果带图请求被拒绝且启用了视觉，则优先尝试将 HTTP 图片 URL 转为 base64 再重试，失败后再降级为纯文本
+        if (usedVision && r && !r.ok && r.status >= 400) {
           let retriedWithBase64 = false
           try {
             const base64Msgs = await convertHttpImageUrlsToDataUrl(finalMsgs)
@@ -2936,7 +2949,7 @@ async function sendFromInputWithAction(context){
               r = await fetchWithRetry(url, { method: 'POST', headers, body: JSON.stringify({ model: modelId, messages: base64Msgs, stream: false }) })
             }
           } catch {}
-          if (!retriedWithBase64 || (r && !r.ok && r.status >= 400 && r.status < 500)) {
+          if (!retriedWithBase64 || (r && !r.ok && r.status >= 400)) {
             try {
               downgradedFromVision = true
               r = await fetchWithRetry(url, { method: 'POST', headers, body: JSON.stringify({ model: modelId, messages: textOnlyMsgs, stream: false }) })
