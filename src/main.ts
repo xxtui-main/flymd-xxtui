@@ -603,6 +603,43 @@ const pluginContextMenuItems: PluginContextMenuItem[] = [] // 所有插件注册
 // 协同/插件增强：选区变化监听与段落装饰（最小侵入）
 type PluginSelectionHandler = (sel: { start: number; end: number; text: string }) => void
 const pluginSelectionHandlers = new Map<string, PluginSelectionHandler>()
+
+// 插件 Panel 布局管理：侧边/底部 Panel 统一推挤编辑区
+type PluginDockSide = 'left' | 'right' | 'bottom'
+type PluginDockPanelState = { pluginId: string; panelId: string; side: PluginDockSide; size: number; visible: boolean }
+type PluginDockPanelHandle = {
+  setVisible: (visible: boolean) => void
+  setSide: (side: PluginDockSide) => void
+  setSize: (size: number) => void
+  update: (opt: { side?: PluginDockSide; size?: number; visible?: boolean }) => void
+  dispose: () => void
+}
+const pluginDockPanels = new Map<string, PluginDockPanelState>()
+
+function getPluginDockKey(pluginId: string, panelId: string): string {
+  return `${pluginId}::${panelId || 'default'}`
+}
+
+function updatePluginDockGaps(): void {
+  try {
+    const container = document.querySelector('.container') as HTMLDivElement | null
+    if (!container) return
+    let left = 0
+    let right = 0
+    let bottom = 0
+    for (const panel of pluginDockPanels.values()) {
+      if (!panel || !panel.visible) continue
+      const size = Math.max(0, Number(panel.size) || 0)
+      if (!size) continue
+      if (panel.side === 'left') left += size
+      else if (panel.side === 'right') right += size
+      else if (panel.side === 'bottom') bottom += size
+    }
+    container.style.setProperty('--dock-left-gap', left > 0 ? `${left}px` : '0px')
+    container.style.setProperty('--dock-right-gap', right > 0 ? `${right}px` : '0px')
+    container.style.setProperty('--dock-bottom-gap', bottom > 0 ? `${bottom}px` : '0px')
+  } catch {}
+}
 let _contextMenuEl: HTMLDivElement | null = null // 当前显示的右键菜单元素
 let _contextMenuKeyHandler: ((e: KeyboardEvent) => void) | null = null
 let _libCtxKeyHandler: ((e: KeyboardEvent) => void) | null = null // 文件树右键菜单的键盘事件处理器
@@ -11414,6 +11451,67 @@ async function activatePlugin(p: InstalledPlugin): Promise<void> {
     invoke,
     openAiWindow,
     getAssetUrl: (relPath: string) => toPluginAssetUrl(pluginAssetsAbs, relPath),
+    layout: {
+      // 注册一个由宿主管理间距的 Panel（如 AI 助手侧边栏/底部面板）
+      registerPanel: (panelId: string, opt: { side: PluginDockSide; size: number; visible?: boolean }): PluginDockPanelHandle => {
+        try {
+          const id = String(panelId || 'default')
+          const key = getPluginDockKey(p.id, id)
+          const side: PluginDockSide = (opt && opt.side) || 'left'
+          const size = Math.max(0, Number(opt && opt.size) || 0)
+          const visible = !!(opt && (typeof opt.visible === 'boolean' ? opt.visible : true))
+          const state: PluginDockPanelState = { pluginId: p.id, panelId: id, side, size, visible }
+          pluginDockPanels.set(key, state)
+          updatePluginDockGaps()
+          const handle: PluginDockPanelHandle = {
+            setVisible(v: boolean) {
+              const cur = pluginDockPanels.get(key)
+              if (!cur) return
+              cur.visible = !!v
+              pluginDockPanels.set(key, cur)
+              updatePluginDockGaps()
+            },
+            setSide(s: PluginDockSide) {
+              const cur = pluginDockPanels.get(key)
+              if (!cur) return
+              cur.side = s
+              pluginDockPanels.set(key, cur)
+              updatePluginDockGaps()
+            },
+            setSize(sz: number) {
+              const cur = pluginDockPanels.get(key)
+              if (!cur) return
+              cur.size = Math.max(0, Number(sz) || 0)
+              pluginDockPanels.set(key, cur)
+              updatePluginDockGaps()
+            },
+            update(opt2: { side?: PluginDockSide; size?: number; visible?: boolean }) {
+              const cur = pluginDockPanels.get(key)
+              if (!cur) return
+              if (opt2.side) cur.side = opt2.side
+              if (typeof opt2.size === 'number') cur.size = Math.max(0, Number(opt2.size) || 0)
+              if (typeof opt2.visible === 'boolean') cur.visible = opt2.visible
+              pluginDockPanels.set(key, cur)
+              updatePluginDockGaps()
+            },
+            dispose() {
+              pluginDockPanels.delete(key)
+              updatePluginDockGaps()
+            }
+          }
+          return handle
+        } catch {
+          const noop: PluginDockPanelHandle = {
+            setVisible: () => {},
+            setSide: () => {},
+            setSize: () => {},
+            update: () => {},
+            dispose: () => {}
+          }
+          return noop
+        }
+      }
+    },
     storage: {
       get: async (key: string) => {
         try { if (!store) return null; const all = (await store.get('plugin:' + p.id)) as any || {}; return all[key] } catch { return null }
@@ -11715,6 +11813,19 @@ async function deactivatePlugin(id: string): Promise<void> {
         pluginContextMenuItems.splice(i, 1)
       }
     }
+  } catch {}
+  // 移除插件注册的布局 Panel
+  try {
+    const keysToDelete: string[] = []
+    for (const [key, panel] of pluginDockPanels.entries()) {
+      if (panel.pluginId === id) {
+        keysToDelete.push(key)
+      }
+    }
+    for (const key of keysToDelete) {
+      pluginDockPanels.delete(key)
+    }
+    updatePluginDockGaps()
   } catch {}
   // 移除插件注册的所有 API
   try {

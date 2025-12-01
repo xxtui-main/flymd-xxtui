@@ -449,12 +449,15 @@ body {
 .container {
   --gap-left-library: 0px;
   --gap-right-library: 0px;
-  --ai-left-gap: 0px;
-  --ai-right-gap: 0px;
-  --ai-left: 300px;
-  --ai-right: 300px;
-  --workspace-left-gap: calc(var(--gap-left-library) + var(--ai-left-gap));
-  --workspace-right-gap: calc(var(--gap-right-library) + var(--ai-right-gap));
+  /* 插件侧边/底部 Panel 推挤间距（包含 AI 助手等） */
+  --ai-left: 300px;   /* 向后兼容旧 AI 助手：左侧宽度 */
+  --ai-right: 300px;  /* 向后兼容旧 AI 助手：右侧宽度 */
+  --dock-left-gap: 0px;
+  --dock-right-gap: 0px;
+  --dock-bottom-gap: 0px;
+  --workspace-left-gap: calc(var(--gap-left-library) + var(--dock-left-gap));
+  --workspace-right-gap: calc(var(--gap-right-library) + var(--dock-right-gap));
+  --workspace-bottom-gap: var(--dock-bottom-gap);
   flex: 1; /* 在flex布局中填充剩余空间 */
   min-height: 0; /* 允许flex子元素正确收缩和滚动 */
   height: calc(100% - 36px);
@@ -502,7 +505,7 @@ body {
   margin-right: auto;
   box-sizing: content-box;
   /* 使用content-box时，高度需要减去上下padding（20px + 40px = 60px） */
-  height: calc(100% - 60px);
+  height: calc(100% - 60px - var(--workspace-bottom-gap, 0px));
   width: min(
     var(--preview-max-width, 860px),
     max(0px, calc(100% - var(--workspace-left-gap, 0px) - var(--workspace-right-gap, 0px)))
@@ -512,7 +515,11 @@ body {
 }
 
 .preview {
-  position: absolute; inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--workspace-bottom-gap, 0px);
   /* 仅显示竖向滚动条，隐藏横向滚动条，避免页面抖动且更清爽 */
   overflow-y: auto; overflow-x: hidden;
   padding-top: 16px;
@@ -1222,8 +1229,9 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 /* 文档库/AI 助手占用空间通过 CSS 变量告知容器 */
 .container.with-library-left { --gap-left-library: 300px; }
 .container.with-library-right { --gap-right-library: 300px; }
-.container.with-ai-left { --ai-left-gap: var(--ai-left, 300px); }
-.container.with-ai-right { --ai-right-gap: var(--ai-right, 300px); }
+/* 兼容旧版 AI 助手：仍可通过类名写入 dock 间距 */
+.container.with-ai-left { --dock-left-gap: var(--ai-left, 300px); }
+.container.with-ai-right { --dock-right-gap: var(--ai-right, 300px); }
 
 .statusbar {
   position: absolute;
