@@ -997,9 +997,284 @@ async function downloadSinglePost(context, post) {
     const msg = e && e.message ? e.message : String(e || '未知错误')
     try { context.ui.notice('下载文章失败：' + msg, 'err', 3200) } catch {}
   }
-}
+  }
+  
+  // ---- YAML 工具：根据 meta 构造 Front Matter ----
 
-// ---- 发布 / 更新：使用当前文档覆盖远端 ----
+  function buildYamlFromMeta(meta) {
+    const fmLines = []
+
+    const writeEntry = (k, v) => {
+      if (v === undefined || v === null || v === '') return
+      if (Array.isArray(v)) {
+        if (!v.length) return
+        fmLines.push(`${k}:`)
+        for (const it of v) {
+          if (it === undefined || it === null || it === '') continue
+          fmLines.push(`  - "${String(it).replace(/"/g, '\\"')}"`)
+        }
+      } else {
+        let s = String(v)
+        if (!s.length) return
+        if (/[#:?\-&*!\[\]{},>|'%@`]/.test(s) || /\s/.test(s)) {
+          s = `"${s.replace(/"/g, '\\"')}"`
+        }
+        fmLines.push(`${k}: ${s}`)
+      }
+    }
+
+    const preferOrder = [
+      'title',
+      'typechoId',
+      'typechoSlug',
+      'typechoUpdatedAt',
+      'categories',
+      'tags',
+      'status',
+      'source'
+    ]
+
+    if (meta && typeof meta === 'object') {
+      for (const k of preferOrder) {
+        if (Object.prototype.hasOwnProperty.call(meta, k)) {
+          writeEntry(k, meta[k])
+        }
+      }
+      for (const k of Object.keys(meta)) {
+        if (preferOrder.indexOf(k) !== -1) continue
+        writeEntry(k, meta[k])
+      }
+    }
+
+    return fmLines.join('\n')
+  }
+
+  // ---- 发布前选项：JS 弹窗（分类 / 状态 / 时间 / slug / 头图） ----
+
+  async function openPublishOptionsDialog(context, opts) {
+    ensureStyle()
+
+    const meta = opts || {}
+    const metaCats = Array.isArray(meta.categories) ? meta.categories : []
+    const selectedSet = new Set(
+      metaCats.map((x) => String(x || '').trim()).filter(Boolean)
+    )
+
+    let knownCats = Array.isArray(sessionState.categories) ? sessionState.categories.slice() : []
+    if ((!knownCats || !knownCats.length) && Array.isArray(sessionState.posts) && sessionState.posts.length) {
+      knownCats = extractCategoriesFromPosts(sessionState.posts)
+    }
+
+    const formatDateTimeLocal = (d) => {
+      if (!d) return ''
+      try {
+        const dt = d instanceof Date ? d : new Date(d)
+        if (!dt || isNaN(dt.getTime())) return ''
+        const y = dt.getFullYear()
+        const m = pad2(dt.getMonth() + 1)
+        const day = pad2(dt.getDate())
+        const h = pad2(dt.getHours())
+        const mi = pad2(dt.getMinutes())
+        return `${y}-${m}-${day}T${h}:${mi}`
+      } catch {
+        return ''
+      }
+    }
+
+    const initialStatusDraft = !!meta.draft
+    const initialStatus = initialStatusDraft ? 'draft' : 'publish'
+    const initialSlug = String(meta.slug || '').trim()
+    const initialCover = String(meta.cover || '').trim()
+    const initialDate = meta.date instanceof Date ? meta.date : (meta.date ? new Date(meta.date) : new Date())
+
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div')
+      overlay.className = 'tm-typecho-settings-overlay'
+
+      const dlg = document.createElement('div')
+      dlg.className = 'tm-typecho-settings-dialog'
+      overlay.appendChild(dlg)
+
+      const header = document.createElement('div')
+      header.className = 'tm-typecho-settings-header'
+      header.textContent = meta.cid
+        ? `更新 Typecho 文章（ID=${meta.cid}）`
+        : '发布新文章到 Typecho'
+      dlg.appendChild(header)
+
+      const body = document.createElement('div')
+      body.className = 'tm-typecho-settings-body'
+      dlg.appendChild(body)
+
+      const rows = {}
+      const addRow = (labelText, inputEl) => {
+        const row = document.createElement('div')
+        row.className = 'tm-typecho-settings-row'
+        const lab = document.createElement('div')
+        lab.className = 'tm-typecho-settings-label'
+        lab.textContent = labelText
+        row.appendChild(lab)
+        row.appendChild(inputEl)
+        body.appendChild(row)
+      }
+
+      // 分类多选
+      const catContainer = document.createElement('div')
+      catContainer.style.display = 'flex'
+      catContainer.style.flexWrap = 'wrap'
+      catContainer.style.gap = '6px'
+      catContainer.style.minHeight = '24px'
+
+      if (knownCats && knownCats.length) {
+        for (const c of knownCats) {
+          const name = String(c || '').trim()
+          if (!name) continue
+          const lab = document.createElement('label')
+          lab.style.display = 'flex'
+          lab.style.alignItems = 'center'
+          lab.style.gap = '4px'
+          lab.style.padding = '2px 6px'
+          lab.style.borderRadius = '999px'
+          lab.style.border = '1px solid var(--border)'
+
+          const cb = document.createElement('input')
+          cb.type = 'checkbox'
+          cb.dataset.cat = name
+          cb.checked = selectedSet.has(name)
+
+          const span = document.createElement('span')
+          span.textContent = name
+
+          lab.appendChild(cb)
+          lab.appendChild(span)
+          catContainer.appendChild(lab)
+        }
+      } else {
+        const span = document.createElement('span')
+        span.style.fontSize = '12px'
+        span.style.color = 'var(--muted)'
+        span.textContent = '未获取到远端分类，将直接使用文档中的分类'
+        catContainer.appendChild(span)
+      }
+      addRow('分类（多选）', catContainer)
+
+      const catHint = document.createElement('div')
+      catHint.style.fontSize = '11px'
+      catHint.style.color = 'var(--muted)'
+      catHint.textContent = '若不选任何分类，则保留当前文档中的 categories 设置。'
+      body.appendChild(catHint)
+
+      // 发布状态
+      const statusWrap = document.createElement('div')
+      statusWrap.style.display = 'flex'
+      statusWrap.style.gap = '12px'
+      const stPub = document.createElement('label')
+      const stPubRadio = document.createElement('input')
+      stPubRadio.type = 'radio'
+      stPubRadio.name = 'tm-typecho-status'
+      stPubRadio.value = 'publish'
+      stPubRadio.checked = initialStatus === 'publish'
+      stPub.appendChild(stPubRadio)
+      stPub.appendChild(document.createTextNode('发布'))
+      const stDraft = document.createElement('label')
+      const stDraftRadio = document.createElement('input')
+      stDraftRadio.type = 'radio'
+      stDraftRadio.name = 'tm-typecho-status'
+      stDraftRadio.value = 'draft'
+      stDraftRadio.checked = initialStatus === 'draft'
+      stDraft.appendChild(stDraftRadio)
+      stDraft.appendChild(document.createTextNode('草稿'))
+      statusWrap.appendChild(stPub)
+      statusWrap.appendChild(stDraft)
+      addRow('发布状态', statusWrap)
+
+      // 发布时间
+      const inputDate = document.createElement('input')
+      inputDate.type = 'datetime-local'
+      inputDate.className = 'tm-typecho-settings-input'
+      inputDate.value = formatDateTimeLocal(initialDate)
+      addRow('发布时间', inputDate); rows.date = inputDate
+
+      // 自定义 slug
+      const inputSlug = document.createElement('input')
+      inputSlug.type = 'text'
+      inputSlug.className = 'tm-typecho-settings-input'
+      inputSlug.placeholder = '留空则使用 Typecho 默认规则'
+      inputSlug.value = initialSlug
+      addRow('自定义 slug', inputSlug); rows.slug = inputSlug
+
+      // 头图地址
+      const inputCover = document.createElement('input')
+      inputCover.type = 'text'
+      inputCover.className = 'tm-typecho-settings-input'
+      inputCover.placeholder = '可选：文章头图 URL（例如 https://.../cover.jpg）'
+      inputCover.value = initialCover
+      addRow('头图地址', inputCover); rows.cover = inputCover
+
+      const footer = document.createElement('div')
+      footer.className = 'tm-typecho-settings-footer'
+
+      const btnCancel = document.createElement('button')
+      btnCancel.className = 'tm-typecho-btn'
+      btnCancel.textContent = '取消'
+
+      const btnOk = document.createElement('button')
+      btnOk.className = 'tm-typecho-btn primary'
+      btnOk.textContent = meta.cid ? '更新文章' : '发布文章'
+
+      footer.appendChild(btnCancel)
+      footer.appendChild(btnOk)
+      dlg.appendChild(footer)
+
+      const cleanup = (result) => {
+        if (overlay && overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay)
+        }
+        resolve(result)
+      }
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) cleanup(null)
+      })
+
+      btnCancel.addEventListener('click', () => cleanup(null))
+
+      btnOk.addEventListener('click', () => {
+        const chosenCats = []
+        const inputs = catContainer.querySelectorAll('input[type="checkbox"][data-cat]')
+        inputs.forEach((el) => {
+          if (el.checked) {
+            const v = el.getAttribute('data-cat') || ''
+            const s = v.trim()
+            if (s) chosenCats.push(s)
+          }
+        })
+
+        const statusRadio = dlg.querySelector('input[name="tm-typecho-status"]:checked')
+        const st = statusRadio ? statusRadio.value : initialStatus
+
+        const dtString = rows.date.value || ''
+        let dateVal = initialDate
+        if (dtString) {
+          const d = new Date(dtString)
+          if (d && !isNaN(d.getTime())) dateVal = d
+        }
+
+        cleanup({
+          categories: chosenCats,
+          status: st,
+          draft: st === 'draft',
+          date: dateVal,
+          slug: rows.slug.value || '',
+          cover: rows.cover.value || ''
+        })
+      })
+
+      document.body.appendChild(overlay)
+    })
+  }
+  
+  // ---- 发布 / 更新：使用当前文档覆盖远端 ----
 
 async function publishCurrentDocument(context) {
   if (!context) return
@@ -1026,28 +1301,46 @@ async function publishCurrentDocument(context) {
     return
   }
   const cid = meta.typechoId || meta.cid || meta.id
-  if (!cid && cid !== 0) {
-    context.ui.notice('当前文档缺少 typechoId/cid，无法确定远端文章，请先从 Typecho 导入或手动添加。', 'err', 3200)
-    return
-  }
-
+ 
   const title = String(meta.title || '').trim() || '(未命名)'
-  const cats = Array.isArray(meta.categories) ? meta.categories : []
+  let cats = Array.isArray(meta.categories) ? meta.categories : []
   const tagArr = Array.isArray(meta.tags)
     ? meta.tags
     : (Array.isArray(meta.keywords) ? meta.keywords : [])
   const tags = tagArr.map((x) => String(x || '').trim()).filter(Boolean)
   const statusStr = String(meta.status || '').toLowerCase()
-  const draft = meta.draft === true || statusStr === 'draft'
+  let draft = meta.draft === true || statusStr === 'draft'
+  let slug = String(meta.slug || meta.typechoSlug || '').trim()
+  let coverUrl = String(meta.cover || meta.thumbnail || meta.thumb || '').trim()
 
   let dtRaw = meta.dateCreated || meta.date || meta.typechoUpdatedAt || null
   let dt = dtRaw ? new Date(dtRaw) : new Date()
   if (!dt || isNaN(dt.getTime())) dt = new Date()
 
-  const confirmed = await context.ui.confirm(
-    `将使用当前文档内容覆盖 Typecho 上的文章（ID=${cid}，标题=${title}），是否继续？`
-  )
-  if (!confirmed) return
+  // 发布前弹 JS 窗口：分类 / 状态 / 时间 / slug / 头图
+  try {
+    const uiOpts = await openPublishOptionsDialog(context, {
+      cid: cid ? String(cid) : '',
+      title,
+      categories: cats,
+      tags,
+      draft,
+      status: draft ? 'draft' : 'publish',
+      date: dt,
+      slug,
+      cover: coverUrl
+    })
+    if (uiOpts === null) return
+    if (uiOpts) {
+      if (Array.isArray(uiOpts.categories) && uiOpts.categories.length) {
+        cats = uiOpts.categories.map((x) => String(x || '').trim()).filter(Boolean)
+      }
+      if (uiOpts.date instanceof Date) dt = uiOpts.date
+      draft = !!uiOpts.draft
+      if (uiOpts.slug !== undefined) slug = String(uiOpts.slug || '').trim()
+      if (uiOpts.cover !== undefined) coverUrl = String(uiOpts.cover || '').trim()
+    }
+  } catch {}
 
   const postStruct = {
     title,
@@ -1055,24 +1348,67 @@ async function publishCurrentDocument(context) {
     mt_keywords: tags.join(','),
     categories: cats,
     post_type: 'post',
-    wp_slug: meta.slug || meta.typechoSlug || '',
+    wp_slug: slug,
     mt_allow_comments: 1,
-    dateCreated: dt
+    dateCreated: dt,
+    post_status: draft ? 'draft' : 'publish'
+  }
+  if (coverUrl) {
+    postStruct.custom_fields = [
+      { key: 'thumbnail', value: coverUrl },
+      { key: 'thumb', value: coverUrl }
+    ]
   }
 
   try {
-    await xmlRpcCall(context, s, 'metaWeblog.editPost', [
-      String(cid),
-      s.username,
-      s.password,
-      postStruct,
-      !draft
-    ])
-    context.ui.notice('远端文章已更新', 'ok', 2300)
+    if (hasCid) {
+      // 已有远端 ID：执行编辑
+      await xmlRpcCall(context, s, 'metaWeblog.editPost', [
+        String(cid),
+        s.username,
+        s.password,
+        postStruct,
+        !draft
+      ])
+      context.ui.notice('远端文章已更新', 'ok', 2300)
+    } else {
+      // 无远端 ID：执行新建
+      const newCid = await xmlRpcCall(context, s, 'metaWeblog.newPost', [
+        String(s.blogId || '0'),
+        s.username,
+        s.password,
+        postStruct,
+        !draft
+      ])
+      const cidStr = String(newCid)
+      const slug = postStruct.wp_slug || cidStr
+      // 尝试回写 Front Matter：补充 typechoId / typechoSlug / typechoUpdatedAt
+      try {
+        const rawMeta = context.getDocMeta && context.getDocMeta()
+        const meta2 = rawMeta && typeof rawMeta === 'object' ? Object.assign({}, rawMeta) : {}
+        meta2.typechoId = cidStr
+        meta2.typechoSlug = slug
+        meta2.typechoUpdatedAt = dt.toISOString()
+        if (!meta2.title) meta2.title = title
+        if (!meta2.categories) meta2.categories = cats
+        if (!meta2.tags) meta2.tags = tags
+        meta2.slug = slug
+        meta2.status = draft ? 'draft' : 'publish'
+        meta2.dateCreated = dt.toISOString()
+        if (coverUrl && !meta2.cover) meta2.cover = coverUrl
+        const yaml = buildYamlFromMeta(meta2)
+        const docBody = context.getDocBody ? context.getDocBody() : body
+        const newDoc = `---\n${yaml}\n---\n\n${docBody || ''}`
+        context.setEditorValue(newDoc)
+      } catch (e) {
+        console.error('[Typecho Manager] 回写 Front Matter 失败（不影响远端新建）', e)
+      }
+      context.ui.notice('远端文章已创建（CID=' + cidStr + '）', 'ok', 2300)
+    }
   } catch (e) {
     console.error('[Typecho Manager] 发布当前文档失败', e)
     const msg = e && e.message ? e.message : String(e || '未知错误')
-    context.ui.notice('更新远端文章失败：' + msg, 'err', 3200)
+    context.ui.notice('发布/更新远端文章失败：' + msg, 'err', 3200)
   }
 }
 
@@ -1305,7 +1641,7 @@ export async function activate(context) {
     } catch {}
     try {
       const disposePublish = context.addContextMenuItem({
-        label: '发布当前文档到 Typecho',
+        label: '发布到 Typecho',
         icon: '⬆️',
         onClick: () => { void publishCurrentDocument(globalContextRef) }
       })
