@@ -59,6 +59,9 @@ const APP_VERSION: string = (pkg as any)?.version ?? '0.0.0'
 // UI 缩放与预览宽度（已拆分到 core/uiZoom.ts）
 import { getUiZoom, setUiZoom, applyUiZoom, zoomIn, zoomOut, zoomReset, getPreviewWidth, setPreviewWidth, applyPreviewWidth, resetPreviewWidth, PREVIEW_WIDTH_STEP } from './core/uiZoom'
 
+// 滚动条自动隐藏
+import { initAutoHideScrollbar, rescanScrollContainers } from './core/scrollbar'
+
 type Mode = 'edit' | 'preview'
 type LibSortMode = 'name_asc' | 'name_desc' | 'mtime_asc' | 'mtime_desc'
 type StickyNoteColor = 'white' | 'gray' | 'black' | 'yellow' | 'pink' | 'blue' | 'green' | 'orange' | 'purple' | 'red'
@@ -2061,6 +2064,128 @@ function splitYamlFrontMatter(raw: string): { frontMatter: string | null; body: 
   }
 }
 
+// 阅读模式元数据：预览顶部的 Front Matter 简要视图与开关
+let previewMetaVisible = true
+try {
+  const v = localStorage.getItem('flymd:preview:showMeta')
+  if (v === '0' || (v && v.toLowerCase() === 'false')) previewMetaVisible = false
+} catch {}
+
+function setPreviewMetaVisible(v: boolean) {
+  previewMetaVisible = v
+  try { localStorage.setItem('flymd:preview:showMeta', v ? '1' : '0') } catch {}
+}
+
+function parseFrontMatterMeta(fm: string | null): any | null {
+  if (!fm) return null
+  try {
+    let s = String(fm)
+    s = s.replace(/^\uFEFF?---\s*\r?\n?/, '')
+    s = s.replace(/\r?\n---\s*$/, '')
+    const doc = yamlLoad(s)
+    if (!doc || typeof doc !== 'object') return null
+    return doc
+  } catch {
+    return null
+  }
+}
+
+function injectPreviewMeta(container: HTMLDivElement, meta: any | null) {
+  if (!meta || typeof meta !== 'object') return
+  const m: any = meta
+
+  const title = (typeof m.title === 'string' && m.title.trim())
+    || (currentFilePath ? (currentFilePath.split(/[\\/]+/).pop() || '') : '')
+  const cats = Array.isArray(m.categories)
+    ? m.categories.map((x: any) => String(x || '').trim()).filter(Boolean)
+    : (m.category ? [String(m.category || '').trim()] : [])
+  const tags = Array.isArray(m.tags)
+    ? m.tags.map((x: any) => String(x || '').trim()).filter(Boolean)
+    : []
+  const status = typeof m.status === 'string' ? m.status : (m.draft === true ? 'draft' : '')
+  const slug = (m.slug || m.typechoSlug) ? String(m.slug || m.typechoSlug || '') : ''
+  const id = (m.typechoId || m.id || m.cid) ? String(m.typechoId || m.id || m.cid || '') : ''
+  const dateRaw = m.date || m.dateCreated || m.created || m.typechoUpdatedAt || ''
+  const source = typeof m.source === 'string' ? m.source : ''
+
+  const metaRoot = document.createElement('div')
+  metaRoot.className = 'preview-meta'
+  if (!previewMetaVisible) metaRoot.classList.add('collapsed')
+
+  const header = document.createElement('div')
+  header.className = 'preview-meta-header'
+
+  const titleEl = document.createElement('div')
+  titleEl.className = 'preview-meta-title'
+  if (title) titleEl.textContent = title
+
+  const toggleBtn = document.createElement('button')
+  toggleBtn.type = 'button'
+  toggleBtn.className = 'preview-meta-toggle'
+  const syncToggleText = () => {
+    toggleBtn.textContent = previewMetaVisible ? '隐藏元数据' : '显示元数据'
+  }
+  syncToggleText()
+  toggleBtn.addEventListener('click', () => {
+    const now = !previewMetaVisible
+    setPreviewMetaVisible(now)
+    if (now) metaRoot.classList.remove('collapsed')
+    else metaRoot.classList.add('collapsed')
+    syncToggleText()
+  })
+
+  header.appendChild(titleEl)
+  header.appendChild(toggleBtn)
+  metaRoot.appendChild(header)
+
+  const body = document.createElement('div')
+  body.className = 'preview-meta-body'
+
+  const addRow = (label: string, value: string | string[]) => {
+    if (Array.isArray(value)) {
+      if (!value.length) return
+    } else {
+      if (!value || !String(value).trim()) return
+    }
+    const row = document.createElement('div')
+    row.className = 'preview-meta-row'
+    const lab = document.createElement('span')
+    lab.className = 'preview-meta-label'
+    lab.textContent = label
+    row.appendChild(lab)
+    const val = document.createElement('span')
+    val.className = 'preview-meta-value'
+    if (Array.isArray(value)) {
+      for (const it of value) {
+        const chipText = String(it || '').trim()
+        if (!chipText) continue
+        const chip = document.createElement('span')
+        chip.className = 'preview-meta-chip'
+        chip.textContent = chipText
+        val.appendChild(chip)
+      }
+    } else {
+      val.textContent = String(value)
+    }
+    row.appendChild(val)
+    body.appendChild(row)
+  }
+
+  if (cats.length) addRow('分类', cats)
+  if (tags.length) addRow('标签', tags)
+  if (status) addRow('状态', status)
+  if (slug) addRow('Slug', slug)
+  if (id) addRow('ID', id)
+  if (dateRaw) addRow('时间', String(dateRaw))
+  if (source) addRow('来源', source)
+
+  if (body.children.length > 0) {
+    metaRoot.appendChild(body)
+  }
+
+  container.insertBefore(metaRoot, container.firstChild)
+}
+
 // 轻渲染：仅生成安全的 HTML，不执行 Mermaid/代码高亮等重块
 async function renderPreviewLight() {
   await ensureRenderer()
@@ -2397,6 +2522,8 @@ async function setWysiwygEnabled(enable: boolean) {
           }
         } catch {}
         setTimeout(() => setScrollPercent(scrollPercent), 100)
+        // 重新扫描滚动容器（确保 WYSIWYG 的 .scrollView 滚动监听器生效）
+        try { rescanScrollContainers() } catch {}
         return
       } catch (e) {
         console.error('启用所见V2失败，将回退到旧模式', e)
@@ -3872,10 +3999,12 @@ async function renderPreview() {
       } catch {}
     }
   } catch {}
-  // 阅读模式/所见模式预览：渲染时剥离 YAML Front Matter，仅显示正文
+  // 阅读模式/所见模式预览：渲染时剥离 YAML Front Matter，仅显示正文；若存在 Front Matter，则解析用于预览元数据条
+  let previewMeta: any | null = null
   try {
-    const { body } = splitYamlFrontMatter(raw)
-    raw = body
+    const r = splitYamlFrontMatter(raw)
+    previewMeta = parseFrontMatterMeta(r.frontMatter)
+    raw = r.body
   } catch {}
   const html = md!.render(raw)
   // 按需加载 KaTeX 样式：检测渲染结果是否包含 katex 片段
@@ -4060,6 +4189,7 @@ async function renderPreview() {
     } catch {}
     // 一次性替换预览 DOM
     try {
+      try { injectPreviewMeta(buf, previewMeta) } catch {}
       preview.innerHTML = ''
       preview.appendChild(buf)
       try { decorateCodeBlocks(preview) } catch {}
@@ -9987,6 +10117,14 @@ function bindEvents() {
   // 预览滚动也记录阅读位置
   preview.addEventListener('scroll', () => { scheduleSaveDocPos() })
 
+  // ===== 初始化滚动条自动隐藏（支持悬停保持显示） =====
+  try {
+    initAutoHideScrollbar()
+  } catch (err) {
+    console.warn('滚动条自动隐藏初始化失败', err)
+    // 失败不影响应用其他功能
+  }
+
   // 绑定全局点击（图床弹窗测试按钮）
   document.addEventListener('click', async (ev) => {
     const t = ev?.target as HTMLElement
@@ -11931,6 +12069,23 @@ async function activatePlugin(p: InstalledPlugin): Promise<void> {
     },
     exportCurrentToPdf: async (target: string) => {
       try { await exportCurrentDocToPdf(target) } catch (e) { console.error('plugin exportCurrentToPdf 失败', e); throw e }
+    },
+    pickDirectory: async (opt?: { defaultPath?: string }) => {
+      try {
+        if (typeof open !== 'function') {
+          alert('目录选择功能需要在桌面版中使用')
+          return ''
+        }
+        const picked = await open({
+          directory: true,
+          defaultPath: opt && opt.defaultPath ? opt.defaultPath : undefined
+        } as any)
+        const dir = (typeof picked === 'string') ? picked : ((picked as any)?.path || '')
+        return dir ? String(dir) : ''
+      } catch (e) {
+        console.error('plugin pickDirectory 失败', e)
+        return ''
+      }
     },
     pickDocFiles: async (opt?: { multiple?: boolean }) => {
       try {

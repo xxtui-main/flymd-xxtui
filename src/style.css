@@ -110,6 +110,49 @@ body {
   }
 }
 
+/* ===== 滚动条自动隐藏功能 ===== */
+
+/* 隐藏状态：所有滚动条组件透明 */
+body[data-scrollbar-visible="false"] ::-webkit-scrollbar-thumb,
+body[data-scrollbar-visible="false"] ::-webkit-scrollbar-track {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+/* 显示状态：滚动条恢复可见 */
+body[data-scrollbar-visible="true"] ::-webkit-scrollbar-thumb,
+body[data-scrollbar-visible="true"] ::-webkit-scrollbar-track {
+  opacity: 1;
+  transition: opacity 0.15s ease-in;
+}
+
+/* Firefox 兼容：使用透明颜色而非 opacity */
+body[data-scrollbar-visible="false"] .preview,
+body[data-scrollbar-visible="false"] #md-wysiwyg-root,
+body[data-scrollbar-visible="false"] #md-wysiwyg-root .scrollView,
+body[data-scrollbar-visible="false"] .library {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease-out;
+}
+
+body[data-scrollbar-visible="true"] .preview,
+body[data-scrollbar-visible="true"] #md-wysiwyg-root,
+body[data-scrollbar-visible="true"] #md-wysiwyg-root .scrollView,
+body[data-scrollbar-visible="true"] .library {
+  scrollbar-color: rgba(127,127,127,0.4) transparent;
+  transition: scrollbar-color 0.15s ease-in;
+}
+
+/* 暗色模式适配 */
+@media (prefers-color-scheme: dark) {
+  body[data-scrollbar-visible="true"] .preview,
+  body[data-scrollbar-visible="true"] #md-wysiwyg-root,
+  body[data-scrollbar-visible="true"] #md-wysiwyg-root .scrollView,
+  body[data-scrollbar-visible="true"] .library {
+    scrollbar-color: rgba(255,255,255,0.3) transparent;
+  }
+}
+
 /* 全局选中文本样式 */
 ::selection {
   background: rgba(37, 99, 235, 0.25);
@@ -956,6 +999,72 @@ body > .block-menu { display: none !important; }
   padding: 14px 16px 20px 16px; /* 与所见模式保持一致 */
   /* 添加过渡动画，配合侧栏展开 */
   transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.preview-meta {
+  margin: 0 auto 10px auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(127,127,127,0.04);
+  font-size: 12px;
+  color: var(--muted);
+}
+.preview-meta-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.preview-meta-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-meta-toggle {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.preview-meta-toggle:hover {
+  background: rgba(127,127,127,0.08);
+}
+.preview-meta-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.preview-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.preview-meta-label {
+  font-weight: 500;
+}
+.preview-meta-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.preview-meta-chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(127,127,127,0.5);
+  background: rgba(127,127,127,0.08);
+  font-size: 11px;
+  color: var(--fg);
+}
+.preview-meta.collapsed .preview-meta-body {
+  display: none;
 }
 
 /* 文档库侧栏 */
