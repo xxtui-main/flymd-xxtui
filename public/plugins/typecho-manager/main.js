@@ -1313,11 +1313,13 @@ async function publishCurrentDocument(context) {
   let slug = String(meta.slug || meta.typechoSlug || '').trim()
   let coverUrl = String(meta.cover || meta.thumbnail || meta.thumb || '').trim()
 
-  let dtRaw = meta.dateCreated || meta.date || meta.typechoUpdatedAt || null
-  let dt = dtRaw ? new Date(dtRaw) : new Date()
-  if (!dt || isNaN(dt.getTime())) dt = new Date()
-
-  // 发布前弹 JS 窗口：分类 / 状态 / 时间 / slug / 头图
+    let dtRaw = meta.dateCreated || meta.date || meta.typechoUpdatedAt || null
+    let dt = dtRaw ? new Date(dtRaw) : new Date()
+    if (!dt || isNaN(dt.getTime())) dt = new Date()
+  
+    const hasCid = (cid || cid === 0)
+  
+    // 发布前弹 JS 窗口：分类 / 状态 / 时间 / slug / 头图
   try {
     const uiOpts = await openPublishOptionsDialog(context, {
       cid: cid ? String(cid) : '',
