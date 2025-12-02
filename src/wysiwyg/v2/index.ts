@@ -252,11 +252,13 @@ export async function enableWysiwygV2(root: HTMLElement, initialMd: string, onCh
       // 鼠标/光标触发 Mermaid 渲染（非实时）- 注释掉按需渲染，改用全局渲染
       // try { pm.addEventListener('mousemove', (ev) => { try { onPmMouseMove(ev as any) } catch {} }, true) } catch {}
       // try { document.addEventListener('selectionchange', () => { try { onPmSelectionChange() } catch {} }, true) } catch {} 
-      // 双击 KaTeX / Mermaid 进入源码模式
+      // 双击 KaTeX / Mermaid / 图片 进入源码编辑
       try { pm.addEventListener('dblclick', (ev) => {
   const t = ev.target as HTMLElement | null;
-  const hit = t?.closest?.("div[data-type='math_block']") || t?.closest?.("span[data-type='math_inline']");
-  if (hit) { ev.stopPropagation(); try { enterLatexSourceEdit(hit as HTMLElement) } catch {} }
+  const mathHit = t?.closest?.("div[data-type='math_block']") || t?.closest?.("span[data-type='math_inline']");
+  if (mathHit) { ev.stopPropagation(); try { enterLatexSourceEdit(mathHit as HTMLElement) } catch {}; return; }
+  const imgHit = t?.closest?.('img');
+  if (imgHit) { ev.stopPropagation(); try { enterImageSourceEdit(imgHit as HTMLElement) } catch {}; return; }
 }, true) } catch {} 
       try {
         pm.addEventListener('keydown', (ev) => {
@@ -266,6 +268,27 @@ export async function enableWysiwygV2(root: HTMLElement, initialMd: string, onCh
               ev.preventDefault()
               try { ev.stopPropagation() } catch {}
               try { (ev as any).stopImmediatePropagation?.() } catch {}
+            }
+          } catch {}
+        }, true)
+      } catch {}
+      // 所见模式内粘贴 URL：支持和编辑模式一致的“抓取网页标题并插入链接”行为
+      try {
+        pm.addEventListener('paste', (ev: ClipboardEvent) => {
+          try {
+            const dt = ev.clipboardData
+            if (!dt) return
+            const plainText = dt.getData('text/plain') || dt.getData('text') || ''
+            const plainTrim = plainText.trim()
+            let pasteCombo: 'normal' | 'plain' | null = null
+            try {
+              const v = (window as any).__flymdLastPasteCombo
+              pasteCombo = (v === 'normal' || v === 'plain') ? v : null
+              ;(window as any).__flymdLastPasteCombo = null
+            } catch {}
+            if (pasteCombo === 'normal' && plainTrim && /^https?:\/\/[^\s]+$/i.test(plainTrim)) {
+              ev.preventDefault()
+              void handleWysiwygPasteUrl(plainTrim)
             }
           } catch {}
         }, true)
@@ -377,6 +400,50 @@ export async function wysiwygV2ReplaceAll(markdown: string) {
 // - 全部替换：单事务从后往前批量替换，避免位置偏移；
 
 function _getView(): any { try { return (_editor as any)?.ctx?.get?.(editorViewCtx) } catch { return null } }
+// 所见模式内“粘贴 URL 自动抓取标题”逻辑：在 ProseMirror 文档上直接构造/更新链接节点
+async function handleWysiwygPasteUrl(url: string) {
+  const href = String(url || '').trim()
+  if (!href) return
+  const placeholder = '正在抓取title'
+  try { await wysiwygV2ApplyLink(href, placeholder) } catch {}
+  let finalLabel = href
+  try {
+    const fn = (typeof window !== 'undefined') ? (window as any).flymdFetchPageTitle : null
+    if (typeof fn === 'function') {
+      const title = await fn(href)
+      if (title && String(title).trim()) {
+        const safe = String(title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/[\[\]]/g, '\\$&')
+        if (safe) finalLabel = safe
+      }
+    }
+  } catch {}
+  if (!finalLabel || finalLabel === placeholder) return
+  try { updateFirstLinkLabel(placeholder, finalLabel, href) } catch {}
+}
+// 在文档中找到第一个文本为 oldLabel 且 href 匹配的链接，并用 newLabel 替换其文本
+function updateFirstLinkLabel(oldLabel: string, newLabel: string, href: string) {
+  try {
+    const view = _getView()
+    if (!view) return
+    const st = view.state
+    const schema = st.schema as any
+    const linkType = schema?.marks?.link
+    if (!linkType) return
+    let target: { from: number, to: number } | null = null
+    st.doc.descendants((node: any, pos: number) => {
+      if (!node?.isText) return true
+      const text = String(node.text || '')
+      if (text !== oldLabel) return true
+      const hasLink = (node.marks || []).some((m: any) => m.type === linkType && String(m.attrs?.href || '') === href)
+      if (!hasLink) return true
+      target = { from: pos, to: pos + text.length }
+      return false
+    })
+    if (!target) return
+    const tr = st.tr.insertText(newLabel, target.from, target.to).scrollIntoView()
+    view.dispatch(tr)
+  } catch {}
+}
 function exitInlineCodeToRight(focusView = true): boolean {
   try {
     const view = _getView()
@@ -907,6 +974,126 @@ function updateMilkdownMathFromDom(mathEl: HTMLElement, newValue: string) {
     if (!node) return
     const tr = state.tr.replaceRangeWith(from, to, node)
     view.dispatch(tr.scrollIntoView())
+  } catch {}
+}
+// 从图片 DOM 反向更新 Milkdown 文档中的 image 节点
+function updateMilkdownImageFromDom(imgEl: HTMLImageElement, newSrc: string, newAlt: string) {
+  try {
+    const view: any = (_editor as any)?.ctx?.get?.(editorViewCtx)
+    if (!view || !imgEl) return
+    let pos: number | null = null
+    try { pos = view.posAtDOM(imgEl, 0) } catch {}
+    if (pos == null || typeof pos !== 'number') return
+    const state = view.state
+    const $pos = state.doc.resolve(pos)
+    const isImage = (n: any) => !!n && n.type?.name === 'image'
+    let nodePos = pos
+    let node: any = $pos.nodeAfter
+    if (!isImage(node) && $pos.nodeBefore && isImage($pos.nodeBefore)) {
+      node = $pos.nodeBefore
+      nodePos = pos - node.nodeSize
+    }
+    if (!isImage(node)) return
+    const attrs: any = { ...(node.attrs || {}) }
+    const src = String(newSrc || '').trim()
+    if (src) attrs.src = src
+    attrs.alt = String(newAlt || '')
+    const tr = state.tr.setNodeMarkup(nodePos, node.type, attrs, node.marks)
+    view.dispatch(tr.scrollIntoView())
+  } catch {}
+}
+// 图片源码编辑：在所见模式中双击图片，弹出 alt/src 编辑框
+function enterImageSourceEdit(hitEl: HTMLElement) {
+  try {
+    const img = (hitEl.closest('img') as HTMLImageElement) || null
+    if (!img) return
+    const ov = ensureOverlayHost()
+    if (!ov) return
+    const hostRc = (_root as HTMLElement).getBoundingClientRect()
+    const rc = img.getBoundingClientRect()
+    const hostWidth = hostRc.width || 0
+
+    const marginX = 16
+    const baseWidth = rc.width || 0
+    const minWidth = Math.max(320, baseWidth + 40)
+    const maxWidth = Math.max(200, hostWidth - marginX * 2)
+    const finalWidth = Math.min(maxWidth, minWidth)
+
+    const wrap = document.createElement('div')
+    wrap.className = 'ov-image'
+    wrap.style.position = 'absolute'
+    wrap.style.pointerEvents = 'none'
+    const centerX = (rc.left - hostRc.left) + (rc.width / 2)
+    let left = centerX - finalWidth / 2
+    left = Math.max(marginX, Math.min(hostWidth - finalWidth - marginX, left))
+    wrap.style.left = Math.max(0, Math.round(left)) + 'px'
+    wrap.style.top = Math.max(8, Math.round(rc.bottom - hostRc.top + 8)) + 'px'
+    wrap.style.width = Math.max(10, finalWidth) + 'px'
+
+    const inner = document.createElement('div')
+    inner.style.pointerEvents = 'auto'
+    inner.style.background = 'var(--wysiwyg-bg)'
+    inner.style.borderRadius = '4px'
+    inner.style.padding = '6px'
+    inner.style.boxSizing = 'border-box'
+    inner.style.display = 'flex'
+    inner.style.flexDirection = 'column'
+    inner.style.rowGap = '4px'
+
+    const altInput = document.createElement('input')
+    altInput.type = 'text'
+    altInput.value = img.getAttribute('alt') || ''
+    altInput.placeholder = '替换文本（可选）'
+    altInput.style.width = '100%'
+
+    const urlInput = document.createElement('input')
+    urlInput.type = 'text'
+    urlInput.value = img.getAttribute('src') || ''
+    urlInput.placeholder = '图片地址（必填）'
+    urlInput.style.width = '100%'
+
+    const btnRow = document.createElement('div')
+    btnRow.style.display = 'flex'
+    btnRow.style.justifyContent = 'flex-end'
+    btnRow.style.columnGap = '8px'
+
+    const btnCancel = document.createElement('button')
+    btnCancel.type = 'button'
+    btnCancel.textContent = '取消'
+
+    const btnOk = document.createElement('button')
+    btnOk.type = 'button'
+    btnOk.textContent = '确定'
+
+    btnRow.appendChild(btnCancel)
+    btnRow.appendChild(btnOk)
+
+    inner.appendChild(altInput)
+    inner.appendChild(urlInput)
+    inner.appendChild(btnRow)
+    wrap.appendChild(inner)
+    ov.appendChild(wrap)
+
+    const close = () => { try { ov.removeChild(wrap) } catch {} }
+    const apply = () => {
+      const src = urlInput.value.trim()
+      const alt = altInput.value || ''
+      if (!src) { try { urlInput.focus() } catch {}; return }
+      try { updateMilkdownImageFromDom(img, src, alt) } catch {}
+      close()
+    }
+
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') { ev.preventDefault(); close(); return }
+      if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); apply(); return }
+    }
+
+    altInput.addEventListener('keydown', onKey)
+    urlInput.addEventListener('keydown', onKey)
+    btnCancel.addEventListener('click', () => { close() })
+    btnOk.addEventListener('click', () => { apply() })
+
+    setTimeout(() => { try { urlInput.focus(); urlInput.select() } catch {} }, 0)
   } catch {}
 }
 

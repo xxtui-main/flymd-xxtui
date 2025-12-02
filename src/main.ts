@@ -2089,6 +2089,8 @@ function parseFrontMatterMeta(fm: string | null): any | null {
     return null
   }
 }
+// 暴露到全局，供所见模式在粘贴 URL 时复用同一套抓取标题逻辑
+try { (window as any).flymdFetchPageTitle = fetchPageTitle } catch {}
 
 function injectPreviewMeta(container: HTMLDivElement, meta: any | null) {
   if (!meta || typeof meta !== 'object') return
@@ -9980,13 +9982,14 @@ function bindEvents() {
         }
       }
     } catch {}
-    // 记录最近一次 Ctrl/Cmd(+Shift)+V 组合键（仅在编辑器聚焦时生效，用于区分普通粘贴与纯文本粘贴）
+    // 记录最近一次 Ctrl/Cmd(+Shift)+V 组合键（仅在编辑器/所见模式聚焦时生效，用于区分普通粘贴与纯文本粘贴）
     try {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
         const active = document.activeElement as HTMLElement | null
-        _lastPasteCombo = (active === (editor as any))
-          ? (e.shiftKey ? 'plain' : 'normal')
-          : null
+        const inMdEditor = active === (editor as any)
+        const inWysiwyg = !!(active && (active.classList.contains('ProseMirror') || active.closest('.ProseMirror')))
+        _lastPasteCombo = (inMdEditor || inWysiwyg) ? (e.shiftKey ? 'plain' : 'normal') : null
+        try { (window as any).__flymdLastPasteCombo = _lastPasteCombo } catch {}
       }
     } catch {}
     // 编辑快捷键（全局）：插入链接 / 加粗 / 斜体
