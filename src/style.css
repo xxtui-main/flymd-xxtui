@@ -297,18 +297,18 @@ body.compact-titlebar .window-controls {
   position: absolute;
   left: 0;
   top: 0;
-  min-width: 120px;
+  min-width: 200px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 4px 0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 6px 0;
 }
 
 @media (prefers-color-scheme: dark) {
   #plugin-dropdown-panel {
     background: #1e293b;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -320,13 +320,13 @@ body.compact-titlebar .window-controls {
   background: transparent;
   font-size: 14px;
   color: var(--fg);
-  padding: 8px 16px;
+  padding: 6px 12px;
   cursor: pointer;
   display: block;
 }
 
 #plugin-dropdown-panel button:hover:not(:disabled) {
-  background: rgba(127, 127, 127, 0.08);
+  background: rgba(127, 127, 127, 0.12);
 }
 
 #plugin-dropdown-panel button:disabled {

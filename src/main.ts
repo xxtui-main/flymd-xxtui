@@ -1050,7 +1050,7 @@ function positionPluginDropdown(panel: HTMLElement, anchor: HTMLElement) {
       const panelH = panelRect.height || 180
 
       let left = anchorRect.left
-      let top = anchorRect.bottom + 4
+      let top = anchorRect.bottom
 
       // 防止溢出视口
       if (left + panelW + padding > viewportW) {
@@ -1058,7 +1058,7 @@ function positionPluginDropdown(panel: HTMLElement, anchor: HTMLElement) {
       }
       if (left < padding) left = padding
       if (top + panelH + padding > viewportH) {
-        top = anchorRect.top - panelH - 4
+        top = anchorRect.top - panelH
       }
       if (top < padding) top = padding
 
