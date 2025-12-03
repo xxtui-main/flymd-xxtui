@@ -2,6 +2,15 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.5.9
+- Added: Custom color theme controls plus a "parchment" style toggle, making it easier to tune contrast and create long-form reading themes.
+- Improved: Custom colors can now apply globally across the app, and background color layers are simplified so the editor, sidebar and chrome feel more consistent in both light and dark themes; sidebar buttons, the plugin menu and compact title bar window controls are all aligned with the updated visual system.
+- Improved: Removed the native Windows window border so compact title bar mode looks fully integrated with the rest of the UI on Windows.
+- Improved: WebDAV sync now scans directories and transfers files with higher concurrency (up to 8 parallel tasks) and introduces retry with exponential backoff, making sync throughput and reliability more stable on shaky networks.
+- Improved: Switching between Source / WYSIWYG / Reading modes now shows a small notification bubble for the current mode, and all "Edit mode" labels are renamed to "Source mode" to keep terminology consistent.
+- Added: WYSIWYG mode now supports deleting code blocks directly, and nodes that support double-click editing (Mermaid, KaTeX, images) gain dedicated delete buttons for quick cleanup.
+- Fixed: Issues with the KaTeX delete button in WYSIWYG mode and a bug where sidebar buttons did not follow global theme settings.
+
 ## Update v0.5.8
 - Added: Global body font toggle that lets your custom text font apply to the entire UI (menus, buttons, plugin windows) and a shared monospace font variable used by the editor, preview and AI assistant so typography stays consistent across the app.
 - Added: Custom font manager in the theme panel that lists installed fonts and lets you delete them, automatically cleaning up font files, injected styles and any theme preferences that reference removed fonts.
