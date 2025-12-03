@@ -7,7 +7,6 @@
 // - 实现策略：
 //   使用 .container 作用域内的 CSS 变量覆盖（--bg / --wysiwyg-bg / --preview-bg），避免影响标题栏等外围 UI。
 
-export type TypographyId = 'default' | 'serif' | 'modern' | 'reading' | 'academic' | 'compact' | 'elegant' | 'minimal' | 'tech' | 'literary'
 // 运行期依赖（仅在需要时使用）
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile, writeFile, mkdir, exists, remove, BaseDirectory } from '@tauri-apps/plugin-fs'
@@ -22,7 +21,12 @@ export interface ThemePrefs {
   editBgDark?: string
   /** 夜间模式阅读背景 */
   readBgDark?: string
-  typography: TypographyId
+  /** 编辑模式羊皮风格 */
+  parchmentEdit?: boolean
+  /** 阅读模式羊皮风格 */
+  parchmentRead?: boolean
+  /** 所见模式羊皮风格 */
+  parchmentWysiwyg?: boolean
   mdStyle: MdStyleId
   themeId?: string
   /** 自定义正文字体（预览/WYSIWYG 正文），为空则使用默认/排版风格 */
@@ -41,7 +45,6 @@ export interface ThemeDefinition {
   id: string
   label: string
   colors?: Partial<Pick<ThemePrefs, 'editBg' | 'readBg' | 'wysiwygBg'>>
-  typography?: TypographyId
   mdStyle?: MdStyleId
 }
 
@@ -53,7 +56,6 @@ const DEFAULT_PREFS: ThemePrefs = {
   wysiwygBg: getCssVar('--wysiwyg-bg') || '#e9edf5',
   editBgDark: '#0b0c0e',
   readBgDark: '#12100d',
-  typography: 'default',
   mdStyle: 'standard',
 }
 
@@ -119,6 +121,29 @@ function rgbToHex(r: number, g: number, b: number): string {
   const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
   const to2 = (v: number) => clamp(v).toString(16).padStart(2, '0')
   return `#${to2(r)}${to2(g)}${to2(b)}`
+}
+
+/**
+ * 验证十六进制颜色格式（支持 #RGB 和 #RRGGBB）
+ */
+function isValidHexColor(color: string): boolean {
+  const trimmed = color.trim()
+  return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(trimmed)
+}
+
+/**
+ * 标准化十六进制颜色（将 #RGB 转为 #RRGGBB）
+ */
+function normalizeHexColor(color: string): string {
+  const trimmed = color.trim().toUpperCase()
+  if (/^#[0-9A-F]{3}$/.test(trimmed)) {
+    // #RGB → #RRGGBB
+    const r = trimmed[1]
+    const g = trimmed[2]
+    const b = trimmed[3]
+    return `#${r}${r}${g}${g}${b}${b}`
+  }
+  return trimmed
 }
 
 function deriveChromeColors(baseColor: string): { chromeBg: string; chromePanelBg: string } | null {
@@ -259,11 +284,10 @@ export function applyThemePrefs(prefs: ThemePrefs): void {
       }
     } catch {}
 
-    // 排版：通过类名挂到 .container 上，覆盖 .preview-body 与 .ProseMirror
-    c.classList.remove('typo-serif', 'typo-modern', 'typo-reading', 'typo-academic', 'typo-compact', 'typo-elegant', 'typo-minimal', 'typo-tech', 'typo-literary')
-    if (prefs.typography && prefs.typography !== 'default') {
-      c.classList.add(`typo-${prefs.typography}`)
-    }
+    // 羊皮风格：通过类名挂到 .container 上
+    c.classList.toggle('parchment-edit', !!prefs.parchmentEdit)
+    c.classList.toggle('parchment-read', !!prefs.parchmentRead)
+    c.classList.toggle('parchment-wysiwyg', !!prefs.parchmentWysiwyg)
 
     // Markdown 风格类名
     c.classList.remove('md-standard', 'md-github', 'md-notion', 'md-journal', 'md-card', 'md-docs', 'md-typora', 'md-obsidian', 'md-bear', 'md-minimalist')
@@ -472,7 +496,15 @@ function createPanel(): HTMLDivElement {
     <div class="theme-section">
       <div class="theme-title">编辑背景</div>
       <div class="theme-swatches" data-target="edit"></div>
-      <div class="theme-option">
+      <div class="theme-options-row">
+        <label class="theme-checkbox-label">
+          <input type="checkbox" id="parchment-edit-toggle" class="theme-checkbox" />
+          <span>羊皮风格</span>
+        </label>
+        <div class="theme-custom-color-inline">
+          <input type="text" id="custom-color-edit" class="theme-color-input" placeholder="#FFFFFF" maxlength="7" data-target="edit" />
+          <button class="theme-apply-btn" data-target="edit">应用</button>
+        </div>
         <label class="theme-checkbox-label">
           <input type="checkbox" id="grid-bg-toggle" class="theme-checkbox" />
           <span>网格背景</span>
@@ -482,24 +514,29 @@ function createPanel(): HTMLDivElement {
     <div class="theme-section">
       <div class="theme-title">阅读背景</div>
       <div class="theme-swatches" data-target="read"></div>
+      <div class="theme-options-row">
+        <label class="theme-checkbox-label">
+          <input type="checkbox" id="parchment-read-toggle" class="theme-checkbox" />
+          <span>羊皮风格</span>
+        </label>
+        <div class="theme-custom-color-inline">
+          <input type="text" id="custom-color-read" class="theme-color-input" placeholder="#FFFFFF" maxlength="7" data-target="read" />
+          <button class="theme-apply-btn" data-target="read">应用</button>
+        </div>
+      </div>
     </div>
     <div class="theme-section">
       <div class="theme-title">所见背景</div>
       <div class="theme-swatches" data-target="wysiwyg"></div>
-    </div>
-    <div class="theme-section">
-      <div class="theme-title">排版风格</div>
-      <div class="theme-typos">
-        <button class="typo-btn" data-typo="default">标准</button>
-        <button class="typo-btn" data-typo="serif">经典</button>
-        <button class="typo-btn" data-typo="modern">现代</button>
-        <button class="typo-btn" data-typo="reading">阅读</button>
-        <button class="typo-btn" data-typo="academic">学术</button>
-        <button class="typo-btn" data-typo="compact">紧凑</button>
-        <button class="typo-btn" data-typo="elegant">优雅</button>
-        <button class="typo-btn" data-typo="minimal">极简</button>
-        <button class="typo-btn" data-typo="tech">科技</button>
-        <button class="typo-btn" data-typo="literary">文学</button>
+      <div class="theme-options-row">
+        <label class="theme-checkbox-label">
+          <input type="checkbox" id="parchment-wysiwyg-toggle" class="theme-checkbox" />
+          <span>羊皮风格</span>
+        </label>
+        <div class="theme-custom-color-inline">
+          <input type="text" id="custom-color-wysiwyg" class="theme-color-input" placeholder="#FFFFFF" maxlength="7" data-target="wysiwyg" />
+          <button class="theme-apply-btn" data-target="wysiwyg">应用</button>
+        </div>
       </div>
     </div>
     <div class="theme-section">
@@ -568,12 +605,6 @@ function fillSwatches(panel: HTMLElement, prefs: ThemePrefs) {
     }).join('')
   })
 
-  // 排版激活态
-  panel.querySelectorAll('.typo-btn').forEach((b) => {
-    const el = b as HTMLButtonElement
-    const v = el.dataset.typo as TypographyId
-    if (v === prefs.typography) el.classList.add('active'); else el.classList.remove('active')
-  })
   // MD 风格激活态
   panel.querySelectorAll('.md-btn').forEach((b) => {
     const el = b as HTMLButtonElement
@@ -1006,9 +1037,123 @@ export function initThemeUI(): void {
         applyThemePrefs(cur)
         lastSaved = { ...cur }
       })
-      }
+    }
 
-      // 专注模式开关
+    // 羊皮风格开关
+    const parchmentEditToggle = panel.querySelector('#parchment-edit-toggle') as HTMLInputElement | null
+    const parchmentReadToggle = panel.querySelector('#parchment-read-toggle') as HTMLInputElement | null
+    const parchmentWysiwygToggle = panel.querySelector('#parchment-wysiwyg-toggle') as HTMLInputElement | null
+
+    if (parchmentEditToggle) {
+      const cur = loadThemePrefs()
+      parchmentEditToggle.checked = !!cur.parchmentEdit
+      parchmentEditToggle.addEventListener('change', () => {
+        const cur = loadThemePrefs()
+        cur.parchmentEdit = parchmentEditToggle.checked
+        saveThemePrefs(cur)
+        applyThemePrefs(cur)
+        lastSaved = { ...cur }
+      })
+    }
+
+    if (parchmentReadToggle) {
+      const cur = loadThemePrefs()
+      parchmentReadToggle.checked = !!cur.parchmentRead
+      parchmentReadToggle.addEventListener('change', () => {
+        const cur = loadThemePrefs()
+        cur.parchmentRead = parchmentReadToggle.checked
+        saveThemePrefs(cur)
+        applyThemePrefs(cur)
+        lastSaved = { ...cur }
+      })
+    }
+
+    if (parchmentWysiwygToggle) {
+      const cur = loadThemePrefs()
+      parchmentWysiwygToggle.checked = !!cur.parchmentWysiwyg
+      parchmentWysiwygToggle.addEventListener('change', () => {
+        const cur = loadThemePrefs()
+        cur.parchmentWysiwyg = parchmentWysiwygToggle.checked
+        saveThemePrefs(cur)
+        applyThemePrefs(cur)
+        lastSaved = { ...cur }
+      })
+    }
+
+    // 自定义颜色输入框处理
+    const customColorInputs = panel.querySelectorAll('.theme-color-input') as NodeListOf<HTMLInputElement>
+    const applyButtons = panel.querySelectorAll('.theme-apply-btn') as NodeListOf<HTMLButtonElement>
+
+    // 实时验证输入
+    customColorInputs.forEach((input) => {
+      input.addEventListener('input', () => {
+        const value = input.value.trim()
+        if (value && !isValidHexColor(value)) {
+          input.classList.add('invalid')
+        } else {
+          input.classList.remove('invalid')
+        }
+      })
+
+      // 支持回车键应用
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const target = input.dataset.target
+          const applyBtn = Array.from(applyButtons).find(btn => btn.dataset.target === target)
+          if (applyBtn) applyBtn.click()
+        }
+      })
+    })
+
+    // 应用按钮点击事件
+    applyButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.target || 'edit'
+        const inputId = `custom-color-${target}`
+        const input = panel.querySelector(`#${inputId}`) as HTMLInputElement | null
+        if (!input) return
+
+        const color = input.value.trim()
+
+        // 验证颜色格式
+        if (!color) {
+          return  // 空值不处理
+        }
+        if (!isValidHexColor(color)) {
+          alert('请输入有效的十六进制颜色（例如：#FFFFFF 或 #FFF）')
+          input.focus()
+          return
+        }
+
+        // 标准化颜色
+        const normalized = normalizeHexColor(color)
+
+        // 保存到配置
+        const cur = loadThemePrefs()
+        const isDarkMode = document.body.classList.contains('dark-mode')
+
+        if (isDarkMode) {
+          if (target === 'edit') cur.editBgDark = normalized
+          else if (target === 'read') cur.readBgDark = normalized
+        } else {
+          if (target === 'edit') cur.editBg = normalized
+          else if (target === 'read') cur.readBg = normalized
+          else if (target === 'wysiwyg') cur.wysiwygBg = normalized
+        }
+
+        // 应用并保存
+        saveThemePrefs(cur)
+        applyThemePrefs(cur)
+        fillSwatches(panel!, cur)
+        lastSaved = { ...cur }
+
+        // 清空输入框
+        input.value = ''
+        input.classList.remove('invalid')
+      })
+    })
+
+    // 专注模式开关
       const focusToggle = panel.querySelector('#focus-mode-toggle') as HTMLInputElement | null
       if (focusToggle) {
       // 初始化开关状态：同步当前 body 上的 focus-mode 类

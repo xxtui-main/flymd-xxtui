@@ -1898,6 +1898,67 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   border-top: 1px solid rgba(127,127,127,0.1);
 }
 
+/* 主题选项行：并列布局 */
+.theme-options-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* 自定义颜色输入容器：内联布局 */
+.theme-custom-color-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.theme-color-input {
+  flex: 1;
+  min-width: 100px;
+  padding: 5px 8px;
+  border: 1px solid var(--border, rgba(127,127,127,0.2));
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  transition: border-color 0.2s ease;
+}
+
+.theme-color-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.theme-color-input.invalid {
+  border-color: #ef4444;
+}
+
+.theme-apply-btn {
+  padding: 5px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.theme-apply-btn:hover {
+  background: #2563eb;
+}
+
+.theme-apply-btn:active {
+  background: #1d4ed8;
+}
+
 .theme-checkbox-label {
   display: flex;
   align-items: center;
@@ -1906,6 +1967,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   font-size: 13px;
   color: var(--fg);
   user-select: none;
+  white-space: nowrap;
 }
 
 .theme-checkbox {
@@ -2283,140 +2345,18 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   }
 }
 
-/* 主题排版：经典衬线 */
-.container.typo-serif .preview-body,
-.container.typo-serif.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, Georgia, 'Times New Roman', Times, 'Source Han Serif SC', serif);
-  font-size: 17px;
-  line-height: 1.85;
-  letter-spacing: 0.005em;
+/* 羊皮风格：轻微纹理背景 */
+.container.parchment-edit .editor {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%23000' fill-opacity='0.015' d='M0 0h2v2H0z'/%3E%3C/svg%3E");
 }
-.container.typo-serif .preview-body h1,
-.container.typo-serif .preview-body h2 { letter-spacing: 0; }
-.container.typo-serif .preview-body h1 { font-size: 2.3em; }
-.container.typo-serif .preview-body h2 { font-size: 1.9em; }
-.container.typo-serif .preview-body blockquote { font-style: italic; background: rgba(127,127,127,0.05); }
 
-/* 主题排版：现代紧凑 */
-.container.typo-modern .preview-body,
-.container.typo-modern.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, Inter, Roboto, 'Noto Sans', system-ui, -apple-system, Segoe UI, Arial, sans-serif);
-  font-size: 15.5px;
-  line-height: 1.7;
+.container.parchment-read .preview {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%23000' fill-opacity='0.015' d='M0 0h2v2H0z'/%3E%3C/svg%3E");
 }
-.container.typo-modern .preview-body h1,
-.container.typo-modern .preview-body h2 { border-bottom: none; }
-.container.typo-modern .preview-body h1 { font-size: 2em; font-weight: 800; }
-.container.typo-modern .preview-body h2 { font-size: 1.6em; font-weight: 700; }
-.container.typo-modern .preview-body hr { opacity: 0.5; height: 1px; }
 
-/* 主题排版：阅读增强（更大字号/行距） */
-.container.typo-reading .preview-body,
-.container.typo-reading.wysiwyg-v2 .ProseMirror {
-  font-size: 17.5px;
-  line-height: 1.9;
-  letter-spacing: 0.005em;
+.container.parchment-wysiwyg .ProseMirror {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%23000' fill-opacity='0.015' d='M0 0h2v2H0z'/%3E%3C/svg%3E");
 }
-.container.typo-reading .preview-body p,
-.container.typo-reading.wysiwyg-v2 .ProseMirror p { margin: 1.05em 0; }
-
-/* 主题排版：学术风（衬线 + 适度行距 + 较明显标题层级） */
-.container.typo-academic .preview-body,
-.container.typo-academic.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, Cambria, Georgia, 'Times New Roman', Times, 'Source Han Serif SC', serif);
-  font-size: 16.5px;
-  line-height: 1.85;
-}
-.container.typo-academic .preview-body h1 { font-size: 2.4em; font-weight: 700; }
-.container.typo-academic .preview-body h2 { font-size: 2.0em; font-weight: 700; }
-.container.typo-academic .preview-body h3 { font-size: 1.6em; font-weight: 600; }
-.container.typo-academic .preview-body blockquote { border-left-width: 5px; }
-
-/* 主题排版：紧凑风格（更小字号、更紧凑的行距） */
-.container.typo-compact .preview-body,
-.container.typo-compact.wysiwyg-v2 .ProseMirror {
-  font-size: 14px;
-  line-height: 1.6;
-  letter-spacing: 0;
-}
-.container.typo-compact .preview-body p,
-.container.typo-compact.wysiwyg-v2 .ProseMirror p { margin: 0.7em 0; }
-.container.typo-compact .preview-body h1 { font-size: 1.8em; margin: 0.8em 0 0.5em; }
-.container.typo-compact .preview-body h2 { font-size: 1.5em; margin: 0.7em 0 0.4em; }
-.container.typo-compact .preview-body h3 { font-size: 1.25em; margin: 0.6em 0 0.3em; }
-.container.typo-compact .preview-body ul,
-.container.typo-compact .preview-body ol { margin: 0.5em 0; }
-.container.typo-compact .preview-body li { margin: 0.25em 0; }
-
-/* 主题排版：优雅风格（大间距、精致衬线） */
-.container.typo-elegant .preview-body,
-.container.typo-elegant.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, 'Playfair Display', Georgia, 'Source Han Serif SC', serif);
-  font-size: 17px;
-  line-height: 2;
-  letter-spacing: 0.01em;
-}
-.container.typo-elegant .preview-body p,
-.container.typo-elegant.wysiwyg-v2 .ProseMirror p { margin: 1.3em 0; }
-.container.typo-elegant .preview-body h1 { font-size: 2.5em; font-weight: 500; letter-spacing: -0.02em; }
-.container.typo-elegant .preview-body h2 { font-size: 2em; font-weight: 500; letter-spacing: -0.01em; }
-.container.typo-elegant .preview-body h3 { font-size: 1.5em; font-weight: 500; }
-.container.typo-elegant .preview-body blockquote { font-style: italic; border-left: 2px solid rgba(127,127,127,0.3); }
-.container.typo-elegant .preview-body hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, rgba(127,127,127,0.3), transparent); }
-
-/* 主题排版：极简风格（无装饰、干净利落） */
-.container.typo-minimal .preview-body,
-.container.typo-minimal.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
-  font-size: 15px;
-  line-height: 1.75;
-}
-.container.typo-minimal .preview-body h1,
-.container.typo-minimal .preview-body h2 { border-bottom: none; padding-bottom: 0; font-weight: 600; }
-.container.typo-minimal .preview-body h1 { font-size: 1.75em; }
-.container.typo-minimal .preview-body h2 { font-size: 1.4em; }
-.container.typo-minimal .preview-body h3 { font-size: 1.15em; font-weight: 600; }
-.container.typo-minimal .preview-body blockquote { border-left: 2px solid #e5e7eb; background: transparent; padding: 0.5em 1em; }
-.container.typo-minimal .preview-body pre { border-radius: 4px; }
-.container.typo-minimal .preview-body :not(pre) > code { background: #f3f4f6; border: none; }
-
-/* 主题排版：科技风格（等宽标题、现代感） */
-.container.typo-tech .preview-body,
-.container.typo-tech.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
-  font-size: 15.5px;
-  line-height: 1.7;
-  letter-spacing: 0.003em;
-}
-.container.typo-tech .preview-body h1,
-.container.typo-tech .preview-body h2,
-.container.typo-tech .preview-body h3 { font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', Consolas, monospace); font-weight: 700; border-bottom: none; }
-.container.typo-tech .preview-body h1 { font-size: 2em; letter-spacing: -0.02em; color: #2563eb; }
-.container.typo-tech .preview-body h2 { font-size: 1.6em; letter-spacing: -0.01em; color: #3b82f6; }
-.container.typo-tech .preview-body h3 { font-size: 1.3em; color: #60a5fa; }
-.container.typo-tech .preview-body code { font-weight: 500; }
-.container.typo-tech .preview-body pre { border-left: 3px solid #3b82f6; }
-.container.typo-tech .preview-body blockquote { border-left: 3px solid #3b82f6; background: rgba(59, 130, 246, 0.05); }
-
-/* 主题排版：文学风格（优雅衬线、宽松行距） */
-.container.typo-literary .preview-body,
-.container.typo-literary.wysiwyg-v2 .ProseMirror {
-  font-family: var(--font-body, 'Crimson Text', 'Noto Serif SC', Georgia, serif);
-  font-size: 17.5px;
-  line-height: 2;
-  letter-spacing: 0.008em;
-}
-.container.typo-literary .preview-body p,
-.container.typo-literary.wysiwyg-v2 .ProseMirror p { margin: 1.4em 0; text-indent: 2em; }
-.container.typo-literary .preview-body h1,
-.container.typo-literary .preview-body h2,
-.container.typo-literary .preview-body h3 { font-family: var(--font-body, 'Crimson Text', 'Source Han Serif SC', serif); border-bottom: none; text-align: center; }
-.container.typo-literary .preview-body h1 { font-size: 2.2em; font-weight: 600; margin: 1.5em 0 1em; }
-.container.typo-literary .preview-body h2 { font-size: 1.8em; font-weight: 600; margin: 1.3em 0 0.8em; }
-.container.typo-literary .preview-body h3 { font-size: 1.4em; font-weight: 500; margin: 1.1em 0 0.6em; }
-.container.typo-literary .preview-body blockquote { font-style: italic; border-left: none; text-align: center; background: transparent; padding: 1.5em 2em; color: rgba(0,0,0,0.7); }
-.container.typo-literary .preview-body hr { border: none; text-align: center; margin: 2em 0; }
-.container.typo-literary .preview-body hr::after { content: '* * *'; letter-spacing: 1em; }
 
 /* Markdown 风格：GitHub 风（轻微调整以更接近 GitHub 渲染） */
 .container.md-github .preview h1,
