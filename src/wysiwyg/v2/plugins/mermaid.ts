@@ -205,33 +205,7 @@ class MermaidNodeView implements NodeView {
     this.chartContainer.addEventListener('dblclick', (e) => {
       e.stopPropagation()
       e.preventDefault()
-      console.log('[Mermaid Plugin] 双击图表，切换到源代码')
-      // 显示源代码，隐藏图表
-      this.preWrapper.style.display = 'block'
-      // 根据夜间模式设置样式
-      const dark = isDarkMode()
-      this.preWrapper.style.border = dark ? '1px solid #3c3c3c' : '1px solid #ccc'
-      this.preWrapper.style.padding = '8px'
-      this.preWrapper.style.borderRadius = '4px'
-      this.preWrapper.style.background = dark ? '#1e1e1e' : '#fff'
-      this.preWrapper.style.color = dark ? '#d4d4d4' : '#1e1e1e'
-      this.chartContainer.style.display = 'none'
-      this.toolbar.style.display = 'block'
-      // 聚焦到代码编辑区
-      requestAnimationFrame(() => {
-        try {
-          const range = document.createRange()
-          const sel = window.getSelection()
-          if (this.contentDOM && sel) {
-            range.selectNodeContents(this.contentDOM)
-            range.collapse(false)
-            sel.removeAllRanges()
-            sel.addRange(range)
-            // 强制聚焦
-            ;(this.contentDOM as HTMLElement).focus()
-          }
-        } catch {}
-      })
+      this.enterEditMode()
     })
 
     // 按 Escape 键退出源码编辑模式
@@ -259,8 +233,46 @@ class MermaidNodeView implements NodeView {
 
     this.dom.appendChild(this.chartContainer)
 
-    // 初始渲染
-    this.renderChart()
+    // 初始渲染：空内容时自动进入编辑模式
+    const code = this.node.textContent
+    if (!code || !code.trim()) {
+      // 延迟进入编辑模式，确保 DOM 已挂载
+      requestAnimationFrame(() => {
+        this.enterEditMode()
+      })
+    } else {
+      this.renderChart()
+    }
+  }
+
+  private enterEditMode() {
+    console.log('[Mermaid Plugin] 进入源代码编辑模式')
+    // 显示源代码，隐藏图表
+    this.preWrapper.style.display = 'block'
+    // 根据夜间模式设置样式
+    const dark = isDarkMode()
+    this.preWrapper.style.border = dark ? '1px solid #3c3c3c' : '1px solid #ccc'
+    this.preWrapper.style.padding = '8px'
+    this.preWrapper.style.borderRadius = '4px'
+    this.preWrapper.style.background = dark ? '#1e1e1e' : '#fff'
+    this.preWrapper.style.color = dark ? '#d4d4d4' : '#1e1e1e'
+    this.chartContainer.style.display = 'none'
+    this.toolbar.style.display = 'block'
+    // 聚焦到代码编辑区
+    requestAnimationFrame(() => {
+      try {
+        const range = document.createRange()
+        const sel = window.getSelection()
+        if (this.contentDOM && sel) {
+          range.selectNodeContents(this.contentDOM)
+          range.collapse(false)
+          sel.removeAllRanges()
+          sel.addRange(range)
+          // 强制聚焦
+          ;(this.contentDOM as HTMLElement).focus()
+        }
+      } catch {}
+    })
   }
 
   private async renderChart() {

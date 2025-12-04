@@ -563,6 +563,10 @@ function setupBracketPairingForWysiwyg(pm: HTMLElement | null) {
       const state = view.state
       const sel = state.selection
       if (!(sel instanceof TextSelection)) return
+      // 代码块中不做括号自动补全，避免干扰源码输入
+      const parent: any = sel.$from?.parent
+      const typeName: string | undefined = parent?.type?.name
+      if (typeName === 'code_block') return
       const from = sel.from >>> 0
       const to = sel.to >>> 0
 
@@ -619,6 +623,10 @@ function setupBracketPairingForWysiwyg(pm: HTMLElement | null) {
       const state = view.state
       const sel = state.selection
       if (!(sel instanceof TextSelection)) return
+      // 代码块中不做括号自动补全，避免干扰源码输入
+      const parent: any = sel.$from?.parent
+      const typeName: string | undefined = parent?.type?.name
+      if (typeName === 'code_block') return
 
       // 组合输入 + 之前存在选区：环抱补全（ch + 选中文本 + closeCh）
       if (prevSelFrom < prevSelTo && prevSelText) {
@@ -672,6 +680,10 @@ function setupBracketPairingForWysiwyg(pm: HTMLElement | null) {
       const state = view.state
       const sel = state.selection
       if (!(sel instanceof TextSelection)) return
+      // 代码块中不做括号自动补全，避免干扰源码输入
+      const parent: any = sel.$from?.parent
+      const typeName: string | undefined = parent?.type?.name
+      if (typeName === 'code_block') return
       if (!sel.empty) return
 
       const pos = sel.from >>> 0
@@ -1715,9 +1727,19 @@ function enterLatexSourceEdit(hitEl: HTMLElement) {
         apply()
       }
     })
+    // 标记当前是否是点击 Delete 按钮触发的失焦，避免把点击 Delete 误当成“点击外部”而自动保存并关闭
+    let blurFromDeleteClick = false
+    delBtn.addEventListener('mousedown', () => {
+      blurFromDeleteClick = true
+    })
     // 点击其他区域：自动应用当前输入，再关闭编辑框（但点击 Delete 按钮时不关闭）
     ta.addEventListener('blur', (ev) => {
       const related = (ev as FocusEvent).relatedTarget as HTMLElement | null
+      // 某些 WebView 下 relatedTarget 可能拿不到，这里再用标记兜底一次
+      if (blurFromDeleteClick) {
+        blurFromDeleteClick = false
+        return
+      }
       // 如果焦点转移到 Delete 按钮，不关闭，让删除逻辑接管
       if (related && (related === delBtn || related.closest?.('button') === delBtn)) return
       apply()
