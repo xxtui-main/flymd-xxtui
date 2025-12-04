@@ -376,6 +376,6 @@ FlyMD 支持通过扩展插件增强功能：
 
 通过以下链接注册可以帮助我节省开发成本，您也能获得部分赠金：
 
-[OhMyGPT：一个优质的 AI 服务平台](https://x.dogenet.win/i/dXCKvZ6Q) **Gmail和QQ邮箱注册获得20美元赠金**
+[OhMyGPT：一个优质的 AI 服务平台](https://x.dogenet.win/i/dXCKvZ6Q) **使用Google/GitHub OAuth注册登陆获得20美元赠金**
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />

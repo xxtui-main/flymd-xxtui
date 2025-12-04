@@ -375,7 +375,7 @@ These are stable model providers I personally use. Signing up through the follow
 ⭐⭐⭐[PackyCode: Cost-effective Claude, Codex, and Gemini relay service](https://www.packyapi.com/register?aff=Rqk1)
 
 
-[OhMyGPT: A high-quality AI service platform](https://x.dogenet.win/i/dXCKvZ6Q) "Get a $20 bonus by registering with Gmail and QQ Mail."
+[OhMyGPT: A high-quality AI service platform](https://x.dogenet.win/i/dXCKvZ6Q) "Get a $20 bonus by registering with Google/GitHub OAuth"
 **Gmail and QQ email addresses only**
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />
