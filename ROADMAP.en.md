@@ -2,6 +2,15 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.6.0
+- Added: Custom typography controls in the Theme panel (line height, paragraph spacing, content max width and first-line indent), so you can tune the reading/WYSIWYG/source layouts to your own taste.
+- Added: A “Default source mode” toggle; when enabled, flyMD always opens documents in source mode instead of auto-switching to preview.
+- Added: In WYSIWYG mode, automatic pairing / wrapping / paired deletion for both Chinese and Western brackets & quotes, scoped to the ProseMirror view so it does not interfere with source-mode typing.
+- Improved: Typing ``` and pressing Enter in WYSIWYG mode now instantly creates a framed code block with language selector, with better keyboard navigation and more robust handling of $$ math blocks.
+- Improved: First-line indent now only applies to top-level paragraphs, no longer affecting Mermaid diagrams or code blocks; dedicated Mermaid styles in WYSIWYG avoid truncated Chinese labels and layout glitches.
+- Improved: The bracket wrapping logic and caret positioning in WYSIWYG have gone through several refinement rounds, fixing issues like “caret only enters on the first line” and making the editor feel more like a word processor.
+- Fixed: In 0.5.9, window control buttons could disappear when compact titlebar was disabled on some platforms; this has been corrected and an old Win32 style hack removed so titlebar behavior is more predictable.
+
 ## Update v0.5.9
 - Added: Custom color theme controls plus a "parchment" style toggle, making it easier to tune contrast and create long-form reading themes.
 - Improved: Custom colors can now apply globally across the app, and background color layers are simplified so the editor, sidebar and chrome feel more consistent in both light and dark themes; sidebar buttons, the plugin menu and compact title bar window controls are all aligned with the updated visual system.
