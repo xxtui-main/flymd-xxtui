@@ -61,6 +61,13 @@ async function renderMermaid(container: HTMLElement, code: string) {
 
     const id = 'mmd-' + Math.random().toString(36).slice(2)
     const { svg } = await mermaid.render(id, code || '')
+
+    // 如果 mermaid 返回空 SVG，给出友好提示而不是空白
+    if (!svg || !svg.trim()) {
+      container.innerHTML = '无法根据当前 Mermaid 代码渲染出图表，双击此区域重新编辑'
+      return
+    }
+
     // 包装成带工具条的容器
     container.innerHTML = ''
     const wrap = document.createElement('div')
@@ -78,6 +85,10 @@ async function renderMermaid(container: HTMLElement, code: string) {
         }
       } catch {}
       container.appendChild(fig)
+    } else {
+      // 理论上不该出现，但防御性处理：避免空白
+      container.textContent = 'Mermaid 渲染结果为空，双击此区域重新编辑'
+      return
     }
 
     try {
@@ -129,7 +140,8 @@ async function renderMermaid(container: HTMLElement, code: string) {
       }
     } catch {}
   } catch (e) {
-    container.innerHTML = ''
+    // 渲染异常时给用户一个明确提示，而不是空白一片
+    container.innerHTML = '无法根据当前 Mermaid 代码渲染出图表，双击此区域重新编辑'
     console.error('[Mermaid Plugin] 渲染失败:', e)
   }
 }
