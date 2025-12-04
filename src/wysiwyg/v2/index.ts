@@ -2,7 +2,7 @@
 // 暴露 enable/disable 与 setMarkdown/getMarkdown 能力，供主流程挂接
 
 import { history } from '@milkdown/plugin-history'
-import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, editorViewCtx, commandsCtx } from '@milkdown/core'
+import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, editorViewCtx, commandsCtx, remarkStringifyOptionsCtx } from '@milkdown/core'
 import { TextSelection } from '@milkdown/prose/state'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { readFile } from '@tauri-apps/plugin-fs'
@@ -245,6 +245,13 @@ export async function enableWysiwygV2(root: HTMLElement, initialMd: string, onCh
           uploader,
           enableHtmlFileUploader: true,
         }))
+      } catch {}
+      // 统一 Markdown 序列化时的无序列表标记为 '-'，避免 Milkdown 默认改写为 '*'
+      try {
+        ctx.update(remarkStringifyOptionsCtx, (prev) => ({
+          ...prev,
+          bullet: '-',
+        } as any))
       } catch {}
     })
     .use(commonmark)
