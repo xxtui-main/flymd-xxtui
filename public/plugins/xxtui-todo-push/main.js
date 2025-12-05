@@ -1040,8 +1040,13 @@ function describeFilter(type) {
     return '全部'
 }
 
-function todoStatusTag(todo) {
-    return todo && todo.done ? '[DONE]' : '[TODO]'
+// 保留原始 Markdown 形态的待办行，避免在中间插入额外标记
+function renderTodoMarkdown(todo) {
+    const raw = todo && typeof todo.content === 'string' ? todo.content : ''
+    if (raw && raw.trim()) return raw
+    const text = String((todo && todo.title) || '').trim() || '待办事项'
+    const checkbox = todo && todo.done ? '- [x] ' : '- [ ] '
+    return checkbox + text
 }
 
 // 解析表达式（@ 后面的部分），返回秒级时间戳
@@ -1170,16 +1175,15 @@ async function pushInstantBatch(context, cfg, todos, filterLabel, keyObj) {
     const lines = []
     lines.push('提醒列表（' + label + '，共 ' + list.length + ' 条）：')
     lines.push('')
-    list.forEach((todo, idx) => {
-        const text = String(todo && todo.title || '').trim() || '- [ ] 待办事项'
-        lines.push((idx + 1) + '. ' + todoStatusTag(todo) + ' ' + text)
+    list.forEach((todo) => {
+        lines.push(renderTodoMarkdown(todo))
     })
     lines.push('')
     lines.push('来源：' + ((cfg && cfg.from) || '飞速MarkDown'))
 
     const payload = {
         from: (cfg && cfg.from) || '飞速MarkDown',
-        title: '[TODO] ' + label + ' · ' + list.length + ' 条',
+        title: label + ' · ' + list.length + ' 条待办',
         content: lines.join('\n'),
         channel: keyObj && keyObj.channel ? String(keyObj.channel) : ''
     }
@@ -1212,9 +1216,9 @@ async function pushScheduledTodo(context, cfg, todo, keyObj) {
 
     const url = 'https://www.xxtui.com/scheduled/reminder/' + encodeURIComponent(key)
     const text = String(todo && todo.title || '').trim()
-    const title = '[TODO] ' + (text || '待办事项')
+    const title = (text || '待办事项') + ' · 提醒'
     const lines = []
-    const mainText = (todoStatusTag(todo) + ' ' + (text || '待办事项')).trim()
+    const mainText = renderTodoMarkdown(todo)
     lines.push('提醒内容:')
     lines.push(mainText)
     // 追加具体提醒时间
