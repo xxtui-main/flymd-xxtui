@@ -292,18 +292,5 @@ export function initLibraryContextMenu(deps: LibraryContextMenuDeps): void {
     menu.style.visibility = 'visible'
 
     setTimeout(() => document.addEventListener('click', onDoc, { once: true }), 0)
-
-    _libCtxKeyHandler = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'm') {
-        e.preventDefault()
-        hide()
-        void doRename()
-      } else if (e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        hide()
-        void doDelete()
-      }
-    }
-    document.addEventListener('keydown', _libCtxKeyHandler)
   })
 }
