@@ -32,6 +32,7 @@ import fileTree, { FOLDER_ICONS, folderIconModal } from './fileTree'
 import { uploadImageToS3R2, type UploaderConfig } from './uploader/s3'
 import { openUploaderDialog as openUploaderDialogInternal, testUploaderConnectivity } from './uploader/uploaderDialog'
 import { transcodeToWebpIfNeeded } from './utils/image'
+import { saveImageToLocalAndGetPathCore, toggleUploaderEnabledFromMenuCore } from './core/imagePaste'
 // 方案A：多库管理（统一 libraries/activeLibraryId）
 import { getLibraries, getActiveLibraryId, getActiveLibraryRoot, setActiveLibraryId as setActiveLibId, upsertLibrary, removeLibrary as removeLib, renameLibrary as renameLib } from './utils/library'
 import appIconUrl from '../Flymdnew.png?url'
@@ -678,30 +679,14 @@ async function readUploaderEnabledState(): Promise<boolean> {
 }
 
 async function toggleUploaderEnabledFromMenu(): Promise<boolean> {
-  try {
-    if (!store) {
-      pluginNotice('设置尚未初始化，暂无法切换图床开关', 'err', 2200)
-      return uploaderEnabledSnapshot
-    }
-    const raw = ((await store.get('uploader')) as any) || {}
-    const current = !!raw.enabled
-    if (!current) {
-      if (!raw.accessKeyId || !raw.secretAccessKey || !raw.bucket) {
-        pluginNotice('请先在“图床设置”中填写 AccessKey / Secret / Bucket', 'err', 2600)
-        return current
-      }
-    }
-    raw.enabled = !current
-    await store.set('uploader', raw)
-    await store.save()
-    uploaderEnabledSnapshot = !!raw.enabled
-    pluginNotice(uploaderEnabledSnapshot ? '图床上传已开启' : '图床上传已关闭', 'ok', 1600)
-    return uploaderEnabledSnapshot
-  } catch (err) {
-    console.error('toggle uploader failed', err)
-    pluginNotice('切换图床开关失败', 'err', 2000)
-    return uploaderEnabledSnapshot
-  }
+  uploaderEnabledSnapshot = await toggleUploaderEnabledFromMenuCore(
+    {
+      getStore: () => store,
+      pluginNotice: (msg, level, ms) => pluginNotice(msg, level, ms),
+    },
+    uploaderEnabledSnapshot,
+  )
+  return uploaderEnabledSnapshot
 }
 
 async function handleManualSyncFromMenu(): Promise<void> {
@@ -1675,105 +1660,29 @@ async function renderPreviewLight() {
 
 // 供所见 V2 调用：将粘贴/拖拽的图片保存到本地，并返回可写入 Markdown 的路径（自动生成不重复文件名）
 async function saveImageToLocalAndGetPath(file: File, fname: string): Promise<string | null> {
-  console.log('[saveImageToLocal] 被调用, fname:', fname, 'file.size:', file.size)
-  try {
-    const alwaysLocal = await getAlwaysSaveLocalImages()
-    const upCfg = await getUploaderConfig()
-    console.log('[saveImageToLocal] alwaysLocal:', alwaysLocal, 'upCfg:', upCfg)
-
-    // 判断是否需要保存到本地：
-    // 1. 未启用图床（upCfg 不存在或未启用）
-    // 2. 启用了图床但勾选了"总是保存到本地"
-    const uploaderEnabled = upCfg && upCfg.enabled
-    const shouldSaveLocal = !uploaderEnabled || alwaysLocal
-    console.log('[saveImageToLocal] uploaderEnabled:', uploaderEnabled, 'shouldSaveLocal:', shouldSaveLocal)
-
-    if (!shouldSaveLocal) {
-      console.log('[saveImageToLocal] 不需要保存到本地，返回 null')
-      return null
-    }
-
-    // 统一处理：是否对本地保存也转 WebP
-    const { saveLocalAsWebp, webpQuality } = await getTranscodePrefs()
-    let blobForSave: Blob = file
-    let nameForSave: string = fname
-    try {
-      if (saveLocalAsWebp) {
-        const r = await transcodeToWebpIfNeeded(file, fname, webpQuality, { skipAnimated: true })
-        blobForSave = r.blob
-        nameForSave = r.fileName
-      }
-    } catch {}
-
-    // 生成不重复文件名：pasted-YYYYMMDD-HHmmss-rand.ext
-    const guessExt = (): string => {
-      try {
-        const byName = (nameForSave || '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
-        if (byName) return byName
-        const t = (blobForSave.type || '').toLowerCase()
-        if (t.includes('webp')) return 'webp'
-        if (t.includes('png')) return 'png'
-        if (t.includes('jpeg')) return 'jpg'
-        if (t.includes('jpg')) return 'jpg'
-        if (t.includes('gif')) return 'gif'
-        if (t.includes('bmp')) return 'bmp'
-        if (t.includes('avif')) return 'avif'
-        if (t.includes('svg')) return 'svg'
-        return 'png'
-      } catch { return 'png' }
-    }
-    const two = (n: number) => (n < 10 ? '0' + n : '' + n)
-    const makeName = () => {
-      const d = new Date()
-      const ts = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`
-      const rand = Math.random().toString(36).slice(2, 6)
-      return `pasted-${ts}-${rand}.${guessExt()}`
-    }
-    const ensureUniquePath = async (dir: string): Promise<string> => {
-      const sep = dir.includes('\\') ? '\\' : '/'
-      for (let i = 0; i < 50; i++) {
-        const name = makeName()
-        const full = dir.replace(/[\\/]+$/, '') + sep + name
-        try { if (!(await exists(full as any))) return full } catch {}
-      }
-      // 极端情况下回退：使用时间戳毫秒
-      const d = Date.now()
-      return dir.replace(/[\\/]+$/, '') + (dir.includes('\\') ? '\\' : '/') + `pasted-${d}.png`
-    }
-
-    const writeTo = async (targetDir: string): Promise<string> => {
-      try { await ensureDir(targetDir) } catch {}
-      const dst = await ensureUniquePath(targetDir)
-      const buf = new Uint8Array(await blobForSave.arrayBuffer())
-      await writeFile(dst as any, buf as any)
-      return dst
-    }
-
-    if (isTauriRuntime() && currentFilePath) {
-      const base = currentFilePath.replace(/[\\/][^\\/]*$/, '')
-      const sep = base.includes('\\') ? '\\' : '/'
-      const imgDir = base + sep + 'images'
-      console.log('[saveImageToLocal] 使用文档同目录 images 文件夹:', imgDir)
-      const result = await writeTo(imgDir)
-      console.log('[saveImageToLocal] 保存成功:', result)
-      return result
-    }
-    if (isTauriRuntime() && !currentFilePath) {
-      const baseDir = await getDefaultPasteDir()
-      console.log('[saveImageToLocal] 使用默认粘贴目录:', baseDir)
-      if (baseDir) {
-        const base2 = baseDir.replace(/[\\/]+$/, '')
-        const result = await writeTo(base2)
-        console.log('[saveImageToLocal] 保存成功:', result)
-        return result
-      }
-    }
-    console.log('[saveImageToLocal] 没有合适的保存路径，返回 null')
-    return null
-  } catch (e) {
-    console.error('[saveImageToLocal] 异常:', e)
-    return null
-  }
+  return await saveImageToLocalAndGetPathCore(
+    {
+      getEditorValue: () => editor.value,
+      setEditorValue: (v: string) => { editor.value = v },
+      insertAtCursor: (text: string) => insertAtCursor(text),
+      markDirtyAndRefresh: () => {
+        dirty = true
+        refreshTitle()
+        refreshStatus()
+      },
+      getCurrentFilePath: () => currentFilePath,
+      ensureDir: async (dir: string) => { try { await ensureDir(dir) } catch {} },
+      writeBinaryFile: async (path: string, bytes: Uint8Array) => { await writeFile(path as any, bytes as any) },
+      exists: async (p: string) => !!(await exists(p as any)),
+      isTauriRuntime: () => isTauriRuntime(),
+      getAlwaysSaveLocalImages: () => getAlwaysSaveLocalImages(),
+      getUploaderConfig: () => getUploaderConfig(),
+      getTranscodePrefs: () => getTranscodePrefs(),
+      getDefaultPasteDir: () => getDefaultPasteDir(),
+    },
+    file,
+    fname,
+  )
 }
 
 async function setWysiwygEnabled(enable: boolean) {
