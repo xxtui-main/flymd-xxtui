@@ -85,6 +85,10 @@ import {
   type StickyNoteWindowHost,
 } from './modes/stickyNoteHost'
 import {
+  createStickyNoteUi,
+  type StickyNoteUiHandles,
+} from './modes/stickyNoteUi'
+import {
   initFocusModeEventsImpl,
   updateFocusSidebarBgImpl,
 } from './modes/focusModeUi'
@@ -5627,139 +5631,53 @@ window.addEventListener('flymd:darkmode:changed', async () => {
 // ========== 专注模式结束 ==========
 
 // ========== 便签模式 ==========
-
-// 锁定图标（图钉）
-function getStickyLockIcon(isLocked: boolean): string {
-  if (isLocked) {
-    // 锁定状态：实心图钉
-    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-      <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/>
-    </svg>`
-  }
-  // 未锁定：空心图钉
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/>
-  </svg>`
-}
-
-// 置顶图标（箭头向上）
-function getStickyTopIcon(isOnTop: boolean): string {
-  if (isOnTop) {
-    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-      <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/>
-    </svg>`
-  }
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/>
-  </svg>`
-}
-
-function getStickyOpacityIcon(): string {
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-    <path d="M12,2.69L17.33,8.02C19.13,9.82 20,11.87 20,14.23C20,16.59 19.13,18.64 17.33,20.44C15.53,22.24 13.5,23 12,23C10.5,23 8.47,22.24 6.67,20.44C4.87,18.64 4,16.59 4,14.23C4,11.87 4.87,9.82 6.67,8.02L12,2.69Z"/>
-  </svg>`
-}
-
-function getStickyColorIcon(): string {
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-    <rect x="3" y="3" width="8" height="8" rx="2" />
-    <rect x="13" y="3" width="8" height="8" rx="2" />
-    <rect x="8" y="13" width="8" height="8" rx="2" />
-  </svg>`
-}
-
-// 编辑图标（笔）
-function getStickyEditIcon(isEditing: boolean): string {
-  if (isEditing) {
-    // 编辑状态：实心笔
-    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-    </svg>`
-  }
-  // 阅读状态：空心笔
-  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-  </svg>`
-}
-
-// 在便签模式中根据需要自动返回阅读模式
-async function maybeAutoReturnStickyPreview() {
-  try {
-    if (!stickyNoteMode || !stickyTodoAutoPreview) return
-    stickyTodoAutoPreview = false
-    const btn = document.querySelector('.sticky-note-edit-btn') as HTMLButtonElement | null
-    if (!btn) return
-    await toggleStickyEditMode(btn)
-  } catch {}
-}
-
-// 在便签模式中在文末插入一行待办项 "- [ ] "
-async function addStickyTodoLine(editBtn: HTMLButtonElement) {
-  try {
-    // 所见模式下风险较高：暂不支持，避免破坏 WYSIWYG 状态
-    if (wysiwyg || wysiwygV2Active) {
-      try { alert('当前所见模式下暂不支持快速待办插入，请先切换回源码模式。') } catch {}
-      return
-    }
-
-    // 记录插入前模式，用于决定是否自动返回阅读模式
-    const prevMode = mode
-
-    // 确保处于源码模式（必要时等价于用户点了一次“源码”按钮）
-    if (mode !== 'edit') {
-      try { await toggleStickyEditMode(editBtn) } catch {}
-    }
-
-    // 仅当从阅读模式切换过来时才开启自动返回阅读模式
-    stickyTodoAutoPreview = stickyNoteMode && prevMode === 'preview'
-
-    const ta = editor as HTMLTextAreaElement | null
-    if (!ta) return
-
-    const prev = String(ta.value || '')
-    const needsNewline = prev.length > 0 && !prev.endsWith('\n')
-    const insert = (needsNewline ? '\n' : '') + '- [ ] '
-    const next = prev + insert
-
-    ta.value = next
-    const pos = next.length
-    try {
-      ta.selectionStart = pos
-      ta.selectionEnd = pos
-    } catch {}
-    try { ta.focus() } catch {}
-
+// 便签 UI 行为：通过 modes/stickyNoteUi.ts 集中实现，main.ts 只注入状态与依赖
+const stickyNoteUi: StickyNoteUiHandles = createStickyNoteUi({
+  getMode: () => mode,
+  setMode: (m) => { mode = m },
+  getStickyNoteMode: () => stickyNoteMode,
+  getStickyTodoAutoPreview: () => stickyTodoAutoPreview,
+  setStickyTodoAutoPreview: (v) => { stickyTodoAutoPreview = v },
+  isWysiwygActive: () => !!wysiwyg || !!wysiwygV2Active,
+  getEditor: () => editor,
+  getPreview: () => preview,
+  markDirtyAndRefresh: () => {
     try {
       dirty = true
       refreshTitle()
       refreshStatus()
     } catch {}
-  } catch {}
-}
+  },
+  renderPreview: () => renderPreview(),
+  syncToggleButton: () => { try { syncToggleButton() } catch {} },
+  notifyModeChange: () => { try { notifyModeChange() } catch {} },
+  getStickyNoteLocked: () => stickyNoteLocked,
+  setStickyNoteLocked: (v) => { stickyNoteLocked = v },
+  getStickyNoteOnTop: () => stickyNoteOnTop,
+  setStickyNoteOnTop: (v) => { stickyNoteOnTop = v },
+  getCurrentWindow,
+  importDpi: () => import('@tauri-apps/api/dpi'),
+  toggleStickyOpacitySlider,
+  toggleStickyColorPicker,
+})
 
-// 切换便签编辑/阅读模式
-async function toggleStickyEditMode(btn: HTMLButtonElement) {
-  const isCurrentlyEditing = mode === 'edit'
-  if (isCurrentlyEditing) {
-    // 切换到阅读模式
-    mode = 'preview'
-    try { await renderPreview() } catch {}
-    try { preview.classList.remove('hidden') } catch {}
-  } else {
-    // 切换到源码模式
-    mode = 'edit'
-    try { preview.classList.add('hidden') } catch {}
-    try { editor.focus() } catch {}
-  }
-  try { syncToggleButton() } catch {}
-  // 更新按钮状态
-  const newIsEditing = mode === 'edit'
-  btn.innerHTML = getStickyEditIcon(newIsEditing)
-  btn.classList.toggle('active', newIsEditing)
-  btn.title = newIsEditing ? '切换到阅读模式' : '切换到源码模式'
-  try { notifyModeChange() } catch {}
-}
+const {
+  getStickyLockIcon,
+  getStickyTopIcon,
+  getStickyOpacityIcon,
+  getStickyColorIcon,
+  getStickyEditIcon,
+  maybeAutoReturnStickyPreview,
+  addStickyTodoLine,
+  toggleStickyEditMode,
+  toggleStickyWindowLock,
+  toggleStickyWindowOnTop,
+  adjustStickyWindowHeight,
+  scheduleAdjustStickyHeight,
+  createStickyNoteControls,
+} = stickyNoteUi
 
+// 便签待办按钮与推送/提醒逻辑仍保留在 main.ts，避免在首次拆分时引入过多依赖注入
 
 // 便签模式：为待办项添加推送和提醒按钮
 function addStickyTodoButtons() {
@@ -5934,37 +5852,6 @@ async function handleStickyTodoReminder(todoText: string, index: number, btn?: H
     alert('创建提醒失败: ' + (e instanceof Error ? e.message : String(e)))
   }
 }
-
-// 便签窗口行为宿主：封装锁定/置顶/高度调整与控制条创建
-const stickyNoteWindowHost: StickyNoteWindowHost = createStickyNoteWindowHost({
-  getStickyNoteMode: () => stickyNoteMode,
-  getStickyNoteLocked: () => stickyNoteLocked,
-  setStickyNoteLocked: (v) => { stickyNoteLocked = v },
-  getStickyNoteOnTop: () => stickyNoteOnTop,
-  setStickyNoteOnTop: (v) => { stickyNoteOnTop = v },
-
-  getPreviewElement: () => preview,
-  getCurrentWindow,
-  importDpi: () => import('@tauri-apps/api/dpi'),
-
-  toggleStickyEditMode,
-  addStickyTodoLine,
-  toggleStickyOpacitySlider,
-  toggleStickyColorPicker,
-
-  getStickyLockIcon,
-  getStickyTopIcon,
-  getStickyOpacityIcon,
-  getStickyColorIcon,
-  getStickyEditIcon,
-})
-
-// 保持原有入口函数名不变，降低拆分风险
-const toggleStickyWindowLock = stickyNoteWindowHost.toggleStickyWindowLock
-const toggleStickyWindowOnTop = stickyNoteWindowHost.toggleStickyWindowOnTop
-const adjustStickyWindowHeight = stickyNoteWindowHost.adjustStickyWindowHeight
-const scheduleAdjustStickyHeight = stickyNoteWindowHost.scheduleAdjustStickyHeight
-const createStickyNoteControls = stickyNoteWindowHost.createStickyNoteControls
 
 // 便签模式运行时依赖：由 stickyNote.ts 统一驱动模式切换与窗口行为
 const stickyNoteModeDeps: StickyNoteModeDeps = {
