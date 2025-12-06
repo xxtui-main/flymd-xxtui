@@ -1528,7 +1528,7 @@ export function initThemeUI(): void {
       // 初始化开关状态（系统深色模式会强制开启）
       const isDark = getDarkMode()
       darkModeToggle.checked = isDark
-      darkModeToggle.disabled = isSystemDarkMode() // 系统深色模式时禁用开关
+     // darkModeToggle.disabled = isSystemDarkMode() // 系统深色模式时禁用开关
       document.body.classList.toggle('dark-mode', isDark)
       // 监听开关变化
       darkModeToggle.addEventListener('change', () => {
