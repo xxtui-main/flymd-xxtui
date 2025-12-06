@@ -1193,6 +1193,8 @@ body > .block-menu { display: none !important; }
     overflow-y: auto;
   overflow-x: hidden;
   z-index: 15;
+  /* 强制阻止网格背景图案，确保库侧栏在任何情况下都只显示纯色背景 */
+  background-image: none !important;
 }
 .library.side-left {
   left: 0;

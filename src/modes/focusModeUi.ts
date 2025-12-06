@@ -153,13 +153,13 @@ export function updateFocusSidebarBgImpl(deps: FocusSidebarBgDeps): void {
 
   // 如果不是专注模式，移除自定义背景色和网格，使用默认
   if (!deps.isFocusModeEnabled()) {
-    library.style.removeProperty('background')
+    library.style.removeProperty('background-color')
     library.style.removeProperty('background-image')
     library.style.removeProperty('background-size')
     library.style.removeProperty('background-position')
     const header = library.querySelector('.lib-header') as HTMLElement | null
     if (header) {
-      header.style.removeProperty('background')
+      header.style.removeProperty('background-color')
       header.style.removeProperty('background-image')
       header.style.removeProperty('background-size')
       header.style.removeProperty('background-position')
@@ -202,26 +202,26 @@ export function updateFocusSidebarBgImpl(deps: FocusSidebarBgDeps): void {
   // 应用背景色到库侧栏
   if (hasGrid && deps.getMode() === 'edit' && !deps.getWysiwyg()) {
     // 只在源码模式（非所见）下应用网格背景
-    library.style.background = bgColor
+    library.style.backgroundColor = bgColor
     library.style.backgroundImage = 'linear-gradient(rgba(127,127,127,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(127,127,127,0.08) 1px, transparent 1px)'
     library.style.backgroundSize = '20px 20px'
     library.style.backgroundPosition = '-1px -1px'
 
     if (header) {
-      header.style.background = 'transparent'
+      header.style.backgroundColor = 'transparent'
       header.style.backgroundImage = 'none'
       header.style.backgroundSize = 'unset'
       header.style.backgroundPosition = 'unset'
     }
   } else {
     // 没有网格或不是源码模式，只应用纯色背景
-    library.style.background = bgColor
+    library.style.backgroundColor = bgColor
     library.style.removeProperty('background-image')
     library.style.removeProperty('background-size')
     library.style.removeProperty('background-position')
 
     if (header) {
-      header.style.background = bgColor
+      header.style.backgroundColor = bgColor
       header.style.removeProperty('background-image')
       header.style.removeProperty('background-size')
       header.style.removeProperty('background-position')
