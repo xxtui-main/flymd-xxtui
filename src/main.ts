@@ -2,23 +2,19 @@ import './imePatch'
 
 /*
   flymd 主入口（中文注释）
-
 */
 // 性能标记：应用启动
 performance.mark('flymd-app-start')
 const _startTime = performance.now()
-
 import './style.css'
 import './mobile.css'  // 移动端样式
 import { initThemeUI, applySavedTheme, updateChromeColorsForMode } from './theme'
 import { t, fmtStatus, getLocalePref, setLocalePref, getLocale } from './i18n'
 // KaTeX 样式改为按需动态加载（首次检测到公式时再加载）
-
 // markdown-it 和 DOMPurify 改为按需动态 import，类型仅在编译期引用
 import type MarkdownIt from 'markdown-it'
 // WYSIWYG: 锚点插件与锚点同步（用于替换纯比例同步）
 import { enableWysiwygV2, disableWysiwygV2, wysiwygV2ToggleBold, wysiwygV2ToggleItalic, wysiwygV2ApplyLink, wysiwygV2GetSelectedText, wysiwygV2FindNext, wysiwygV2FindPrev, wysiwygV2ReplaceOne as wysiwygV2ReplaceOneSel, wysiwygV2ReplaceAllInDoc, wysiwygV2ReplaceAll } from './wysiwyg/v2/index'
-
 // Tauri 插件（v2）
 // Tauri 对话框：使用 ask 提供原生确认，避免浏览器 confirm 在关闭事件中失效
 import { open, save, ask } from '@tauri-apps/plugin-dialog'
@@ -27,7 +23,7 @@ import { readTextFile, writeTextFile, readDir, stat, readFile, mkdir  , rename, 
 import { Store } from '@tauri-apps/plugin-store'
 import { open as openFileHandle, BaseDirectory } from '@tauri-apps/plugin-fs'
 // Tauri v2 插件 opener 的导出为 openUrl / openPath，不再是 open
-import { openUrl, openPath } from '@tauri-apps/plugin-opener'
+import { openPath } from '@tauri-apps/plugin-opener'
 import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
@@ -41,6 +37,7 @@ import { getLibraries, getActiveLibraryId, getActiveLibraryRoot, setActiveLibrar
 import appIconUrl from '../Flymdnew.png?url'
 import { decorateCodeBlocks } from './decorate'
 import { APP_VERSION } from './core/appInfo'
+import type { UpdateAssetInfo, CheckUpdateResp, UpdateExtra } from './core/updateTypes'
 // htmlToMarkdown 改为按需动态导入（仅在粘贴 HTML 时使用）
 import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, isWebdavConfiguredForActiveLibrary, syncNow as webdavSyncNow, setOnSyncComplete, openSyncLog as webdavOpenSyncLog } from './extensions/webdavSync'
 // 平台适配层（Android 支持）
@@ -91,6 +88,8 @@ import { initPluginsMenu, addToPluginsMenu, removeFromPluginsMenu, togglePluginD
 import { openLinkDialog, openRenameDialog } from './ui/linkDialogs'
 import { initExtensionsPanel, refreshExtensionsUI as panelRefreshExtensionsUI, showExtensionsOverlay as panelShowExtensionsOverlay } from './extensions/extensionsPanel'
 import { initAboutOverlay, showAbout } from './ui/aboutOverlay'
+import { showUpdateOverlayLinux, showUpdateDownloadedOverlay, showInstallFailedOverlay, loadUpdateExtra, renderUpdateDetailsHTML } from './ui/updateOverlay'
+import { openInBrowser, upMsg } from './core/updateUtils'
 import {
   removeContextMenu,
   showContextMenu,
@@ -3541,47 +3540,6 @@ function isTauriRuntime(): boolean {
   } catch { return false }
 }
 
-// 更新检测：类型声明（仅用于提示，不强制）
-type UpdateAssetInfo = {
-  name: string
-  size: number
-  directUrl: string
-  proxyUrl: string
-}
-type CheckUpdateResp = {
-  hasUpdate: boolean
-  current: string
-  latest: string
-  releaseName: string
-  notes: string
-  htmlUrl: string
-  assetWin?: UpdateAssetInfo | null
-  assetLinuxAppimage?: UpdateAssetInfo | null
-  assetLinuxDeb?: UpdateAssetInfo | null
-  assetMacosX64?: UpdateAssetInfo | null
-  assetMacosArm?: UpdateAssetInfo | null
-}
-
-// 可选的“额外信息”注入：位于 public/update-extra.json，由运维/作者按需维护
-type UpdateExtra = {
-  html?: string
-  links?: { text: string; href: string }[]
-}
-
-async function openInBrowser(url: string) {
-  try {
-    if (isTauriRuntime()) { await openUrl(url) }
-    else { window.open(url, '_blank', 'noopener,noreferrer') }
-  } catch {
-    try { window.open(url, '_blank', 'noopener,noreferrer') } catch {}
-  }
-}
-
-function upMsg(s: string) {
-  try { status.textContent = s } catch {}
-  try { logInfo('[更新] ' + s) } catch {}
-}
-
 function setUpdateBadge(on: boolean, tip?: string) {
   try {
     const btn = document.getElementById('btn-update') as HTMLDivElement | null
@@ -3595,88 +3553,6 @@ function setUpdateBadge(on: boolean, tip?: string) {
   } catch {}
 }
 
-function ensureUpdateOverlay(): HTMLDivElement {
-  const id = 'update-overlay'
-  let ov = document.getElementById(id) as HTMLDivElement | null
-  if (ov) return ov
-  const div = document.createElement('div')
-  div.id = id
-  div.className = 'link-overlay hidden'
-  div.innerHTML = `
-    <div class="link-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
-      <div class="link-header">
-        <div id="update-title">检查更新</div>
-        <button id="update-close" class="about-close" title="关闭">×</button>
-      </div>
-      <div class="link-body" id="update-body"></div>
-      <div class="link-actions" id="update-actions"></div>
-    </div>
-  `
-  const container = document.querySelector('.container') as HTMLDivElement | null
-  if (container) container.appendChild(div)
-  const btn = div.querySelector('#update-close') as HTMLButtonElement | null
-  if (btn) btn.addEventListener('click', () => div.classList.add('hidden'))
-  return div
-}
-
-async function showUpdateOverlayLinux(resp: CheckUpdateResp) {
-
-function showUpdateDownloadedOverlay(savePath: string, resp: CheckUpdateResp) {
-  const ov = ensureUpdateOverlay()
-  const body = ov.querySelector('#update-body') as HTMLDivElement
-  const act = ov.querySelector('#update-actions') as HTMLDivElement
-  const esc = (s: string) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-  body.innerHTML = `
-    <div style="margin-bottom:8px;">已下载新版本 <b>v${resp.latest}</b>（当前 v${resp.current}）</div>
-    <div>保存位置：<code>${esc(savePath)}</code></div>
-  `
-  act.innerHTML = ''
-  const mkBtn = (label: string, onClick: () => void) => {
-    const b = document.createElement('button')
-    b.textContent = label
-    b.addEventListener('click', onClick)
-    act.appendChild(b)
-    return b
-  }
-  const dir = savePath.replace(/[\/\\][^\/\\]+$/, '')
-  mkBtn('直接运行安装包', () => { void openPath(savePath) })
-  mkBtn('打开所在文件夹', () => { if (dir) void openPath(dir) })
-  mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
-}
-  const ov = ensureUpdateOverlay()
-  const body = ov.querySelector('#update-body') as HTMLDivElement
-  const act = ov.querySelector('#update-actions') as HTMLDivElement
-  try {
-    const extra = await loadUpdateExtra().catch(() => null)
-    body.innerHTML = await renderUpdateDetailsHTML(resp, extra)
-  } catch {
-    body.innerHTML = `
-      <div style="margin-bottom:8px;">发现新版本：<b>v${resp.latest}</b>（当前：v${resp.current}）</div>
-      <div style="white-space:pre-wrap;max-height:240px;overflow:auto;border:1px solid var(--fg-muted);padding:8px;border-radius:6px;">${(resp.notes||'').replace(/</g,'&lt;')}</div>
-    `
-  }
-  act.innerHTML = ''
-  const mkBtn = (label: string, onClick: () => void) => {
-    const b = document.createElement('button')
-    b.textContent = label
-    b.addEventListener('click', onClick)
-    act.appendChild(b)
-    return b
-  }
-  if (resp.assetLinuxAppimage) {
-    mkBtn('下载 AppImage（直连）', () => { void openInBrowser(resp.assetLinuxAppimage!.directUrl) })
-    mkBtn('下载 AppImage（代理）', () => { void openInBrowser('https://gh-proxy.com/' + resp.assetLinuxAppimage!.directUrl) })
-  }
-  if (resp.assetLinuxDeb) {
-    mkBtn('下载 DEB（直连）', () => { void openInBrowser(resp.assetLinuxDeb!.directUrl) })
-    mkBtn('下载 DEB（代理）', () => { void openInBrowser('https://gh-proxy.com/' + resp.assetLinuxDeb!.directUrl) })
-  }
-  mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
-}
 
 async function checkUpdateInteractive() {
   try {
@@ -3798,79 +3674,6 @@ async function checkUpdateInteractive() {
   }
 }
 
-// 读取可选的额外信息（不存在则返回 null）
-async function loadUpdateExtra(): Promise<UpdateExtra | null> {
-  try {
-    const url = '/update-extra.json?ts=' + Date.now()
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) return null
-    const raw = await res.json()
-    const out: UpdateExtra = {}
-    if (raw && typeof raw.html === 'string') out.html = String(raw.html)
-    if (raw && Array.isArray(raw.links)) {
-      out.links = []
-      for (const it of raw.links) {
-        const text = (it && typeof it.text === 'string') ? String(it.text) : ''
-        const href = (it && typeof it.href === 'string') ? String(it.href) : ''
-        if (!text || !href) continue
-        // 仅允许 http/https 链接，其他协议忽略
-        if (!/^https?:\/\//i.test(href)) continue
-        out.links.push({ text, href })
-      }
-      if (out.links.length === 0) delete (out as any).links
-    }
-    if (!out.html && !out.links) return null
-    return out
-  } catch { return null }
-}
-
-// 渲染更新详情（含版本与 notes），使用 markdown-it + DOMPurify 做安全渲染；支持注入 extra
-async function renderUpdateDetailsHTML(resp: CheckUpdateResp, extra?: UpdateExtra | null): Promise<string> {
-  try { await ensureRenderer() } catch {}
-  try {
-    if (!sanitizeHtml) {
-      try { const mod: any = await import('dompurify'); const DOMPurify = mod?.default || mod; sanitizeHtml = (h: string, cfg?: any) => DOMPurify.sanitize(h, cfg) } catch { sanitizeHtml = (h: string) => h }
-    }
-  } catch {}
-  let html = ''
-  try { html = md ? md.render(resp.notes || '') : (resp.notes || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>') } catch { html = (resp.notes || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>') }
-  const safe = sanitizeHtml!(html)
-  const head = `<div class="update-title">发现新版本 <b>v${resp.latest}</b>（当前 v${resp.current}）</div>`
-  const box = `<div class="update-notes" style="max-height:260px;overflow:auto;border:1px solid var(--fg-muted);padding:8px;border-radius:6px;">${safe}</div>`
-  let extraHtml = ''
-  if (extra && extra.html) {
-    try { extraHtml += `<div class="update-extra" style="margin-top:8px;">${sanitizeHtml!(extra.html)}</div>` } catch {}
-  }
-  if (extra && extra.links && extra.links.length) {
-    const items = extra.links.map(it => {
-      const txt = (it.text || '').replace(/</g,'&lt;').replace(/&/g,'&amp;')
-      // href 已经在 loadUpdateExtra 中做过协议白名单校验
-      const href = it.href
-      return `<li><a href="${href}" target="_blank" rel="noopener noreferrer">${txt}</a></li>`
-    }).join('')
-    extraHtml += `<ul class="update-links" style="margin-top:8px;padding-left:18px;">${items}</ul>`
-  }
-  return head + box + extraHtml
-}
-
-// 安装失败提示窗口：提示“自动安装失败，请手动安装”，提供“打开下载目录”与“发布页”
-function showInstallFailedOverlay(savePath: string, resp: CheckUpdateResp) {
-  const ov = ensureUpdateOverlay()
-  const body = ov.querySelector('#update-body') as HTMLDivElement
-  const act = ov.querySelector('#update-actions') as HTMLDivElement
-  const esc = (s: string) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-  const dir = savePath.replace(/[\\/][^\\/]+$/, '')
-  body.innerHTML = `
-    <div style="margin-bottom:8px;color:var(--warn-color, #d33);">自动安装失败，请手动安装</div>
-    <div>保存位置：<code>${esc(savePath)}</code></div>
-  `
-  act.innerHTML = ''
-  const mkBtn = (label: string, onClick: () => void) => { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', onClick); act.appendChild(b); return b }
-  mkBtn('打开下载目录', () => { if (dir) void openPath(dir) })
-  mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
-}
 
 // Windows：下载并尝试安装（直连/代理轮试），失败时弹出失败提示
 async function downloadAndInstallWin(asset: UpdateAssetInfo, resp: CheckUpdateResp) {
@@ -10649,11 +10452,8 @@ async function loadAndActivateEnabledPlugins(): Promise<void> {
   } catch {}
 }
 
-
-
 // 将所见模式开关暴露到全局，便于在 WYSIWYG V2 覆盖层中通过双击切换至源码模式
 try { (window as any).flymdSetWysiwygEnabled = async (enable: boolean) => { try { await setWysiwygEnabled(enable) } catch (e) { console.error('flymdSetWysiwygEnabled 调用失败', e) } } } catch {}
-
 // 公开设置插件市场地址的 helper，便于远端/本地切换索引
 try {
   (window as any).flymdSetPluginMarketUrl = async (url: string | null) => {
