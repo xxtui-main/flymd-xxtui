@@ -931,25 +931,25 @@ async function refresh() {
   try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 
-  // 设置文件监听（如果还未设置或根目录改变了）
-  if (!state.watching) {
-    try {
-      const u = await watchImmediate(root, async (event) => {
-        console.log('[文件树] 检测到文件变化:', event.type, event.paths)
-        // 使用内部刷新函数，避免重新设置监听
-        await refreshTree()
-      }, { recursive: true })
-      state.unwatch = () => { try { u(); } catch {} }
-      state.watching = true
-      console.log('[文件树] 已启动文件监听:', root)
-    } catch (err) {
-      console.error('[文件树] 启动文件监听失败:', err)
-      console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功能')
-      // 如果文件监听失败，标记为已尝试，避免重复尝试
-      state.watching = true
+    // 设置文件监听（如果还未设置或根目录改变了）
+    if (!state.watching) {
+      try {
+        const u = await watchImmediate(root, async (event) => {
+          console.log('[文件树] 检测到文件变化:', event.type, event.paths)
+          // 使用内部刷新函数，避免重新设置监听
+          await refreshTree()
+        }, { recursive: true })
+        state.unwatch = () => { try { u(); } catch {} }
+        state.watching = true
+        console.log('[文件树] 已启动文件监听:', root)
+      } catch (err) {
+        console.error('[文件树] 启动文件监听失败:', err)
+        console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功能')
+        // 监听失败时不要把 watching 置为 true，保持为 false，方便后续 refresh() 重试
+        state.watching = false
+      }
     }
   }
-}
 
 async function init(container: HTMLElement, opts: FileTreeOptions) {
   state.container = container; state.opts = opts
