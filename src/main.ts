@@ -139,6 +139,7 @@ import {
 import { getUiZoom, setUiZoom, applyUiZoom, zoomIn, zoomOut, zoomReset, getPreviewWidth, setPreviewWidth, applyPreviewWidth, resetPreviewWidth, PREVIEW_WIDTH_STEP } from './core/uiZoom'
 import { showZoomBubble, showWidthBubble, NotificationManager, showModeChangeNotification, updateSyncStatus } from './core/uiNotifications'
 import type { NotificationType } from './core/uiNotifications'
+import { initAutoSave, type AutoSaveHandles } from './core/autoSave'
 
 // 滚动条自动隐藏
 import { initAutoHideScrollbar, rescanScrollContainers } from './core/scrollbar'
@@ -515,6 +516,21 @@ let currentFrontMatter: string | null = null
 let dirty = false // 是否有未保存更改（此处需加分号，避免下一行以括号开头被解析为对 false 的函数调用）
 // 暴露一个轻量只读查询函数，避免直接访问变量引起耦合
 ;(window as any).flymdIsDirty = () => dirty
+// 自动保存句柄（通过模块化实现，避免 main.ts 膨胀）
+let _autoSaveHandles: AutoSaveHandles | null = null
+function getAutoSave(): AutoSaveHandles {
+  if (!_autoSaveHandles) {
+    _autoSaveHandles = initAutoSave({
+      getDirty: () => dirty,
+      getCurrentFilePath: () => currentFilePath,
+      saveFile: () => saveFile(),
+      canWriteFile: () => typeof writeTextFile === 'function',
+      getStore: () => store,
+    })
+  }
+  return _autoSaveHandles
+}
+
 // 最近一次粘贴组合键：normal=Ctrl+V, plain=Ctrl+Shift+V；用于在 paste 事件中区分行为
 let _lastPasteCombo: 'normal' | 'plain' | null = null
 
@@ -6120,11 +6136,19 @@ function showTopMenu(anchor: HTMLElement, items: TopMenuItemSpec[]) {
 function showFileMenu() {
   const anchor = document.getElementById('btn-open') as HTMLDivElement | null
   if (!anchor) return
+  const autoSave = getAutoSave()
+  const autoSaveEnabled = autoSave.isEnabled()
   const items: TopMenuItemSpec[] = [
     { label: t('file.new'), accel: 'Ctrl+N', action: () => { void newFile() } },
     { label: t('file.open'), accel: 'Ctrl+O', action: () => { void openFile2() } },
     // “最近文件”入口移入 文件 菜单
     { label: t('menu.recent'), accel: 'Ctrl+Shift+R', action: () => { void renderRecentPanel(true) } },
+    {
+      // 启用时在前面加上对勾
+      label: `${autoSaveEnabled ? '✔ ' : ''}${t('file.autosave')}`,
+      accel: '60s',
+      action: () => { autoSave.toggle() },
+    },
     { label: t('file.save'), accel: 'Ctrl+S', action: () => { void saveFile() } },
     { label: t('file.saveas'), accel: 'Ctrl+Shift+S', action: () => { void saveAs() } },
   ]
@@ -8328,6 +8352,7 @@ function bindEvents() {
 
     // 尝试初始化存储（确保完成后再加载扩展，避免读取不到已安装列表）
     await initStore()
+    try { await getAutoSave().loadFromStore() } catch {}
     // 初始化扩展管理面板宿主（依赖 store 等全局状态）
     try {
       initExtensionsPanel({

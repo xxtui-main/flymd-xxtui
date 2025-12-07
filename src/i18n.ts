@@ -58,6 +58,8 @@ const dict = {
     'file.open': '打开…',
     'file.save': '保存',
     'file.saveas': '另存为…',
+    'file.autosave': '自动保存',
+    'autosave.enabled': '自动保存已开启',
 
     'mode.edit': '源码',
     'mode.read': '阅读',
@@ -267,6 +269,8 @@ const dict = {
     'file.open': 'Open…',
     'file.save': 'Save',
     'file.saveas': 'Save As…',
+    'file.autosave': 'Autosave',
+    'autosave.enabled': 'Autosave enabled',
 
     'mode.edit': 'Edit',
     'mode.read': 'Preview',
