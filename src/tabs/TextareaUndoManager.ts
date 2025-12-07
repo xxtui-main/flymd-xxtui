@@ -114,33 +114,37 @@ export class TextareaUndoManager {
 
   /**
    * 执行撤销
+   * 返回是否实际处理了撤销；若返回 false，交回浏览器原生撤销处理
    */
-  undo(): void {
-    if (!this.currentTabId) return
+  undo(): boolean {
+    if (!this.currentTabId) return false
     const stack = this.stacks.get(this.currentTabId)
-    if (!stack) return
-    if (stack.undoStack.length <= 1) return // 至少保留一个基线状态
+    if (!stack) return false
+    if (stack.undoStack.length <= 1) return false // 至少保留一个基线状态
 
     const current = stack.undoStack.pop()!
     stack.redoStack.push(current)
 
     const prev = stack.undoStack[stack.undoStack.length - 1]
     this.applyRecord(prev)
+    return true
   }
 
   /**
    * 执行重做
+   * 返回是否实际处理了重做；若返回 false，交回浏览器原生撤销处理
    */
-  redo(): void {
-    if (!this.currentTabId) return
+  redo(): boolean {
+    if (!this.currentTabId) return false
     const stack = this.stacks.get(this.currentTabId)
-    if (!stack) return
-    if (stack.redoStack.length === 0) return
+    if (!stack) return false
+    if (stack.redoStack.length === 0) return false
 
     const next = stack.redoStack.pop()!
     stack.undoStack.push(next)
 
     this.applyRecord(next)
+    return true
   }
 
   /**
@@ -164,11 +168,16 @@ export class TextareaUndoManager {
 
       const key = e.key.toLowerCase()
       if (key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        this.undo()
+        // 只有在我们实际处理了撤销时才拦截快捷键
+        const handled = this.undo()
+        if (handled) {
+          e.preventDefault()
+        }
       } else if ((key === 'z' && e.shiftKey) || key === 'y') {
-        e.preventDefault()
-        this.redo()
+        const handled = this.redo()
+        if (handled) {
+          e.preventDefault()
+        }
       }
     }
 
@@ -190,6 +199,41 @@ export class TextareaUndoManager {
     this.inputHandler = undefined
     this.keydownHandler = undefined
     this.textarea = null
+  }
+
+  /**
+   * 将当前 textarea 内容重置为当前标签的基线状态
+   * 用于：打开/切换到一个全新加载的文档后，避免撤销回到旧文档内容或空文档
+   */
+  resetCurrentStackBaseline(): void {
+    if (!this.currentTabId || !this.textarea) return
+
+    const textarea = this.textarea
+    const content = textarea.value
+
+    // 若当前标签还没有栈，按当前内容创建一个
+    let stack = this.stacks.get(this.currentTabId)
+    const record: EditRecord = {
+      content,
+      selectionStart: textarea.selectionStart,
+      selectionEnd: textarea.selectionEnd,
+      // 基线记录不参与时间窗口合并：后续第一次输入必须生成可撤销快照
+      timestamp: 0,
+    }
+
+    const contentSize = content.length
+    const maxSize = contentSize > 500_000 ? 15 : 30
+
+    if (!stack) {
+      stack = { undoStack: [record], redoStack: [], maxSize }
+      this.stacks.set(this.currentTabId, stack)
+      return
+    }
+
+    // 丢弃旧文档的全部历史，只保留“当前文档初始状态”
+    stack.undoStack = [record]
+    stack.redoStack = []
+    stack.maxSize = maxSize
   }
 
   /**

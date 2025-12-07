@@ -503,6 +503,10 @@ function hookOpenFile(): void {
         tabManager.updateCurrentTabPath(afterPath)
         tabManager.updateTabContent(activeTab.id, content)
 
+        // 打开新文档后，将当前 textarea 内容作为该标签的撤销基线
+        // 避免首次编辑时撤销回到旧文档或空文档
+        undoManager.resetCurrentStackBaseline()
+
         const isPdf = afterPath.toLowerCase().endsWith('.pdf')
         if (isPdf) {
           // 标记为 PDF 标签
@@ -708,12 +712,19 @@ function startPathSyncWatcher(): void {
     // 检查是否已有该路径的标签
     const existingTab = currentPath ? tabManager.findTabByPath(currentPath) : null
 
+    // 内容是否相对上一次轮询发生变化，用于区分“只是改名/路径变了”与“真正加载了新文档”
+    const contentChanged = currentContent !== lastKnownContent
+
     if (existingTab) {
       // 已有该文件的标签：说明外部（如直接调用 openFile2）切换到了一个已存在的文档
       // 此时编辑器内容已经是目标文件，不能再用 switchToTab → saveCurrentTabState 的顺序，
       // 否则会把新内容写回“旧标签”。改为通过专门的 adoptExternalSwitch 入口，只更新目标标签。
       if (existingTab.id !== currentTab?.id && currentPath) {
         tabManager.adoptExternalSwitchToPath(currentPath, isPdf)
+        if (contentChanged) {
+          // 外部切换到已存在标签且加载了新内容：以当前内容重置撤销基线
+          undoManager.resetCurrentStackBaseline()
+        }
       } else if (currentTab && currentTab.id === existingTab.id) {
         // 同一个标签路径变化（极少见），只需同步 PDF 标记
         currentTab.isPdf = isPdf
@@ -732,6 +743,11 @@ function startPathSyncWatcher(): void {
         const { tab: newTab } = tabManager.openFile(currentPath, currentContent)
         newTab.isPdf = isPdf
 
+        if (contentChanged) {
+          // 新文件 + 新标签：以当前内容重置撤销基线
+          undoManager.resetCurrentStackBaseline()
+        }
+
         // 恢复原标签的内容（openFile 内部的 saveCurrentTabState 会覆盖，所以要在之后恢复）
         const originalTab = tabManager.findTabById(originalTabId)
         if (originalTab) {
@@ -744,6 +760,11 @@ function startPathSyncWatcher(): void {
         tabManager.updateCurrentTabPath(currentPath)
         tabManager.updateTabContent(currentTab.id, currentContent)
         currentTab.isPdf = isPdf
+
+         if (contentChanged) {
+           // 复用当前空白标签打开新文件：以当前内容重置撤销基线
+           undoManager.resetCurrentStackBaseline()
+         }
       }
     }
 
