@@ -24,6 +24,7 @@ let _panelRoot = null
 let _panelHandle = null
 // 预览区域 wiki 链接点击处理器
 let _previewClickHandler = null
+let _previewClickRoot = null
 // AI 推荐缓存：normPath -> [{ path, title, name }]
 const _aiRelatedCache = new Map()
 // 文档内容签名缓存：normPath -> hash，用于增量更新当前文档索引
@@ -259,16 +260,16 @@ function findWikiLinkAtSelection() {
     if (!sel || sel.rangeCount === 0) return null
     const range = sel.getRangeAt(0)
     const node = range.startContainer
-    if (!node || node.nodeType !== 3) return null
+    if (!node) return null
     const text = String(node.textContent || '')
     if (!text.includes('[[')) return null
-    const offset = range.startOffset >>> 0
+    const offset = node.nodeType === 3 ? (range.startOffset >>> 0) : -1
     const re = /\[\[([^\]]+)\]\]/g
     let m
     while ((m = re.exec(text)) != null) {
       const start = m.index >>> 0
       const end = start + m[0].length
-      if (offset >= start && offset <= end) {
+      if (offset < 0 || (offset >= start && offset <= end)) {
         const inner = m[1] || ''
         const core = parseWikiLinkCore(inner)
         if (!core) return null
@@ -388,6 +389,15 @@ function decoratePreviewWikiLinks(context) {
     const root = context.getPreviewElement()
     if (!root) return
 
+    // 如果预览根节点发生变化，重新绑定点击事件
+    if (_previewClickRoot && _previewClickHandler && _previewClickRoot !== root) {
+      try {
+        _previewClickRoot.removeEventListener('click', _previewClickHandler, true)
+      } catch {}
+      _previewClickHandler = null
+      _previewClickRoot = null
+    }
+
     // 先移除旧的包装，避免重复嵌套
     root.querySelectorAll('.flymd-wikilink').forEach((el) => {
       try {
@@ -456,7 +466,9 @@ function decoratePreviewWikiLinks(context) {
       _previewClickHandler = (ev) => {
         try {
           const target = ev.target
-          if (!root.contains(target)) return
+          // 使用最新的 root 引用，而不是闭包里的老 root
+          const curRoot = _previewClickRoot || context.getPreviewElement()
+          if (!curRoot || !curRoot.contains(target)) return
           const el = target.closest && target.closest('.flymd-wikilink')
           if (!el) return
           const coreText = String(el.textContent || '')
@@ -468,7 +480,11 @@ function decoratePreviewWikiLinks(context) {
           openWikiLinkTarget(context, core)
         } catch {}
       }
+    }
+    if (root && _previewClickHandler) {
+      try { root.removeEventListener('click', _previewClickHandler, true) } catch {}
       root.addEventListener('click', _previewClickHandler, true)
+      _previewClickRoot = root
     }
   } catch (e) {
     console.error('[backlinks] decoratePreviewWikiLinks 失败', e)
@@ -495,7 +511,8 @@ function bindWysiwygWikiLinkClicks(context) {
         openWikiLinkTarget(context, hit.core)
       } catch {}
     }
-    document.addEventListener('click', _wysiwygClickHandler, true)
+    // 使用冒泡阶段，确保浏览器已更新 Selection 位置
+    document.addEventListener('click', _wysiwygClickHandler, false)
   } catch (e) {
     console.error('[backlinks] 绑定所见模式 wiki 链接点击失败', e)
   }
