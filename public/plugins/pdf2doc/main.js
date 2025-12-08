@@ -238,6 +238,152 @@ async function parseImageBytes(context, cfg, bytes, filename) {
   return await uploadAndParseImageFile(context, cfg, file)
 }
 
+// 将 Markdown 中的远程图片下载到当前文档目录并改写为本地相对路径
+// 依赖宿主提供的 context.downloadFileToCurrentFolder 能力；如果不可用则直接返回原文
+async function localizeMarkdownImages(context, markdown, opt) {
+  const text = typeof markdown === 'string' ? markdown : ''
+  if (!text) return text
+  if (!context || typeof context.downloadFileToCurrentFolder !== 'function') {
+    // 宿主不支持本地下载时，仍然可以尝试将 HTML img 标签转换为 Markdown 语法，避免图片在预览中不可见
+    let fallback = text
+    const htmlToMdRe = /<img\b([^>]*?)\bsrc=['"]([^'"]+)['"]([^>]*)>/gi
+    fallback = fallback.replace(htmlToMdRe, (full, before, src, after) => {
+      const rest = String(before || '') + ' ' + String(after || '')
+      const altMatch = rest.match(/\balt=['"]([^'"]*)['"]/i)
+      const alt = altMatch ? altMatch[1] : ''
+      const safeAlt = alt.replace(/]/g, '\\]')
+      const needsAngle = /\s|\(|\)/.test(src)
+      const wrappedSrc = needsAngle ? '<' + src + '>' : src
+      return '![' + safeAlt + '](' + wrappedSrc + ')'
+    })
+    return fallback
+  }
+
+  // 收集所有 http(s) 图片 URL，避免重复下载
+  // 映射结构：url => { fullPath?: string, relativePath?: string }
+  const urlMap = new Map()
+
+  // Markdown 图片语法 ![alt](url "title")
+  const mdImgRe = /!\[[^\]]*]\(([^)\s]+)[^)]*\)/g
+  let m
+  while ((m = mdImgRe.exec(text)) !== null) {
+    const raw = (m[1] || '').trim()
+    if (!raw) continue
+    if (!/^https?:\/\//i.test(raw)) continue
+    if (!urlMap.has(raw)) {
+      urlMap.set(raw, null)
+    }
+  }
+
+  // HTML img 标签 <img src="url" ...>
+  const htmlImgRe = /<img\b[^>]*\bsrc=['"]([^'"]+)['"][^>]*>/gi
+  while ((m = htmlImgRe.exec(text)) !== null) {
+    const raw = (m[1] || '').trim()
+    if (!raw) continue
+    if (!/^https?:\/\//i.test(raw)) continue
+    if (!urlMap.has(raw)) {
+      urlMap.set(raw, null)
+    }
+  }
+
+  if (!urlMap.size) return text
+
+  const baseName =
+    opt && typeof opt.baseName === 'string' && opt.baseName.trim()
+      ? opt.baseName.trim()
+      : 'image'
+
+  // 限制最多处理的图片数量，避免极端大文档导致卡顿
+  const maxImages = 50
+  let index = 0
+
+  for (const [url] of urlMap.entries()) {
+    if (index >= maxImages) break
+    index += 1
+
+    let suggestedName = ''
+    try {
+      try {
+        const u = new URL(url)
+        const path = u.pathname || ''
+        const parts = path.split('/').filter(Boolean)
+        if (parts.length) {
+          suggestedName = parts[parts.length - 1]
+        }
+      } catch {
+        // 忽略 URL 解析失败，回退到简单切分
+      }
+      if (!suggestedName) {
+        const withoutQuery = url.split(/[?#]/)[0]
+        const segs = withoutQuery.split('/').filter(Boolean)
+        if (segs.length) {
+          suggestedName = segs[segs.length - 1]
+        }
+      }
+      const safeBase =
+        baseName.replace(/[\\/:*?"<>|]+/g, '_') || 'image'
+      const idxStr = String(index).padStart(3, '0')
+
+      let finalName = suggestedName || ''
+      if (!finalName) {
+        finalName = safeBase + '-' + idxStr + '.png'
+      } else {
+        finalName = String(finalName).replace(/[\\/:*?"<>|]+/g, '_')
+        // 如果没有扩展名，为其补一个默认扩展名，避免部分查看器无法识别
+        if (!/\.[A-Za-z0-9]{2,6}$/.test(finalName)) {
+          finalName = finalName + '.png'
+        }
+      }
+
+      try {
+        const saved = await context.downloadFileToCurrentFolder({
+          url,
+          fileName: finalName,
+          subDir: 'images',
+          onConflict: 'renameAuto'
+        })
+        if (saved) {
+          urlMap.set(url, {
+            fullPath: saved.fullPath ? String(saved.fullPath) : '',
+            relativePath: saved.relativePath ? String(saved.relativePath).replace(/\\/g, '/') : ''
+          })
+        }
+      } catch {
+        // 单个图片下载失败不影响整体流程，保留原始 URL
+      }
+    } catch {
+      // 防御性兜底，出现异常时跳过该图片
+    }
+  }
+
+  let result = text
+  for (const [oldUrl, info] of urlMap.entries()) {
+    if (!info) continue
+    const fullPath = info.fullPath && String(info.fullPath).trim()
+    const relPath = info.relativePath && String(info.relativePath).trim()
+    // 优先使用绝对路径，满足需要“绝对路径图片引用”的场景
+    const target = fullPath || relPath
+    if (!target) continue
+    const escaped = oldUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(escaped, 'g')
+    result = result.replace(re, target)
+  }
+
+  // 最后一步：将 HTML img 标签统一转换为 Markdown 图片语法，保证在 Markdown 预览和编辑器中可见
+  const htmlToMdRe = /<img\b([^>]*?)\bsrc=['"]([^'"]+)['"]([^>]*)>/gi
+  result = result.replace(htmlToMdRe, (full, before, src, after) => {
+    const rest = String(before || '') + ' ' + String(after || '')
+    const altMatch = rest.match(/\balt=['"]([^'"]*)['"]/i)
+    const alt = altMatch ? altMatch[1] : ''
+    const safeAlt = alt.replace(/]/g, '\\]')
+    const needsAngle = /\s|\(|\)/.test(src)
+    const wrappedSrc = needsAngle ? '<' + src + '>' : src
+    return '![' + safeAlt + '](' + wrappedSrc + ')'
+  })
+
+  return result
+}
+
 // 将长文分批翻译，避免单次调用超出模型上下文
 // 返回 { completed, text, partial, translatedBatches, totalBatches, translatedPages }
 // 若中途失败，尽量返回已翻译内容（partial）而不是直接抛错
@@ -1094,13 +1240,42 @@ export async function activate(context) {
             }
 
             if (result.format === 'markdown' && result.markdown) {
+              const baseName = file && file.name ? file.name.replace(/\.pdf$/i, '') : 'document'
+              const localized = await localizeMarkdownImages(context, result.markdown, {
+                baseName
+              })
+
+              // 解析 PDF（通过文件选择）时，同时：
+              // 1. 在当前文档中插入解析结果
+              // 2. 在当前库/当前文档目录下保存一份独立的 Markdown 文件，便于长期保存与同步
+              let savedPath = ''
+              if (typeof context.saveMarkdownToCurrentFolder === 'function') {
+                try {
+                  const mdFileName = baseName + ' (PDF 解析).md'
+                  savedPath = await context.saveMarkdownToCurrentFolder({
+                    fileName: mdFileName,
+                    content: localized,
+                    onConflict: 'renameAuto'
+                  })
+                } catch {}
+              }
+
               const current = context.getEditorValue()
-              const merged = current ? current + '\n\n' + result.markdown : result.markdown
+              const merged = current ? current + '\n\n' + localized : localized
               context.setEditorValue(merged)
-              context.ui.notice(
-                'PDF 解析完成，已插入 Markdown（' + (result.pages || '?') + ' 页）',
-                'ok'
-              )
+
+              const pagesInfo = result.pages ? '（' + result.pages + ' 页）' : ''
+              if (savedPath) {
+                context.ui.notice(
+                  'PDF 解析完成，已插入并保存为 Markdown 文件' + pagesInfo,
+                  'ok'
+                )
+              } else {
+                context.ui.notice(
+                  'PDF 解析完成，已插入 Markdown' + pagesInfo,
+                  'ok'
+                )
+              }
             } else if (result.format === 'docx' && result.docx_url) {
               let docxFileName = 'document.docx'
               if (file && file.name) {
@@ -1180,8 +1355,12 @@ export async function activate(context) {
               }
 
               if (result.format === 'markdown' && result.markdown) {
+                const baseName = file && file.name ? file.name.replace(/\.[^.]+$/i, '') : 'image'
+                const localized = await localizeMarkdownImages(context, result.markdown, {
+                  baseName
+                })
                 const current = context.getEditorValue()
-                const merged = current ? current + '\n\n' + result.markdown : result.markdown
+                const merged = current ? current + '\n\n' + localized : localized
                 context.setEditorValue(merged)
                 context.ui.notice(
                   '图片解析完成，已插入 Markdown（' + (result.pages || '?') + ' 页）',
@@ -1241,13 +1420,46 @@ export async function activate(context) {
             }
 
             if (result.format === 'markdown' && result.markdown) {
-              const current = context.getEditorValue()
-              const merged = current ? current + '\n\n' + result.markdown : result.markdown
-              context.setEditorValue(merged)
-              context.ui.notice(
-                'PDF 解析完成，已插入 Markdown（' + (result.pages || '?') + ' 页）',
-                'ok'
-              )
+              const baseName = fileName ? fileName.replace(/\.pdf$/i, '') : 'document'
+              const localized = await localizeMarkdownImages(context, result.markdown, {
+                baseName
+              })
+              let savedPath = ''
+              if (typeof context.saveMarkdownToCurrentFolder === 'function') {
+                try {
+                  const mdFileName = baseName + ' (PDF 解析).md'
+                  savedPath = await context.saveMarkdownToCurrentFolder({
+                    fileName: mdFileName,
+                    content: localized,
+                    onConflict: 'renameAuto'
+                  })
+                } catch {}
+              }
+
+              // 当前是 PDF 文件：不要覆盖 PDF 标签内容，而是新建并打开解析后的 Markdown 文档
+              if (savedPath && typeof context.openFileByPath === 'function') {
+                try {
+                  await context.openFileByPath(savedPath)
+                } catch {}
+              } else {
+                // 兼容旧环境：如果无法保存文件，则退回到直接插入当前文档的行为
+                const current = context.getEditorValue()
+                const merged = current ? current + '\n\n' + localized : localized
+                context.setEditorValue(merged)
+              }
+
+              const pagesInfo = result.pages ? '（' + result.pages + ' 页）' : ''
+              if (savedPath) {
+                context.ui.notice(
+                  'PDF 解析完成，已保存为 Markdown 文件并打开' + pagesInfo,
+                  'ok'
+                )
+              } else {
+                context.ui.notice(
+                  'PDF 解析完成，已插入 Markdown（未能自动保存为单独文件）' + pagesInfo,
+                  'ok'
+                )
+              }
             } else {
               context.ui.notice('解析成功，但返回格式不是 Markdown', 'err')
             }
@@ -1452,7 +1664,14 @@ export async function activate(context) {
                   'markdown'
                 )
                 if (result.format === 'markdown' && result.markdown) {
-                  markdown = result.markdown
+                  const baseNameInner = fileName
+                    ? fileName.replace(/\.pdf$/i, '')
+                    : 'document'
+                  markdown = await localizeMarkdownImages(
+                    context,
+                    result.markdown,
+                    { baseName: baseNameInner }
+                  )
                   pages = result.pages || '?'
                 } else {
                   throw new Error('解析成功，但返回格式不是 Markdown')
@@ -1505,7 +1724,15 @@ export async function activate(context) {
                 'markdown'
               )
               if (result.format === 'markdown' && result.markdown) {
-                markdown = result.markdown
+                const baseNameFile =
+                  file && file.name
+                    ? file.name.replace(/\.pdf$/i, '')
+                    : 'document'
+                markdown = await localizeMarkdownImages(
+                  context,
+                  result.markdown,
+                  { baseName: baseNameFile }
+                )
                 pages = result.pages || '?'
               } else {
                 throw new Error('解析成功，但返回格式不是 Markdown')

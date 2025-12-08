@@ -7,6 +7,7 @@ import {
   readDir,
   remove,
   writeFile,
+  mkdir,
   BaseDirectory,
   exists,
 } from '@tauri-apps/plugin-fs'
@@ -635,6 +636,184 @@ export function createPluginHost(
           await deps.exportCurrentDocToPdf(target)
         } catch (e) {
           console.error('plugin exportCurrentToPdf 失败', e)
+          throw e
+        }
+      },
+      // 下载远程文件到当前文档所在目录（或库根目录）
+      // 返回 { fullPath, relativePath }，relativePath 适合作为当前文档中的相对引用
+      downloadFileToCurrentFolder: async (opt: {
+        url: string
+        fileName?: string
+        subDir?: string
+        onConflict?: 'overwrite' | 'renameAuto' | 'error'
+      }): Promise<{ fullPath: string; relativePath: string }> => {
+        try {
+          const urlRaw = (opt && opt.url ? String(opt.url) : '').trim()
+          if (!urlRaw) {
+            throw new Error('url 不能为空')
+          }
+
+          if (!http || typeof http.fetch !== 'function') {
+            throw new Error('当前环境不支持下载文件')
+          }
+
+          const resp = await http.fetch(urlRaw, {
+            method: 'GET',
+            responseType: http.ResponseType?.Binary,
+          })
+
+          if (
+            !resp ||
+            !(
+              resp.ok === true ||
+              (typeof resp.status === 'number' &&
+                resp.status >= 200 &&
+                resp.status < 300)
+            )
+          ) {
+            const status =
+              resp && typeof resp.status === 'number'
+                ? resp.status
+                : '未知'
+            throw new Error(`下载失败（HTTP ${status}）`)
+          }
+
+          let data: Uint8Array
+          if (resp.data instanceof Uint8Array) {
+            data = resp.data
+          } else if (Array.isArray(resp.data)) {
+            data = new Uint8Array(resp.data as any)
+          } else if (resp.arrayBuffer) {
+            const buf = await resp.arrayBuffer()
+            data = buf ? new Uint8Array(buf) : new Uint8Array()
+          } else if (resp.data && typeof resp.data === 'string') {
+            const bin = resp.data as string
+            const arr = new Uint8Array(bin.length)
+            for (let i = 0; i < bin.length; i++) {
+              arr[i] = bin.charCodeAt(i) & 0xff
+            }
+            data = arr
+          } else {
+            throw new Error('下载响应为空')
+          }
+
+          const root = await deps.getLibraryRoot()
+          if (!root) {
+            throw new Error('当前未打开任何库')
+          }
+          const rootNorm = String(root).replace(/[\\/]+$/, '')
+          const current = deps.getCurrentFilePath()
+
+          // 优先使用当前文件所在目录；否则退回库根目录
+          let baseDir = rootNorm
+          if (current && current.startsWith(rootNorm)) {
+            baseDir = current.replace(/[\\/][^\\/]*$/, '')
+          }
+
+          const sep = baseDir.includes('\\') ? '\\' : '/'
+
+          // 可选的子目录（例如 images），用于将资源统一归档在当前文档目录下的固定文件夹中
+          let targetDir = baseDir
+          let relDirForMd = ''
+          const subDirRaw =
+            opt && typeof opt.subDir === 'string'
+              ? opt.subDir.trim()
+              : ''
+          if (subDirRaw) {
+            const cleanSub = subDirRaw
+              .replace(/[\\]+/g, '/')
+              .replace(/^\/+|\/+$/g, '')
+            if (cleanSub) {
+              targetDir =
+                baseDir + sep + cleanSub.replace(/\//g, sep)
+              relDirForMd = cleanSub
+            }
+          }
+
+          // 若目标子目录不存在，则尝试创建（忽略失败，后续写文件会自行报错）
+          try {
+            if (targetDir !== baseDir) {
+              if (!(await exists(targetDir as any))) {
+                await mkdir(targetDir as any, {
+                  recursive: true,
+                } as any)
+              }
+            }
+          } catch {
+            // 目录创建失败时保持静默，由后续写文件报错或回退
+          }
+
+          const inferNameFromUrl = () => {
+            try {
+              const u = new URL(urlRaw)
+              const path = u.pathname || ''
+              const parts = path.split('/').filter(Boolean)
+              if (parts.length) return parts[parts.length - 1]
+            } catch {
+              // 忽略 URL 解析失败
+            }
+            const withoutQuery = urlRaw.split(/[?#]/)[0]
+            const segs = withoutQuery.split('/').filter(Boolean)
+            if (segs.length) return segs[segs.length - 1]
+            return 'download'
+          }
+
+          const rawName =
+            (opt && opt.fileName && String(opt.fileName).trim()) ||
+            inferNameFromUrl()
+
+          const safeName =
+            String(rawName)
+              .trim()
+              .replace(/[\\/:*?"<>|]+/g, '_') || 'download'
+
+          const makeFull = (name: string) => targetDir + sep + name
+
+          const onConflict = (opt && opt.onConflict) || 'renameAuto'
+          let finalName = safeName
+          let fullPath = makeFull(finalName)
+
+          if (onConflict === 'error') {
+            if (await exists(fullPath as any)) {
+              throw new Error('目标文件已存在：' + fullPath)
+            }
+          } else if (onConflict === 'renameAuto') {
+            if (await exists(fullPath as any)) {
+              const dot = safeName.lastIndexOf('.')
+              const base =
+                dot > 0 ? safeName.slice(0, dot) : safeName
+              const ext = dot > 0 ? safeName.slice(dot) : ''
+              let idx = 1
+              while (idx < 10000) {
+                const candidate = `${base}-${idx}${ext}`
+                const candidateFull = makeFull(candidate)
+                // eslint-disable-next-line no-await-in-loop
+                if (!(await exists(candidateFull as any))) {
+                  finalName = candidate
+                  fullPath = candidateFull
+                  break
+                }
+                idx += 1
+              }
+            }
+          }
+          // onConflict === 'overwrite' 时不做额外处理，直接写入覆盖
+
+          await writeFile(fullPath as any, data as any)
+
+          // 生成适合写入 Markdown 的相对路径：
+          // - 若指定了子目录，则为 "subDir/fileName"
+          // - 否则为裸文件名
+          const finalNameNorm = finalName.replace(/\\/g, '/')
+          const relativePath = relDirForMd
+            ? `${relDirForMd.replace(/\\/g, '/')}/${finalNameNorm}`
+            : finalNameNorm
+          return { fullPath, relativePath }
+        } catch (e) {
+          console.error(
+            `[Plugin ${p.id}] downloadFileToCurrentFolder 失败:`,
+            e,
+          )
           throw e
         }
       },
