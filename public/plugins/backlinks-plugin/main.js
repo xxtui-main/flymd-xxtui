@@ -382,36 +382,6 @@ async function saveIndexToStorage(context) {
   }
 }
 
-// 工具：记住反向链接面板上次显示状态
-async function loadPanelVisible(context) {
-  // 默认行为：保持与历史一致 —— 初始显示
-  if (!context || !context.storage || typeof context.storage.get !== 'function') {
-    return true
-  }
-  try {
-    const v = await context.storage.get('backlinksPanelVisible_v1')
-    if (typeof v === 'boolean') return v
-    if (v === 0 || v === '0') return false
-    if (v === 1 || v === '1') return true
-    // 未设置或未知值时保持历史行为：默认显示
-    return true
-  } catch {
-    return true
-  }
-}
-
-function savePanelVisible(context, visible) {
-  if (!context || !context.storage || typeof context.storage.set !== 'function') {
-    return
-  }
-  try {
-    // 不关心异步完成时机，失败也不影响正常使用
-    context.storage.set('backlinksPanelVisible_v1', !!visible)
-  } catch {
-    // 忽略存储错误
-  }
-}
-
 // 在预览 DOM 中，将 [[名称]] 文本包裹为可点击链接
 function decoratePreviewWikiLinks(context) {
   try {
@@ -1544,7 +1514,8 @@ export async function activate(context) {
 
   // 注册布局 Panel：放在右侧，宽度固定 260px
   const panelSize = 260
-  const panelVisible = await loadPanelVisible(context)
+  // 默认不开启面板，由用户手动打开
+  const panelVisible = false
   const panelHandle = context.layout.registerPanel('backlinks', {
     side: 'right',
     size: panelSize,
@@ -1658,7 +1629,6 @@ export async function activate(context) {
           const next = !visible
           panelRoot.style.display = next ? 'flex' : 'none'
           panelHandle.setVisible(next)
-          savePanelVisible(context, next)
         },
       },
     ],
@@ -1709,7 +1679,6 @@ export async function activate(context) {
           if (_panelHandle && typeof _panelHandle.setVisible === 'function') {
             _panelHandle.setVisible(next)
           }
-          savePanelVisible(context, next)
         } catch (e) {
           console.error('[backlinks] 右键切换面板显示失败', e)
         }
