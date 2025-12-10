@@ -23,154 +23,70 @@
   <a href="https://t.me/+3SOMbwSbCvIxMGQ9"><img src="https://img.shields.io/badge/Telegram-Join-blue?logo=telegram&logoColor=white" alt="Telegram Community" /></a>
 </p>
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/f007f4cd-4c3f-46f7-8080-72e2128990e1" alt="FlyMD main interface" width="32%" />
-  <img src="https://github.com/user-attachments/assets/391ef7ec-9741-4c3e-b5ef-b8573ebf021c" alt="Library and multi-pane layout" width="32%" />
-  <img src="https://github.com/user-attachments/assets/2d84d6fe-623b-48cf-8d6f-3e925a9d6b12" alt="AI assistant and sticky notes" width="32%" />
-</p>
+---
+
+## Feature Demonstrations
+
+### High-Precision PDF Parsing + Translation
+
+<img src="https://github.com/user-attachments/assets/5e711375-4c58-4432-9acd-27de92cef81a" alt="PDF High-Precision Parsing and Translation" width="800">
+
+### AI Dialogue Integration + Desktop Sticky Notes
+
+**Ten Color Options · Customizable Transparency · Interactive Visual Controls**
+
+<img src="https://github.com/user-attachments/assets/016617fa-1971-4711-8c5e-1398a1b0aa52" alt="AI Dialogue Integration and Sticky Notes" width="800">
 
 ---
 
-## Table of Contents
+## Introduction
 
-- [Introduction](#-introduction)
-- [Core Features](#-core-features)
-- [Focus Mode](#-focus-mode-immersive-writing-experience)
-- [AI + Todo Integration](#-ai--todo-integration-your-intelligent-life-assistant)
-- [Getting Started](#-getting-started)
-- [Extension Development](#-extension-development)
-- [Performance Metrics](#-performance-metrics)
-- [License](#-license)
-- [Community Developers](#-community-developers)
-- [Acknowledgments](#-acknowledgments)
-- [FAQ](#-faq)
+FlyMD is a lightweight, high-performance local Markdown editor supporting high-precision PDF parsing, AI-assisted writing, and intelligent todo reminders. Local-first, secure data control, ready to use out of the box.
 
 ---
 
-## 📖 Introduction
+## Core Features
 
-**Say goodbye to bloat, lag, and fragmented experience!**
+### Editing Experience
 
-FlyMD is a high-performance Markdown editor in just **7MB**, featuring **WYSIWYG + Source Code** dual-mode support, integrated **AI Assistant** and **Smart Todo Reminder Push System**. Cross-platform support for Windows / Linux / macOS. Lightweight yet powerful, built for efficient writing.
+- **Source Code / WYSIWYG Dual Mode** - Switch freely between modes, source mode supports split view
+- **Millisecond-Level Startup & Rendering** - DOM ready in just 5ms, tested with 80,000-word documents without lag
+- **Smart Outline Navigation** - TOC/outline supports left/right switching, quick navigation for long documents
 
-### 🧑‍🤝‍🧑 Community
+### Advanced Features
 
-Stay connected for the latest updates, preview builds, and tips:
+- **AI Assistant** - Writing assistance, polishing, and error correction with Markdown rendering and code highlighting, built-in free AI models ready to use
+- **Smart Todo Reminder** - Auto-detect TODOs, push via WeChat, SMS, Email, DingTalk, Feishu, and more
+- **High-Precision PDF/Image Parsing** - Parse to MD or Docx format, supports translation
+- **One-Click Publish** - Supports Typecho / WordPress / Halo blog platforms
+- **Collaborative Editing** - Multi-user real-time collaboration via extension plugin (requires "Collaborative Editing" extension, contact QQ Group 343638913 for details)
+- **Git Version Control** - Document integration with Git, supports status query, history view, and explicit commits
+- **iframe Embedding** - Supports embedding music, videos, maps, online documents, etc.
+- **Selection-Aware AI** - Right-click menu shortcuts work on selected text only
+- **Tabs & Sticky Notes Toolkit** - Tab right-click menu supports opening in new instance, renaming files, one-click desktop sticky notes
 
-| Platform | Link |
-|----------|------|
-| QQ Group | 343638913 |
-| Telegram | [t.me/+3SOMbwSbCvIxMGQ9](https://t.me/+3SOMbwSbCvIxMGQ9) |
+> 💡 The AI Assistant extension installs silently on first launch. If you uninstall it, it won't auto-install again.
+>
+> ⚠️ Built-in AI models are designed to lower the barrier to AI adoption. This app has strict rate limits on built-in models—please do not abuse. [Register a SiliconFlow account](https://cloud.siliconflow.cn/i/X96CT74a) to unlock more powerful models and higher quotas.
 
----
+### Platform & Format
 
-## ✨ Core Features
+- **Cross-Platform** - Windows / Linux / macOS
+- **Multi-Format Export** - PDF / DOCX
+- **Portable Mode** - All config in app root directory, ideal for USB drives
 
-### 🎨 Editing Experience
+> ⚠️ Linux tip: On Arch / Manjaro and other Arch-based distributions, AppImage may show white screens due to WebKitGTK / GPU driver issues. Recommended to convert deb → debtap / PKGBUILD to pacman package. See [Arch installation & troubleshooting](arch.md).
 
-| Feature | Description |
-|---------|-------------|
-| **Source Code / WYSIWYG Dual Mode** | Switch freely between edit and preview modes |
-| **Millisecond-Level Startup** | Instant loading, smooth writing, no lag |
-| **Reading Position Memory** | Resume where you left off, never lose your place |
-| **Outline / TOC Support** | Smart outline, quick navigation for long documents |
-| **Customizable Context Menus** | Drag-and-drop sorting, frequent actions stay on top |
-
-### 🚀 Advanced Features
-
-| Feature | Description |
-|---------|-------------|
-| **One-Click Publish** | Typecho / WordPress / Halo blog platforms |
-| **AI Assistant Extension** | Writing assistance, polishing, and error correction with Markdown rendering and code highlighting |
-| **Smart Todo Reminder** | Auto-detect TODOs, push via WeChat, SMS, Email, DingTalk, Feishu |
-| **Collaborative Editing (Beta)** | Use the open-source collaboration server + extension to co-edit documents with others on your own server (install the "Collaboration (Open Server)" extension and configure its WebSocket endpoint); to join the official collaboration server beta, join QQ Group `343638913` to request access |
-| **iframe Embedding** | Embed music, videos, maps, online documents |
-| **Selection-Aware AI** | Right-click actions target only selected text for precise editing |
-| **Tabs & Sticky Notes Toolkit** | Tab right-click menu supports opening in a new instance, renaming files, and one-click creating sticky note windows that stay on your desktop |
-
-> 💡 The AI Assistant extension installs silently on first launch. If you uninstall it, FlyMD will never auto-install it again.
-> ⚠️ The built-in AI models are designed to lower the barrier to using AI so more people can benefit from its convenience and efficiency. To keep the writing experience stable for everyone, FlyMD applies strict rate limits to these built-in models—please do not abuse this free quota.
-
-### Smart Document Recognition & Desktop Sticky Notes
-
-**Ten color options**
-**Customizable transparency**
-**Interactive visual controls**
-
-<img width="400" height="300" alt="20251128_143927_883" src="https://github.com/user-attachments/assets/0cfa8789-93e0-4925-9da8-a1c0711ca55c" />
-
-### 💻 Platform & Format
-
-- **Cross-Platform**: Windows / Linux / macOS
-- **Multi-Format Export**: PDF / DOCX
-> ⚠️ Linux tip: On Arch / Manjaro and other Arch-based distributions, the AppImage may show white/blank screens due to WebKitGTK or GPU driver issues. It is recommended to convert the `.deb` package into a pacman package via debtap / PKGBUILD instead; see [Arch installation & troubleshooting guide](arch.md) for details.
-
-### 🔐 Security & Performance
+### Data Security
 
 - **Local-First** - Zero background network, secure and controllable data
-- **Image Hosting** - S3/R2 one-click upload, auto-insert image links
-- **WebDAV Sync** - Multi-device sync with end-to-end encryption and HTTP host whitelists
+- **Image Hosting** - S3/R2 one-click upload, auto-insert image links, supports right-click upload for specific images
+- **WebDAV Sync** - Multi-device, multi-library sync with end-to-end encryption and HTTP host whitelist
 - **Extension System** - Custom extensions, unlimited possibilities
 
-### 🎨 Theme & Interface
-
-- Auto-detect system dark mode and switch themes accordingly
-- Rich theme presets with background colors and Markdown typography layouts
-- Tab bar styling optimized for dark mode
-
 ---
 
-## 🎯 Focus Mode: Immersive Writing Experience
-
-> **Hide everything, keep only inspiration**
-
-Press `Ctrl+Shift+F` to enter Focus Mode and enjoy true immersive writing:
-
-- **Zero distraction** - Hide all UI elements, leaving only a clean editing area
-- **Pure creation** - No title bar, no menu, no distractions—let thoughts flow freely
-- **One-click switch** - Instantly enter your flow state
-
-**Use Cases**: 📝 Long-form writing · ✍️ Creative bursts · 🎨 Document presentations · 📌 Desktop sticky notes
-
----
-
-## 🤖 AI + Todo Integration: Your Intelligent Life Assistant
-
-**This isn't cyberpunk—this is real life.** When AI Assistant meets Todo Plugin, your notebook transforms into an intelligent life manager.
-
-### Typical Scenarios
-
-| Scenario | Description |
-|----------|-------------|
-| 📅 **Personal Habit Building** | Write "wake up at 6 AM tomorrow" → AI recognizes and sends phone reminder |
-| 🗺️ **Travel Itinerary** | Paste travel guide → AI extracts time points, sends WeChat reminders |
-| 💼 **Team Meeting Management** | Record meeting schedule → Team receives DingTalk/Email/WeChat reminders |
-
-### How It Works
-
-1. **AI Smart Analysis** - Automatically extract time, events, and people information
-2. **Auto-Create Todos** - Intelligently generate todo items
-3. **Multi-Channel Push** - Send reminders via WeChat, SMS, email, phone calls
-
-> 💡 Install both "AI Assistant" and "Todo Reminder" extensions to experience this powerful feature.
-
-### 🆓 Built-in Free AI Service
-
-Since **v0.4.0**, built-in free AI service—**ready to use out of the box**, no API key required.
-
-<a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="public/plugins/ai-assistant/Powered-by-light.png">
-    <img alt="Powered by SiliconFlow" src="public/plugins/ai-assistant/Powered-by-light.png" width="200">
-  </picture>
-</a>
-
-> 💡 [Register a SiliconFlow account](https://cloud.siliconflow.cn/i/X96CT74a) to unlock more powerful models and higher rate limits.
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Installation
 
@@ -201,66 +117,80 @@ sudo xattr -r -d com.apple.quarantine /Applications/flymd.app
 
 </details>
 
-### Keyboard Shortcuts
+### Core Operations
 
 | Action | Shortcut | Action | Shortcut |
 |--------|----------|--------|----------|
-| New File | `Ctrl+N` | Toggle Edit/Preview | `Ctrl+E` |
-| New Tab | `Ctrl+T` | Toggle WYSIWYG | `Ctrl+W` |
-| Open File | `Ctrl+O` | Quick Reading | `Ctrl+R` |
+| New File | `Ctrl+N` | Toggle WYSIWYG | `Ctrl+W` |
+| Open File | `Ctrl+O` | Toggle Edit/Preview | `Ctrl+E` |
 | Save File | `Ctrl+S` | Focus Mode | `Ctrl+Shift+F` |
-| Find & Replace | `Ctrl+H` | Close Tab | `Alt+W` |
+| New Tab | `Ctrl+T` | Find & Replace | `Ctrl+H` |
 
-### Config & Portability
+**Multi-Tab Operations**:
+- `Ctrl+T` - Open blank tab
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` - Cycle through tabs
+- `Ctrl + Click library document` - Open in new tab with source mode
+- `Alt+W` - Close current tab
 
-- **Export/Import Config** - One-click migration of full environment (extensions & settings)
-- **Portable Mode** - All config in app root directory, ideal for USB drives
+**Config & Migration**:
+- Export/Import Config - One-click migration of full environment (extensions & settings)
+- Portable Mode - All config in app root directory
 
-### Multi-Tab Workflow
+**Images & Sync**:
+- Paste/drag to auto-process images, supports S3/R2 image hosting upload
+- WebDAV sync for multi-device, multi-library, supports end-to-end encryption
 
-- `Ctrl+T` opens blank tab, current document stays intact
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle through tabs
-- Hold `Ctrl` and click library document to open in new tab with edit mode
-- Tabs support right-click context menu
-
-### Images & Sync
-
-- **Image Handling**: Auto-process paste/drag, supports S3/R2 image hosting
-- **WebDAV Sync**: Multi-device sync with end-to-end encryption and HTTP host whitelists
+**Page Operations**:
+- `Shift + Mouse Wheel` - Adjust content width (margins)
+- `Ctrl + Mouse Wheel` - Enlarge text and images
+- `Shift + Right Click` - Open native menu (when right-click menu is occupied by plugins)
 
 ---
 
-## 🔌 Extension Development
+## Extension Development
 
-FlyMD supports enhancing functionality through extension plugins:
+FlyMD has a rich plugin ecosystem supporting unlimited functionality extension through plugins.
 
-- Install from GitHub or HTTP URL
-- Develop custom extensions
+### Featured Plugins
+
+**Document Processing**:
+- **Word/Excel Import** - Parse and import local Word/Excel files to Markdown
+- **High-Precision PDF Parsing** - Use LLM for high-precision PDF parsing to Markdown or Docx, supports handwriting, layout, formulas, and tables
+- **MinerU PDF/Image Parsing** - Use MinerU official API to parse PDFs and images
+- **Batch PDF Export** - Select multiple documents and batch export to PDF
+
+**Blog Publishing**:
+- **Typecho Publisher** - One-click publish to Typecho blog
+- **Halo Publisher** - One-click publish to Halo blog platform
+- **Typecho Post Manager** - Pull blog post list and download as local Markdown, supports filtering by time/category
+
+**Productivity Tools**:
+- **Markdown Table Assistant** - Quickly insert Markdown tables at cursor position
+- **xxtui Todo Push** - Scan incomplete todos in documents and push to WeChat, SMS, Email, etc.
+- **Telegraph Image Upload** - Paste/drag images to auto-upload to Telegraph image hosting
+- **Xiaohongshu Copywriting Generator** - Integrated AI with built-in Xiaohongshu viral styles, supports one-click polishing and expansion
+- **Collaborative Editing** - Connect to collaboration server for multi-user real-time editing
+
+**Knowledge Management**:
+- **Backlinks (Bidirectional Links)** - Based on [[title]] syntax, auto-establish forward/reverse links between notes, provides AI-related recommendations
+- **Git Version Management** - Provides Git snapshot and history sidebar, supports one-click rollback to specific versions
+
+**Other Tools**:
+- **Send to Blinko** - Right-click menu to send current content to Blinko
+
+### Install Extensions
+
+- One-click install from extension marketplace
+- Install community extensions from GitHub or HTTP URL
+- Develop custom extensions for personalized needs
 
 📚 **Documentation**: [扩展开发文档 (中文)](plugin.md) | [Extension Documentation (English)](plugin.en.md)
 
-### Example Extensions
-
-| Extension | Function |
-|-----------|----------|
-| AI Writing Assistant | Smart writing, content polishing, grammar checking |
-| Typecho Publisher | One-click publish to Typecho blog |
-| Todo Reminder | Push to WeChat, SMS, Email, etc. |
-| Batch Export PDF | Batch export Markdown to PDF |
-| Word Count | Real-time character count, word count, reading time |
-
-### 🧩 Featured Extensions
-
-| Extension | Description |
-|-----------|-------------|
-| High-Precision PDF Parser | Accurate PDF text, table and outline parsing, ideal for technical docs and research papers |
-| Markdown Table Assistant | Generate, align and reorder Markdown tables in one step, no more manual spacing hell |
-| Collaborative Editing | Real-time multi-user editing via collaboration server with cursor sync and basic conflict handling |
-| Typecho Post Manager | Manage Typecho drafts, snapshots and rollbacks locally with one-click publish and update |
-
 ---
 
-## 📊 Performance Metrics
+## Performance & Technology
+
+### Performance Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -269,43 +199,9 @@ FlyMD supports enhancing functionality through extension plugins:
 | 💾 Memory Footprint | ≤ 50MB |
 | 🔄 Preview Toggle | ≤ 16ms |
 
----
+### Technology Stack & Acknowledgments
 
-## 🗺️ Roadmap
-
-See: [ROADMAP.en.md](ROADMAP.en.md)
-
----
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=flyhunterl/flymd&type=date&legend=top-left)](https://www.star-history.com/#flyhunterl/flymd&type=date&legend=top-left)
-
----
-
-## 📄 License
-
-This project uses "FlySpeed MarkDown (flyMD) Non-Commercial Open Source License (NC 1.0)".
-
-- ✅ **Allowed**: Non-commercial use, modification, copying, and redistribution (attribution required)
-- ❌ **Prohibited**: Commercial use without authorization
-
-For commercial licensing, contact: flyhunterl <flyhunterl@gmail.com>
-
-Full License: [LICENSE](LICENSE) | Third-Party Components: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-
----
-
-## 👨‍💻 Community Developers
-
-| Developer | Contribution |
-|-----------|-------------|
-| [xf959211192](https://github.com/xf959211192) | Telegraph-Image image hosting uploader |
-| [Vita0519](https://github.com/Vita0519) | Xiaohongshu copywriting generator AI extension |
-
----
-
-## 🙏 Acknowledgments
+**Core Technologies**:
 
 | Project | Purpose |
 |---------|---------|
@@ -317,23 +213,72 @@ Full License: [LICENSE](LICENSE) | Third-Party Components: [THIRD-PARTY-NOTICES.
 | [KaTeX](https://katex.org/) | Math formula rendering |
 | [Mermaid](https://mermaid.js.org/) | Diagram drawing |
 
-### 🤝 Ecosystem Partners
+**Ecosystem Partners**:
 
 | Partner | Description | Support Type |
 |---------|-------------|--------------|
-| [SiliconFlow](https://cloud.siliconflow.cn/i/X96CT74a) | Leading AI capability provider | Model Service Support |
+| [SiliconFlow](https://cloud.siliconflow.cn/i/X96CT74a) | Leading AI capability provider | **Free Model Provider** |
 | [XXTUI](https://www.xxtui.com/) | Simple and efficient personal push API | Push Service Support |
 | [x666.me](https://x666.me/register?aff=yUSz) | Quality AI API support with care | Model Service Support |
 
+**Thanks to SiliconFlow for providing free AI model support**:
+
+<a href="https://cloud.siliconflow.cn/i/X96CT74a" target="_blank">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/plugins/ai-assistant/Powered-by-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="public/plugins/ai-assistant/Powered-by-light.png">
+    <img alt="Powered by SiliconFlow" src="public/plugins/ai-assistant/Powered-by-light.png" width="200">
+  </picture>
+</a>
+
 ---
 
-## 🤝 Contributing
+## Community & Support
+
+### Join the Community
+
+Stay connected for the latest updates, preview builds, and tips:
+
+| Platform | Link |
+|----------|------|
+| QQ Group | 343638913 |
+| Telegram | [t.me/+3SOMbwSbCvIxMGQ9](https://t.me/+3SOMbwSbCvIxMGQ9) |
+
+### Community Developers
+
+| Developer | Contribution |
+|-----------|-------------|
+| [xf959211192](https://github.com/xf959211192) | Telegraph-Image image hosting uploader |
+| [Vita0519](https://github.com/Vita0519) | Xiaohongshu copywriting generator AI extension |
+
+### Contributing
 
 Issues and Pull Requests are welcome!
 
 ---
 
-## ❓ FAQ
+## Other Information
+
+### Roadmap
+
+See: [ROADMAP.md](ROADMAP.md)
+
+### Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=flyhunterl/flymd&type=date&legend=top-left)](https://www.star-history.com/#flyhunterl/flymd&type=date&legend=top-left)
+
+### License
+
+This project uses "FlySpeed MarkDown (flyMD) Non-Commercial Open Source License (NC 1.0)".
+
+- ✅ **Allowed**: Non-commercial use, modification, copying, and redistribution (attribution required)
+- ❌ **Prohibited**: Commercial use without authorization
+
+For commercial licensing, contact: flyhunterl <flyhunterl@gmail.com>
+
+Full License: [LICENSE](LICENSE) | Third-Party Components: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+
+### FAQ
 
 <details>
 <summary><strong>macOS says the app is "damaged" and won't open?</strong></summary>
@@ -384,7 +329,6 @@ These are stable model providers I personally use. Signing up through the follow
 ⭐⭐⭐[PackyCode: Cost-effective Claude, Codex, and Gemini relay service](https://www.packyapi.com/register?aff=Rqk1)
 
 
-[OhMyGPT: A high-quality AI service platform](https://x.dogenet.win/i/dXCKvZ6Q) "Get a $20 bonus by registering with Google/GitHub OAuth"
-**Gmail and QQ email addresses only**
+[OhMyGPT: A high-quality AI service platform](https://x.dogenet.win/i/dXCKvZ6Q) **Get a $20 bonus by registering with Google/GitHub OAuth**
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/4a716fd5-dc61-4a4f-b968-91626debe8d2" />
