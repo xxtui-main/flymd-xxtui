@@ -41,7 +41,8 @@ const defaultPrefs = {
   autoStart: true,
   showOnActivate: true,
   enableHeadingHotkeys: true,
-  headingHotkeys: DEFAULT_HEADING_HOTKEYS
+  headingHotkeys: DEFAULT_HEADING_HOTKEYS,
+  onlyShowOnSelection: false
 };
 
 const state = {
@@ -53,7 +54,8 @@ const state = {
   dragStartY: 0,
   barStartLeft: 0,
   barStartTop: 0,
-  keydownHandler: null
+  keydownHandler: null,
+  selectionHandler: null
 };
 
 const COMMANDS = [
@@ -119,7 +121,7 @@ const COMMANDS = [
   },
   {
     id: 'image',
-    label: '🖼',
+    label: 'IMG',
     title: '插入图片',
     run: (ctx) => applyImage(ctx)
   }
@@ -134,14 +136,19 @@ async function loadPrefs(context) {
       showOnActivate: saved.showOnActivate !== undefined ? saved.showOnActivate : defaultPrefs.showOnActivate,
       enableHeadingHotkeys:
         saved.enableHeadingHotkeys !== undefined ? saved.enableHeadingHotkeys : defaultPrefs.enableHeadingHotkeys,
-      headingHotkeys: { ...DEFAULT_HEADING_HOTKEYS, ...savedHeading }
+      headingHotkeys: { ...DEFAULT_HEADING_HOTKEYS, ...savedHeading },
+      onlyShowOnSelection:
+        saved.onlyShowOnSelection !== undefined
+          ? saved.onlyShowOnSelection
+          : defaultPrefs.onlyShowOnSelection
     };
   } catch {
     state.prefs = {
       autoStart: defaultPrefs.autoStart,
       showOnActivate: defaultPrefs.showOnActivate,
       enableHeadingHotkeys: defaultPrefs.enableHeadingHotkeys,
-      headingHotkeys: { ...DEFAULT_HEADING_HOTKEYS }
+      headingHotkeys: { ...DEFAULT_HEADING_HOTKEYS },
+      onlyShowOnSelection: defaultPrefs.onlyShowOnSelection
     };
   }
 }
@@ -159,10 +166,14 @@ export async function activate(context) {
   state.context = context;
   await loadPrefs(context);
 
+  registerSelectionWatcher();
+
   if (state.prefs.autoStart) {
     createToolbarIfNeeded();
     registerHotkeys();
-    if (!state.prefs.showOnActivate) {
+    if (state.prefs.onlyShowOnSelection) {
+      updateToolbarVisibilityBySelection();
+    } else if (!state.prefs.showOnActivate) {
       hideToolbar();
     }
   }
@@ -201,6 +212,10 @@ export function deactivate() {
   if (state.keydownHandler) {
     window.removeEventListener('keydown', state.keydownHandler);
     state.keydownHandler = null;
+  }
+  if (state.selectionHandler) {
+    document.removeEventListener('selectionchange', state.selectionHandler);
+    state.selectionHandler = null;
   }
   if (state.toolbarEl && state.toolbarEl.parentNode) {
     state.toolbarEl.parentNode.removeChild(state.toolbarEl);
@@ -285,6 +300,128 @@ function hideToolbar() {
   if (state.toolbarEl) {
     state.toolbarEl.style.display = 'none';
   }
+}
+
+function isReadingModeDom() {
+  try {
+    const container = document.querySelector('.container');
+    if (!container) return false;
+    // 所见模式有 wysiwyg-v2 类，阅读模式没有
+    if (container.classList.contains('wysiwyg-v2')) return false;
+    const previewEl = container.querySelector('.preview');
+    if (!previewEl) return false;
+    const cs = window.getComputedStyle(previewEl);
+    const hiddenByClass = previewEl.classList.contains('hidden');
+    const hiddenByStyle = cs.display === 'none' || cs.visibility === 'hidden';
+    return !hiddenByClass && !hiddenByStyle;
+  } catch {
+    return false;
+  }
+}
+
+function hasTextSelection() {
+  // 优先用插件提供的源码选区（适用于源码模式）
+  try {
+    const ctx = state.context;
+    if (ctx && typeof ctx.getSelection === 'function') {
+      const sel = ctx.getSelection();
+      if (sel && typeof sel.text === 'string' && sel.text.trim().length > 0) {
+        return true;
+      }
+    }
+  } catch {
+    // 忽略 context 选区错误
+  }
+
+  // 其次用 DOM Selection（适用于所见模式）
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (sel && sel.toString().trim().length > 0) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+function getSelectionRect() {
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (!range) return null;
+    const rect = range.getBoundingClientRect();
+    if (!rect) return null;
+    if (rect.width === 0 && rect.height === 0) return null;
+    return rect;
+  } catch {
+    return null;
+  }
+}
+
+function updateToolbarVisibilityBySelection() {
+  if (!state.prefs.onlyShowOnSelection) return;
+
+  // 阅读模式永远隐藏
+  if (isReadingModeDom()) {
+    if (state.toolbarEl) hideToolbar();
+    return;
+  }
+
+  if (!hasTextSelection()) {
+    if (state.toolbarEl) hideToolbar();
+    return;
+  }
+
+  if (!state.toolbarEl) {
+    createToolbarIfNeeded();
+  }
+  const bar = state.toolbarEl;
+  if (!bar) return;
+
+  const rect = getSelectionRect();
+  if (rect) {
+    const margin = 6;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    let left = rect.left;
+    let top = rect.bottom + margin;
+
+    const barWidth = bar.offsetWidth || 200;
+    const barHeight = bar.offsetHeight || 32;
+
+    // 水平方向防止溢出
+    if (left + barWidth + 8 > viewportWidth) {
+      left = Math.max(8, viewportWidth - barWidth - 8);
+    }
+    if (left < 8) left = 8;
+
+    // 垂直方向：如果下方空间不够，放到选区上方
+    if (top + barHeight + 8 > viewportHeight && rect.top - barHeight - margin >= 8) {
+      top = rect.top - barHeight - margin;
+    }
+
+    bar.style.left = `${left}px`;
+    bar.style.top = `${top}px`;
+    bar.style.right = '';
+    bar.style.width = 'auto';
+    bar.dataset.docked = '';
+  }
+
+  showToolbar();
+}
+
+function registerSelectionWatcher() {
+  if (state.selectionHandler) return;
+
+  const handler = () => {
+    updateToolbarVisibilityBySelection();
+  };
+
+  document.addEventListener('selectionchange', handler);
+  state.selectionHandler = handler;
 }
 
 function onToolbarMouseDown(e) {
@@ -571,6 +708,8 @@ function applyLink(context) {
     const { doc, start, end, text, hasSelection } = getSelectionRange(context);
     const currentText = hasSelection ? text || doc.slice(start, end) : '';
 
+    const hasLabelFromSelection = !!(currentText && currentText.trim().length);
+
     const overlay = document.createElement('div');
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
@@ -589,23 +728,29 @@ function applyLink(context) {
     panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.18)';
     panel.style.fontSize = '14px';
 
-    panel.innerHTML = `
+    let html = `
       <h3 style="margin:0 0 12px;font-size:16px;">插入链接</h3>
       <div style="margin:6px 0;">
         <div style="margin-bottom:4px;">链接地址</div>
         <input id="ft-link-url" type="text" value="https://"
           style="width:100%;padding:4px 6px;border-radius:4px;border:1px solid #ddd;box-sizing:border-box;">
       </div>
+    `;
+    if (!hasLabelFromSelection) {
+      html += `
       <div style="margin:6px 0;">
         <div style="margin-bottom:4px;">链接文本</div>
         <input id="ft-link-label" type="text" value="${currentText ? currentText.replace(/"/g, '') : '链接文本'}"
           style="width:100%;padding:4px 6px;border-radius:4px;border:1px solid #ddd;box-sizing:border-box;">
-      </div>
+      </div>`;
+    }
+    html += `
       <div style="margin-top:14px;text-align:right;">
         <button id="ft-link-cancel" style="margin-right:8px;">取消</button>
         <button id="ft-link-ok">确定</button>
-      </div>
-    `;
+      </div>`;
+
+    panel.innerHTML = html;
 
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
@@ -628,7 +773,9 @@ function applyLink(context) {
 
     okBtn.onclick = () => {
       const url = (urlInput.value || '').trim();
-      let label = (labelInput.value || '').trim();
+      let label = hasLabelFromSelection
+        ? (currentText || '').trim()
+        : ((labelInput && labelInput.value) || '').trim();
       if (!url) {
         context.ui.notice('链接地址不能为空', 'err');
         return;
@@ -781,6 +928,12 @@ export async function openSettings(context) {
         <span>启用标题快捷键 (Ctrl+1~6)</span>
       </label>
     </div>
+    <div style="margin:6px 0;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+        <input id="ft-only-on-selection" type="checkbox" ${state.prefs.onlyShowOnSelection ? 'checked' : ''} style="cursor:pointer;">
+        <span>仅在选中文本时显示工具条</span>
+      </label>
+    </div>
     <div style="margin:8px 0 4px;font-weight:500;">各级标题快捷键</div>
     <div style="font-size:12px;color:#666;margin-bottom:6px;">
       点击输入框后按下新的组合键。快捷键必须包含 Ctrl，且不能与 FlyMD 已有快捷键冲突。
@@ -917,6 +1070,7 @@ export async function openSettings(context) {
       autoStart: $('#ft-auto-start').checked,
       showOnActivate: $('#ft-show-on-activate').checked,
       enableHeadingHotkeys: $('#ft-heading-hotkeys').checked,
+       onlyShowOnSelection: $('#ft-only-on-selection').checked,
       headingHotkeys
     };
     await savePrefs(context, next);
