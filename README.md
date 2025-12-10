@@ -27,9 +27,11 @@
 
 ## 功能演示
 
+
+
 ### PDF 高精度解析 + 翻译
 
-<img src="https://github.com/user-attachments/assets/5e711375-4c58-4432-9acd-27de92cef81a" alt="PDF高精度解析翻译" width="800">
+<img src="https://github.com/user-attachments/assets/2a512b4b-7083-41d9-9b84-f9b411b849f1" alt="PDF高精度解析翻译" width="800">
 
 ### AI 对话联动 + 桌面便签
 
