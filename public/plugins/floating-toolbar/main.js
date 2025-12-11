@@ -770,7 +770,8 @@ function applyLink(context) {
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
     overlay.style.background = 'rgba(0,0,0,0.35)';
-    overlay.style.zIndex = '10000';
+    // 需要高于扩展市场 ext-overlay (z-index: 80000)
+    overlay.style.zIndex = '90010';
 
     const panel = document.createElement('div');
     panel.style.position = 'absolute';
@@ -865,7 +866,8 @@ function applyImage(context) {
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
     overlay.style.background = 'rgba(0,0,0,0.35)';
-    overlay.style.zIndex = '10000';
+    // 需要高于扩展市场 ext-overlay (z-index: 80000)
+    overlay.style.zIndex = '90010';
 
     const panel = document.createElement('div');
     panel.style.position = 'absolute';
@@ -950,7 +952,8 @@ export async function openSettings(context) {
   overlay.style.position = 'fixed';
   overlay.style.inset = '0';
   overlay.style.background = 'rgba(0,0,0,0.35)';
-  overlay.style.zIndex = '10000';
+  // 需要高于扩展市场 ext-overlay (z-index: 80000)
+  overlay.style.zIndex = '90010';
 
   const panel = document.createElement('div');
   panel.style.position = 'absolute';

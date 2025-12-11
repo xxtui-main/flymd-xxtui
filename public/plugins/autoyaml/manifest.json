@@ -1,0 +1,15 @@
+{
+  "id": "autoyaml",
+  "name": "AutoYAML 元数据",
+  "version": "0.2.0",
+  "author": "flyMD",
+  "description": "为当前文档自动补全 YAML 前置信息（元数据），可选调用 AI 助手生成标签和摘要",
+  "i18n": {
+    "en": {
+      "name": "AutoYAML Metadata",
+      "description": "Automatically add YAML front matter metadata to the current document, optionally using the AI assistant to generate tags and summary."
+    }
+  },
+  "homepage": "https://github.com/flyhunterl/flymd",
+  "main": "main.js"
+}

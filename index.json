@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2025-12-10T16:00:00Z",
+  "updatedAt": "2025-12-11T16:00:00Z",
   "ttlSeconds": 3600,
   "items": [
     {
@@ -262,6 +262,18 @@
       "category": "编辑增强",
       "install": {
         "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/floating-toolbar/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "AutoYAML 元数据",
+      "description": "自动为当前文档补全 YAML 前置信息（title/created/updated/tags 等），可选调用 AI 助手生成标签和摘要。",
+      "author": "flyMD",
+      "id": "autoyaml",
+      "category": "文档工具",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/autoyaml/manifest.json",
         "type": "manifest"
       }
     }
