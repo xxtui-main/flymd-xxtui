@@ -1,7 +1,7 @@
 {
   "id": "flymd-backlinks",
   "name": "双向链接（Backlinks）",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": "flyMD user",
   "description": "提供双向链接/反向链接侧边面板。",
   "i18n": {
