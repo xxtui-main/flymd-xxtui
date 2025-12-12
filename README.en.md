@@ -159,30 +159,23 @@ FlyMD has a rich plugin ecosystem supporting unlimited functionality extension t
 
 ### Featured Plugins
 
+**AI & Writing**:
+- **AI Assistant** - Writing assistance, polishing and error correction with Markdown rendering and code highlighting, built-in free models ready to use
+- **Xiaohongshu Copywriting Generator** - AI-powered Xiaohongshu-style copywriting with one-click polish, expansion and custom prompt templates
+
 **Document Processing**:
-- **Word/Excel Import** - Parse and import local Word/Excel files to Markdown
-- **High-Precision PDF Parsing** - Use LLM for high-precision PDF parsing to Markdown or Docx, supports handwriting, layout, formulas, and tables
-- **MinerU PDF/Image Parsing** - Use MinerU official API to parse PDFs and images
-- **Batch PDF Export** - Select multiple documents and batch export to PDF
+- **High-Precision PDF Parsing** - Use LLM for high-precision PDF parsing to Markdown or Docx, supports handwriting, layout, formulas and tables
+- **Markdown Table Assistant** - Quickly insert Markdown tables at the cursor to structure content efficiently
 
-**Blog Publishing**:
-- **Typecho Publisher** - One-click publish to Typecho blog
-- **Halo Publisher** - One-click publish to Halo blog platform
-- **Typecho Post Manager** - Pull blog post list and download as local Markdown, supports filtering by time/category
-
-**Productivity Tools**:
-- **Markdown Table Assistant** - Quickly insert Markdown tables at cursor position
-- **xxtui Todo Push** - Scan incomplete todos in documents and push to WeChat, SMS, Email, etc.
-- **Telegraph Image Upload** - Paste/drag images to auto-upload to Telegraph image hosting
-- **Xiaohongshu Copywriting Generator** - Integrated AI with built-in Xiaohongshu viral styles, supports one-click polishing and expansion
-- **Collaborative Editing** - Connect to collaboration server for multi-user real-time editing
+**Publishing & Reminders**:
+- **Typecho Post Manager** - Pull blog post list from Typecho as local Markdown, filter by time/category, and allow local content to overwrite remote posts
+- **xxtui Todo Push** - Scan incomplete todos in the current document and push them to WeChat, SMS, Email and other channels
 
 **Knowledge Management**:
-- **Backlinks (Bidirectional Links)** - Based on [[title]] syntax, auto-establish forward/reverse links between notes, provides AI-related recommendations
-- **Git Version Management** - Provides Git snapshot and history sidebar, supports one-click rollback to specific versions
+- **Backlinks (Bidirectional Links)** - Based on [[title]] syntax to build forward and reverse links between notes, with AI-powered related suggestions
+- **Graph View** - Graph view based on backlinks index that centers on the current note and visualizes its local graph
 
-**Other Tools**:
-- **Send to Blinko** - Right-click menu to send current content to Blinko
+> 👉 [View all extensions](https://flymd.llingfei.com/extensions.html)
 
 ### Install Extensions
 
