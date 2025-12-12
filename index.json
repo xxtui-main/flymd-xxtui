@@ -276,6 +276,18 @@
         "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/autoyaml/manifest.json",
         "type": "manifest"
       }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "属性视图",
+      "description": "基于 YAML 元数据和标签的属性查询与列表视图",
+      "author": "flyMD",
+      "id": "property-view",
+      "category": "知识管理",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/property-view/manifest.json",
+        "type": "manifest"
+      }
     }
   ]
 }
