@@ -1,5 +1,27 @@
 // Git 版本管理插件（库级 / 当前文档）
 // 目标：给普通写作用户一个「像 VSCode 一样」的 Git 侧栏，但只做读 + 显式提交，不做任何破坏性操作。
+// 轻量多语言：跟随宿主（flymd.locale），默认用系统语言
+const GIT_HISTORY_LOCALE_LS_KEY = 'flymd.locale'
+function gitHistDetectLocale() {
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : null
+    const lang = (nav && (nav.language || nav.userLanguage)) || 'en'
+    const lower = String(lang || '').toLowerCase()
+    if (lower.startsWith('zh')) return 'zh'
+  } catch {}
+  return 'en'
+}
+function gitHistGetLocale() {
+  try {
+    const ls = typeof localStorage !== 'undefined' ? localStorage : null
+    const v = ls && ls.getItem(GIT_HISTORY_LOCALE_LS_KEY)
+    if (v === 'zh' || v === 'en') return v
+  } catch {}
+  return gitHistDetectLocale()
+}
+function gitText(zh, en) {
+  return gitHistGetLocale() === 'en' ? en : zh
+}
 
 const PANEL_ID = 'flymd-git-history-panel'
 const PANEL_WIDTH = 400
@@ -118,7 +140,7 @@ function ensurePanel(context) {
   header.style.background = dark ? '#1a1b1e' : '#ffffff'
 
   const title = doc.createElement('div')
-  title.textContent = 'Git 版本管理'
+  title.textContent = gitText('Git 版本管理', 'Git History')
   title.style.fontWeight = '600'
   title.style.fontSize = '12px'
   title.style.color = dark ? '#e5e7eb' : '#111827'
@@ -129,7 +151,7 @@ function ensurePanel(context) {
   headerBtns.style.alignItems = 'center'
 
   const themeBtn = doc.createElement('button')
-  themeBtn.textContent = isPanelDark() ? '日间' : '夜间'
+  themeBtn.textContent = isPanelDark() ? gitText('日间', 'Light') : gitText('夜间', 'Dark')
   themeBtn.style.fontSize = '11px'
   themeBtn.style.padding = '2px 6px'
   themeBtn.style.cursor = 'pointer'
@@ -147,7 +169,7 @@ function ensurePanel(context) {
   })
 
   refreshBtn = doc.createElement('button')
-  refreshBtn.textContent = '刷新'
+  refreshBtn.textContent = gitText('刷新', 'Refresh')
   refreshBtn.style.fontSize = '11px'
   refreshBtn.style.padding = '2px 6px'
   refreshBtn.style.cursor = 'pointer'
@@ -189,7 +211,7 @@ function ensurePanel(context) {
   initWrap.style.background = dark ? '#111827' : '#f9fafb'
 
   initRepoBtn = doc.createElement('button')
-  initRepoBtn.textContent = '在当前库初始化 Git 仓库'
+  initRepoBtn.textContent = gitText('在当前库初始化 Git 仓库', 'Initialize Git repository in current vault')
   initRepoBtn.style.width = '100%'
   initRepoBtn.style.fontSize = '11px'
   initRepoBtn.style.padding = '4px 6px'
@@ -210,14 +232,14 @@ function ensurePanel(context) {
   commitBox.style.background = dark ? '#111827' : '#f9fafb'
 
   const commitTitle = doc.createElement('div')
-  commitTitle.textContent = '创建快照（commit）'
+  commitTitle.textContent = gitText('创建快照（commit）', 'Create snapshot (commit)')
   commitTitle.style.fontWeight = '500'
   commitTitle.style.fontSize = '11px'
   commitTitle.style.color = dark ? '#e5e7eb' : '#111827'
 
   commitMsgInput = doc.createElement('input')
   commitMsgInput.type = 'text'
-  commitMsgInput.placeholder = '本次修改的说明，例如：重写引言'
+  commitMsgInput.placeholder = gitText('本次修改的说明，例如：重写引言', 'Commit message, e.g. "Rewrite introduction"')
   commitMsgInput.style.width = '100%'
   commitMsgInput.style.boxSizing = 'border-box'
   commitMsgInput.style.fontSize = '11px'
@@ -239,8 +261,8 @@ function ensurePanel(context) {
   commitScopeSelect.style.background = dark ? '#111827' : '#ffffff'
   commitScopeSelect.style.color = dark ? '#e5e7eb' : '#111827'
   ;[
-    { value: 'file', label: '只提交当前文档' },
-    { value: 'all', label: '提交库内所有变更' },
+    { value: 'file', label: gitText('只提交当前文档', 'Commit current document only') },
+    { value: 'all', label: gitText('提交库内所有变更', 'Commit all changes in vault') },
   ].forEach((opt) => {
     const o = doc.createElement('option')
     o.value = opt.value
@@ -249,7 +271,7 @@ function ensurePanel(context) {
   })
 
   const commitBtn = doc.createElement('button')
-  commitBtn.textContent = '提交'
+  commitBtn.textContent = gitText('提交', 'Commit')
   commitBtn.style.fontSize = '11px'
   commitBtn.style.padding = '2px 6px'
   commitBtn.style.cursor = 'pointer'
@@ -273,7 +295,7 @@ function ensurePanel(context) {
   body.style.background = dark ? '#0b1120' : '#ffffff'
 
   const historyHeader = doc.createElement('div')
-  historyHeader.textContent = '当前文档历史'
+  historyHeader.textContent = gitText('当前文档历史', 'Current document history')
   historyHeader.style.fontSize = '11px'
   historyHeader.style.padding = '4px 8px'
   historyHeader.style.borderBottom = dark ? '1px solid #1f2937' : '1px solid #e5e7eb'
@@ -302,12 +324,12 @@ function ensurePanel(context) {
   diffHeader.style.background = dark ? '#0b1120' : '#f9fafb'
 
   const diffTitle = doc.createElement('div')
-  diffTitle.textContent = '差异预览'
+  diffTitle.textContent = gitText('差异预览', 'Diff preview')
   diffTitle.style.fontSize = '11px'
   diffTitle.style.color = dark ? '#e5e7eb' : '#111827'
 
   const diffExpandBtn = doc.createElement('button')
-  diffExpandBtn.textContent = '在工作区大窗查看'
+  diffExpandBtn.textContent = gitText('在工作区大窗查看', 'View diff in main workspace')
   diffExpandBtn.style.fontSize = '10px'
   diffExpandBtn.style.padding = '2px 6px'
   diffExpandBtn.style.cursor = 'pointer'
@@ -332,7 +354,7 @@ function ensurePanel(context) {
   diffEl.style.color = dark ? '#e5e7eb' : '#111827'
   diffEl.style.fontFamily = 'ui-monospace, Menlo, SFMono-Regular, Consolas, "Liberation Mono", "Courier New", monospace'
   diffEl.style.fontSize = '11px'
-  diffEl.textContent = '选择上方某个提交查看差异…'
+  diffEl.textContent = gitText('选择上方某个提交查看差异…', 'Select a commit above to view diff…')
 
   body.appendChild(historyHeader)
   body.appendChild(historyListWrap)
@@ -427,7 +449,12 @@ async function resolveRepoSummary(context) {
     return summary
   } catch (e) {
     console.error('[git-history] git_status_summary 失败', e)
-    context.ui.notice('Git 状态查询失败：' + (e?.message || String(e)), 'err', 2600)
+    context.ui.notice(
+      gitText('Git 状态查询失败：', 'Git status query failed: ') +
+        (e?.message || String(e)),
+      'err',
+      2600,
+    )
     return null
   }
 }
@@ -435,26 +462,40 @@ async function resolveRepoSummary(context) {
 async function refreshStatusBar(context) {
   if (!statusEl) return
   if (!currentSummary || !currentRepoRoot) {
-    statusEl.textContent = '当前库未初始化为 Git 仓库'
+    statusEl.textContent = gitText(
+      '当前库未初始化为 Git 仓库',
+      'Current vault is not initialized as a Git repository',
+    )
     initRepoBtn && (initRepoBtn.style.display = 'block')
     return
   }
   initRepoBtn && (initRepoBtn.style.display = 'none')
   const branch = currentSummary.branch || '(detached)'
   const head = currentSummary.head
-  statusEl.textContent = `仓库：${currentRepoRoot}  分支：${branch}` + (head ? `  HEAD: ${head.slice(0, 7)}` : '')
+  statusEl.textContent =
+    gitText('仓库：', 'Repo: ') +
+    `${currentRepoRoot}  ` +
+    gitText('分支：', 'Branch: ') +
+    `${branch}` +
+    (head ? `  HEAD: ${head.slice(0, 7)}` : '')
 }
 
 async function refreshHistory(context) {
   if (!historyListEl) return
   historyListEl.innerHTML = ''
-  diffEl && (diffEl.textContent = '选择上方某个提交查看差异…')
+  diffEl &&
+    (diffEl.textContent = gitText(
+      '选择上方某个提交查看差异…',
+      'Select a commit above to view diff…',
+    ))
 
   try {
     if (!currentRepoRoot) {
       const p = typeof context.getCurrentFilePath === 'function' ? context.getCurrentFilePath() : null
       currentFilePath = p || null
-      const label = currentFilePath ? '当前库未在此路径初始化 Git' : '当前文档尚未保存，无法查询历史'
+      const label = currentFilePath
+        ? gitText('当前库未在此路径初始化 Git', 'Current vault is not initialized as Git at this path')
+        : gitText('当前文档尚未保存，无法查询历史', 'Current document is not saved, cannot query history')
       const row = document.createElement('div')
       row.textContent = label
       row.style.opacity = '0.7'
@@ -465,7 +506,10 @@ async function refreshHistory(context) {
     currentFilePath = p || null
     if (!currentFilePath) {
       const row = document.createElement('div')
-      row.textContent = '当前文档尚未保存，无法查询历史'
+      row.textContent = gitText(
+        '当前文档尚未保存，无法查询历史',
+        'Current document is not saved, cannot query history',
+      )
       row.style.opacity = '0.7'
       historyListEl.appendChild(row)
       return
@@ -478,7 +522,10 @@ async function refreshHistory(context) {
     })
     if (!list || !Array.isArray(list) || list.length === 0) {
       const row = document.createElement('div')
-      row.textContent = '当前文档尚无 Git 历史（可能尚未提交过）'
+      row.textContent = gitText(
+        '当前文档尚无 Git 历史（可能尚未提交过）',
+        'Current document has no Git history yet (possibly never committed)',
+      )
       row.style.opacity = '0.7'
       historyListEl.appendChild(row)
       return
@@ -582,11 +629,22 @@ async function rollbackToCommit(context, hash, summary) {
         await context.openFileByPath(p)
       }
     } catch {}
-    context.ui.notice('已恢复为所选版本（如有需要可再创建一次快照）', 'ok', 2600)
+    context.ui.notice(
+      gitText(
+        '已恢复为所选版本（如有需要可再创建一次快照）',
+        'Restored to selected version (create another snapshot if needed)',
+      ),
+      'ok',
+      2600,
+    )
     await refreshAll(context)
   } catch (e) {
     console.error('[git-history] 回滚失败', e)
-    context.ui.notice('回滚失败：' + (e?.message || String(e)), 'err', 2600)
+    context.ui.notice(
+      gitText('回滚失败：', 'Rollback failed: ') + (e?.message || String(e)),
+      'err',
+      2600,
+    )
   }
 }
 
@@ -594,12 +652,18 @@ async function loadDiffForCommit(context, hash) {
   if (!diffEl) return
   try {
     if (!currentRepoRoot) {
-      diffEl.textContent = '尚未检测到 Git 仓库'
+      diffEl.textContent = gitText(
+        '尚未检测到 Git 仓库',
+        'No Git repository detected yet',
+      )
       return
     }
     const p = currentFilePath
     if (!p) {
-      diffEl.textContent = '当前文档尚未保存，无法查看差异'
+      diffEl.textContent = gitText(
+        '当前文档尚未保存，无法查看差异',
+        'Current document is not saved, cannot view diff',
+      )
       return
     }
 
@@ -609,9 +673,10 @@ async function loadDiffForCommit(context, hash) {
       commit: hash || null,
       contextLines: 3,
     })
-    const text = diff && String(diff).trim()
-      ? String(diff)
-      : '无差异内容或 Git 返回空结果。'
+    const text =
+      diff && String(diff).trim()
+        ? String(diff)
+        : gitText('无差异内容或 Git 返回空结果。', 'No diff content or Git returned empty result.')
     const lines = text.split('\n')
     lastDiffLines = lines
     renderDiffLines(diffEl, lines)
@@ -620,7 +685,9 @@ async function loadDiffForCommit(context, hash) {
     }
   } catch (e) {
     console.error('[git-history] 加载 diff 失败', e)
-    diffEl.textContent = '差异加载失败：' + (e?.message || String(e))
+    diffEl.textContent =
+      gitText('差异加载失败：', 'Failed to load diff: ') +
+      (e?.message || String(e))
   }
 }
 
@@ -674,13 +741,13 @@ function ensureDiffOverlay() {
   head.style.background = dark ? '#020617' : '#f9fafb'
 
   const title = doc.createElement('div')
-  title.textContent = '差异预览（全屏）'
+  title.textContent = gitText('差异预览（全屏）', 'Diff preview (fullscreen)')
   title.style.fontSize = '12px'
   title.style.fontWeight = '600'
   title.style.color = dark ? '#e5e7eb' : '#111827'
 
   const closeBtn = doc.createElement('button')
-  closeBtn.textContent = '关闭'
+  closeBtn.textContent = gitText('关闭', 'Close')
   closeBtn.style.fontSize = '11px'
   closeBtn.style.padding = '2px 8px'
   closeBtn.style.cursor = 'pointer'
@@ -737,29 +804,61 @@ async function doInitRepo(context) {
       ? await context.getLibraryRoot()
       : null
     if (!root) {
-      context.ui.notice('当前未打开库，无法初始化 Git 仓库', 'err', 2200)
+      context.ui.notice(
+        gitText(
+          '当前未打开库，无法初始化 Git 仓库',
+          'No vault is open, cannot initialize Git repository',
+        ),
+        'err',
+        2200,
+      )
       return
     }
-    const ok = await context.ui.confirm('在当前库根目录初始化 Git 仓库？\n不会同步远端，仅在本地创建 .git 用于版本管理。')
+    const ok = await context.ui.confirm(
+      gitText(
+        '在当前库根目录初始化 Git 仓库？\n不会同步远端，仅在本地创建 .git 用于版本管理。',
+        'Initialize a Git repository in the root of current vault?\nThis will not sync to any remote; it only creates a local .git for versioning.',
+      ),
+    )
     if (!ok) return
     await context.invoke('git_init_repo', { repoPath: root })
-    context.ui.notice('Git 仓库已初始化', 'ok', 2000)
+    context.ui.notice(
+      gitText('Git 仓库已初始化', 'Git repository initialized'),
+      'ok',
+      2000,
+    )
     await refreshAll(context)
   } catch (e) {
     console.error('[git-history] 初始化仓库失败', e)
-    context.ui.notice('初始化 Git 仓库失败：' + (e?.message || String(e)), 'err', 2600)
+    context.ui.notice(
+      gitText('初始化 Git 仓库失败：', 'Failed to initialize Git repository: ') +
+        (e?.message || String(e)),
+      'err',
+      2600,
+    )
   }
 }
 
 async function doCommit(context) {
   try {
     if (!currentRepoRoot) {
-      context.ui.notice('当前库未初始化为 Git 仓库', 'err', 2200)
+      context.ui.notice(
+        gitText(
+          '当前库未初始化为 Git 仓库',
+          'Current vault is not initialized as a Git repository',
+        ),
+        'err',
+        2200,
+      )
       return
     }
     const msg = (commitMsgInput && commitMsgInput.value || '').trim()
     if (!msg) {
-      context.ui.notice('请先填写提交说明', 'err', 2000)
+      context.ui.notice(
+        gitText('请先填写提交说明', 'Please enter a commit message first'),
+        'err',
+        2000,
+      )
       return
     }
     const scope = commitScopeSelect ? commitScopeSelect.value : 'file'
@@ -769,7 +868,14 @@ async function doCommit(context) {
         ? context.getCurrentFilePath()
         : null
       if (!p) {
-        context.ui.notice('当前文档尚未保存，无法只提交当前文档', 'err', 2200)
+        context.ui.notice(
+          gitText(
+            '当前文档尚未保存，无法只提交当前文档',
+            'Current document is not saved, cannot commit current document only',
+          ),
+          'err',
+          2200,
+        )
         return
       }
       filePath = p
@@ -783,11 +889,22 @@ async function doCommit(context) {
     })
 
     if (commitMsgInput) commitMsgInput.value = ''
-    context.ui.notice('提交完成（若无变更则自动跳过）', 'ok', 2000)
+    context.ui.notice(
+      gitText(
+        '提交完成（若无变更则自动跳过）',
+        'Commit completed (skipped automatically if no changes)',
+      ),
+      'ok',
+      2000,
+    )
     await refreshAll(context)
   } catch (e) {
     console.error('[git-history] 提交失败', e)
-    context.ui.notice('提交失败：' + (e?.message || String(e)), 'err', 2600)
+    context.ui.notice(
+      gitText('提交失败：', 'Commit failed: ') + (e?.message || String(e)),
+      'err',
+      2600,
+    )
   }
 }
 
@@ -800,7 +917,14 @@ async function refreshAll(context) {
 export async function activate(context) {
   // 兜底：确保 invoke 存在
   if (!context.invoke) {
-    context.ui.notice('当前环境不支持 Git 插件（缺少 invoke 能力）', 'err', 2600)
+    context.ui.notice(
+      gitText(
+        '当前环境不支持 Git 插件（缺少 invoke 能力）',
+        'Current environment does not support Git plugin (missing invoke capability)',
+      ),
+      'err',
+      2600,
+    )
     return
   }
 
@@ -855,8 +979,8 @@ export async function activate(context) {
 
   // 菜单：放到扩展菜单下
   context.addMenuItem({
-    label: 'Git 版本',
-    title: '打开 Git 版本管理侧栏',
+    label: gitText('Git 版本', 'Git History'),
+    title: gitText('打开 Git 版本管理侧栏', 'Open Git history sidebar'),
     onClick: async () => {
       ensurePanel(context)
       setPanelVisible(!panelVisible)
