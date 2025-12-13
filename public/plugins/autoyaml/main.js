@@ -395,7 +395,7 @@ function registerContextMenu(context) {
   }
   try {
     AUTOYAML_CTX_MENU_DISPOSER = context.addContextMenuItem({
-      label: autoyamlText('AutoYAML：生成元数据', 'AutoYAML: Generate metadata'),
+      label: autoyamlText('🧾 AutoYAML', '🧾 AutoYAML'),
       // 在源码、预览、所见三种模式下都提供右键入口
       condition: (ctx) =>
         ctx.mode === 'edit' ||
