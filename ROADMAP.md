@@ -3,7 +3,7 @@
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
 
-## 更新 v0.7.7
+## 更新 v0.7.8
 - 修复：WebDAV 同步扫描不再跳过必要的隐藏路径；`.flymd/library-id.json` 以及插件注册的额外同步前缀（如 flymd-RAG 的 `.flymd/rag-index/<libraryId>`）可正常上传/同步。
 - 改进：内置插件 flymd-RAG 升级至 v0.1.1，设置中开关“云端同步”后会即时刷新 WebDAV 额外同步路径，避免索引同步状态滞后。
 - 修复：扩展市场点击第三方扩展主页链接在部分 URL 形式下无法打开的问题。

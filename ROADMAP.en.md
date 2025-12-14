@@ -3,7 +3,7 @@
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
 
-## Update v0.7.7
+## Update v0.7.8
 - Fixed: WebDAV sync scanning no longer skips required hidden paths; `.flymd/library-id.json` and extension-registered extra prefixes (e.g. flymd-RAG `.flymd/rag-index/<libraryId>`) can now be uploaded/synced correctly.
 - Improved: Built-in flymd-RAG upgraded to v0.1.1; toggling “Cloud Sync” in settings now refreshes WebDAV extra sync paths immediately to avoid stale index sync state.
 - Fixed: In the extension marketplace, third-party homepage links may fail to open for certain URL formats; URLs are now normalized .
