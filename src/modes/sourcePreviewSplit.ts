@@ -3,6 +3,7 @@
 // - 仅在源码模式（mode === 'edit'）且非所见/非便签模式下启用
 // - 不改动 main.ts 现有逻辑，只通过 window.flymd* 包装器交互
 // - 默认关闭，支持记忆上次开关状态（localStorage）
+// - 支持拖拽调整左右比例，比例持久化到 localStorage
 
 type EditorMode = 'edit' | 'preview'
 
@@ -13,6 +14,101 @@ type SplitDeps = {
 }
 
 let splitPreviewEnabled = false
+
+// 分屏比例相关
+const SPLIT_RATIO_KEY = 'flymd:split-ratio'
+const MIN_RATIO = 30
+const MAX_RATIO = 70
+const DEFAULT_RATIO = 55
+
+let splitRatio = DEFAULT_RATIO
+let resizeHandle: HTMLDivElement | null = null
+let isDragging = false
+
+// 加载持久化的分屏比例
+function loadSplitRatio(): number {
+  try {
+    const stored = localStorage.getItem(SPLIT_RATIO_KEY)
+    if (stored) {
+      const val = parseFloat(stored)
+      if (!isNaN(val) && val >= MIN_RATIO && val <= MAX_RATIO) {
+        return val
+      }
+    }
+  } catch {}
+  return DEFAULT_RATIO
+}
+
+// 保存分屏比例
+function saveSplitRatio(ratio: number): void {
+  try {
+    localStorage.setItem(SPLIT_RATIO_KEY, String(ratio))
+  } catch {}
+}
+
+// 更新分屏比例（CSS变量）
+function updateSplitRatio(ratio: number, container: HTMLDivElement): void {
+  ratio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio))
+  splitRatio = ratio
+  container.style.setProperty('--split-ratio', `${ratio}%`)
+}
+
+// 创建拖拽手柄
+function createResizeHandle(container: HTMLDivElement): HTMLDivElement {
+  const handle = document.createElement('div')
+  handle.className = 'split-resize-handle'
+  container.appendChild(handle)
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault()
+    isDragging = true
+    handle.classList.add('dragging')
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+    const containerRect = container.getBoundingClientRect()
+    const x = e.clientX - containerRect.left
+    const ratio = (x / containerRect.width) * 100
+    updateSplitRatio(ratio, container)
+  }
+
+  const onMouseUp = () => {
+    if (!isDragging) return
+    isDragging = false
+    handle.classList.remove('dragging')
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    saveSplitRatio(splitRatio)
+  }
+
+  handle.addEventListener('mousedown', onMouseDown)
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+
+  // 存储清理函数
+  ;(handle as any).__cleanup = () => {
+    handle.removeEventListener('mousedown', onMouseDown)
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  return handle
+}
+
+// 移除拖拽手柄
+function removeResizeHandle(): void {
+  if (resizeHandle) {
+    try {
+      ;(resizeHandle as any).__cleanup?.()
+      resizeHandle.remove()
+    } catch {}
+    resizeHandle = null
+  }
+  isDragging = false
+}
 
 function getFlymd(): any {
   return (window as any)
@@ -84,11 +180,19 @@ function setSplitEnabled(enabled: boolean, deps: SplitDeps): void {
   try { wysiwyg = !!flymd.flymdGetWysiwygEnabled?.() } catch {}
 
   if (enabled) {
-    // 启用分屏时：强制显示预览并渲染一次
+    // 启用分屏时：加载保存的比例，应用CSS变量，创建拖拽手柄
+    splitRatio = loadSplitRatio()
+    updateSplitRatio(splitRatio, container)
+    removeResizeHandle()
+    resizeHandle = createResizeHandle(container)
+    // 强制显示预览并渲染一次
     try { preview.classList.remove('hidden') } catch {}
     try { flymd.flymdRefreshPreview?.() } catch {}
   } else {
-    // 关闭分屏时：如果仍处于“纯源码模式”，恢复为仅编辑器视图
+    // 关闭分屏时：移除拖拽手柄，重置CSS变量
+    removeResizeHandle()
+    container.style.removeProperty('--split-ratio')
+    // 如果仍处于"纯源码模式"，恢复为仅编辑器视图
     if (mode === 'edit' && !wysiwyg && !isStickyNoteMode()) {
       try { preview.classList.add('hidden') } catch {}
     }

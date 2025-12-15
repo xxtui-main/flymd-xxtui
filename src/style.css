@@ -645,12 +645,12 @@ body.compact-titlebar .window-btn.window-close:hover {
   margin: 0;
   box-sizing: border-box;
   height: calc(100% - 60px - var(--workspace-bottom-gap, 0px));
-  width: 55%;
+  width: var(--split-ratio, 55%);
   padding-left: calc(24px + var(--workspace-left-gap, 0px));
   padding-right: 16px;
 }
 .container.split-preview:not(.wysiwyg):not(.wysiwyg-v2) .preview {
-  left: 55%;
+  left: var(--split-ratio, 55%);
   right: 0;
   padding-left: 16px;
   padding-right: calc(20px + var(--workspace-right-gap, 0px));
@@ -661,11 +661,27 @@ body.compact-titlebar .window-btn.window-close:hover {
   position: absolute;
   top: 0;
   bottom: var(--workspace-bottom-gap, 0px);
-  left: 55%;
+  left: var(--split-ratio, 55%);
   width: 0;
   border-left: 1px solid rgba(127,127,127,0.4);
   pointer-events: none;
   z-index: 3;
+}
+/* 分屏模式：可拖拽调整手柄 */
+.split-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: var(--workspace-bottom-gap, 0px);
+  left: var(--split-ratio, 55%);
+  width: 8px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+}
+.split-resize-handle:hover,
+.split-resize-handle.dragging {
+  background: rgba(100, 150, 255, 0.3);
 }
 @media (prefers-color-scheme: dark) {
   body:not(.light-mode) .container.split-preview:not(.wysiwyg):not(.wysiwyg-v2)::before {
