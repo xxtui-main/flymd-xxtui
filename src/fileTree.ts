@@ -1,4 +1,4 @@
-import { readDir, stat, mkdir, rename, remove, exists, writeTextFile, writeFile, readFile, watchImmediate } from '@tauri-apps/plugin-fs'
+import { readDir, stat, mkdir, rename, remove, exists, writeTextFile, writeFile, readFile, watch } from '@tauri-apps/plugin-fs'
 import { t } from './i18n'
 import appIconUrl from '../Flymdnew.png?url'
 
@@ -35,6 +35,64 @@ const state = {
   unwatch: null as null | (() => void),
   sortMode: 'name_asc' as 'name_asc' | 'name_desc' | 'mtime_asc' | 'mtime_desc',
   currentRoot: null as string | null,
+}
+
+// 文件监听回调可能非常频繁（尤其是 Linux/inotify），必须做去抖与串行化刷新
+let _watchRefreshTimer: number | null = null
+let _watchRefreshRunning = false
+let _watchRefreshPending = false
+
+function resetWatchRefreshScheduler() {
+  try {
+    if (_watchRefreshTimer != null) {
+      clearTimeout(_watchRefreshTimer)
+      _watchRefreshTimer = null
+    }
+  } catch {}
+  _watchRefreshRunning = false
+  _watchRefreshPending = false
+}
+
+function isRelevantWatchEvent(ev: any): boolean {
+  // 只对 create/modify/remove（以及兜底 any）响应；忽略 access，避免“自己读目录/读文件触发自己刷新”的循环
+  try {
+    const t = ev?.type as any
+    if (!t) return true
+    if (t === 'any') return true
+    if (t === 'other') return true
+    if (typeof t === 'object') {
+      if (t.access) return false
+      if (t.create || t.modify || t.remove) return true
+      // 未知事件类型：宁可刷新一次，也不要悄悄不同步
+      return true
+    }
+  } catch {}
+  return true
+}
+
+function scheduleRefreshTreeFromWatch() {
+  try {
+    if (_watchRefreshTimer != null) clearTimeout(_watchRefreshTimer)
+    _watchRefreshTimer = window.setTimeout(async () => {
+      _watchRefreshTimer = null
+      if (_watchRefreshRunning) {
+        _watchRefreshPending = true
+        return
+      }
+      _watchRefreshRunning = true
+      try {
+        await refreshTree()
+      } catch {
+        // 忽略监听触发的刷新异常：不能因为监听崩掉 UI
+      } finally {
+        _watchRefreshRunning = false
+        if (_watchRefreshPending) {
+          _watchRefreshPending = false
+          scheduleRefreshTreeFromWatch()
+        }
+      }
+    }, 250)
+  } catch {}
 }
 
 const EXPANDED_KEY_PREFIX = 'flymd:libExpanded:'
@@ -913,6 +971,7 @@ async function refresh() {
       state.unwatch = null
       state.watching = false
     }
+    resetWatchRefreshScheduler()
     return
   }
 
@@ -923,6 +982,7 @@ async function refresh() {
       state.unwatch = null
       state.watching = false
     }
+    resetWatchRefreshScheduler()
   }
 
   state.currentRoot = root
@@ -934,11 +994,10 @@ async function refresh() {
     // 设置文件监听（如果还未设置或根目录改变了）
     if (!state.watching) {
       try {
-        const u = await watchImmediate(root, async (event) => {
-          console.log('[文件树] 检测到文件变化:', event.type, event.paths)
-          // 使用内部刷新函数，避免重新设置监听
-          await refreshTree()
-        }, { recursive: true })
+        const u = await watch(root, async (event) => {
+          if (!isRelevantWatchEvent(event)) return
+          scheduleRefreshTreeFromWatch()
+        }, { recursive: true, delayMs: 250 } as any)
         state.unwatch = () => { try { u(); } catch {} }
         state.watching = true
         console.log('[文件树] 已启动文件监听:', root)
@@ -947,6 +1006,7 @@ async function refresh() {
         console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功能')
         // 监听失败时不要把 watching 置为 true，保持为 false，方便后续 refresh() 重试
         state.watching = false
+        resetWatchRefreshScheduler()
       }
     }
   }
