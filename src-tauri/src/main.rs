@@ -686,11 +686,13 @@ async fn ai_novel_api(req: AiNovelApiReq) -> Result<serde_json::Value, String> {
 
   let base = ai_novel_base_url().trim_end_matches('/');
   let url = format!("{}/{}", base, path);
+  // 插件所有接口统一放宽超时：网络差/上游慢时避免误判失败
+  let req_timeout = Duration::from_secs(180);
 
   let client = reqwest::Client::builder()
-    .timeout(Duration::from_secs(25))
+    .connect_timeout(Duration::from_secs(30))
     .build()
-    .map_err(|e| format!("client error: {e}"))?;
+    .map_err(|e| format!("client error: {e:?}"))?;
 
   let mut rb = if method == "GET" {
     client.get(&url)
@@ -708,9 +710,14 @@ async fn ai_novel_api(req: AiNovelApiReq) -> Result<serde_json::Value, String> {
     rb = rb.header("Content-Type", "application/json").json(&payload);
   }
 
-  let res = rb.send().await.map_err(|e| format!("send error: {e}"))?;
+  // 这里的错误基本都是“网络/证书/代理/连接”问题；用 Debug 输出保留根因链路，别再给用户一句废话。
+  let res = rb
+    .timeout(req_timeout)
+    .send()
+    .await
+    .map_err(|e| format!("send error: {e:?}"))?;
   let status = res.status();
-  let text = res.text().await.map_err(|e| format!("read error: {e}"))?;
+  let text = res.text().await.map_err(|e| format!("read error: {e:?}"))?;
 
   let json: Option<serde_json::Value> = if text.trim().is_empty() {
     None
