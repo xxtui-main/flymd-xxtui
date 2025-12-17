@@ -24,8 +24,13 @@ const DEFAULT_CFG = {
     model: 'voyage-3'
   },
   ctx: {
+    // 上游模型的上下文窗口（字符，不是 token；会有误差，但足够实用）
+    modelContextChars: 32000,
     maxPrevChars: 8000,
-    maxProgressChars: 10000
+    maxProgressChars: 10000,
+    maxBibleChars: 10000,
+    // “更新进度脉络”用于生成提议的源文本上限（字符）
+    maxUpdateSourceChars: 20000
   },
   rag: {
     enabled: true,
@@ -36,6 +41,10 @@ const DEFAULT_CFG = {
     chunkOverlap: 160,
     // 自动更新进度脉络：仅在“用户确认追加正文到文档/创建项目写入章节”后触发（避免生成但未采用也写进度）
     autoUpdateProgress: true
+  },
+  constraints: {
+    // 全局硬约束：每次请求都会作为 input.constraints 传给后端，进入 system
+    global: ''
   }
 }
 
@@ -279,6 +288,47 @@ function safeFileName(name, fallback) {
   return out
 }
 
+function fsBaseName(p) {
+  const s = normFsPath(p).replace(/\/+$/, '')
+  const i = s.lastIndexOf('/')
+  return i < 0 ? s : s.slice(i + 1)
+}
+
+async function listMarkdownFilesAny(ctx, rootAbs) {
+  // 依赖宿主命令递归枚举目录下 md/markdown/txt
+  if (ctx && typeof ctx.invoke === 'function') {
+    try {
+      const arr = await ctx.invoke('flymd_list_markdown_files', { root: rootAbs })
+      return Array.isArray(arr) ? arr.map((x) => normFsPath(x)) : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+function zhNumber(n) {
+  // 只服务“章节号”，够用就行：1~999
+  const x = n | 0
+  if (x <= 0) return String(x)
+  const d = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+  if (x < 10) return d[x]
+  if (x < 20) return x === 10 ? '十' : ('十' + d[x % 10])
+  if (x < 100) {
+    const a = (x / 10) | 0
+    const b = x % 10
+    return d[a] + '十' + (b ? d[b] : '')
+  }
+  if (x < 1000) {
+    const a = (x / 100) | 0
+    const rest = x % 100
+    if (!rest) return d[a] + '百'
+    if (rest < 10) return d[a] + '百零' + d[rest]
+    return d[a] + '百' + zhNumber(rest)
+  }
+  return String(x)
+}
+
 async function fileExists(ctx, absPath) {
   try {
     // 优先走宿主侧读取：避免插件宿主 readTextFile 在“目录不存在”时刷屏报错
@@ -304,6 +354,110 @@ async function readTextAny(ctx, absPath) {
     return await ctx.readTextFile(absPath)
   }
   throw new Error(t('当前环境不支持读文件', 'File read is not supported in this environment'))
+}
+
+async function computeNextChapterPath(ctx, cfg) {
+  const inf = await inferProjectDir(ctx, cfg)
+  if (!inf) return null
+
+  const chapDir = joinFsPath(inf.projectAbs, '03_章节')
+  const files = await listMarkdownFilesAny(ctx, chapDir)
+
+  let maxNo = 0
+  for (let i = 0; i < files.length; i++) {
+    const bn = fsBaseName(files[i] || '')
+    const m = /^(\d{3,})_/.exec(bn)
+    if (!m || !m[1]) continue
+    const k = parseInt(m[1], 10)
+    if (Number.isFinite(k) && k > maxNo) maxNo = k
+  }
+
+  let nextNo = (maxNo | 0) + 1
+  if (nextNo <= 0) nextNo = 1
+
+  // 冲突就递增（极端情况：用户手工建了很多同名）
+  for (let tries = 0; tries < 1000; tries++) {
+    const pad = String(nextNo).padStart(3, '0')
+    const z = zhNumber(nextNo)
+    const chapPath = joinFsPath(chapDir, `${pad}_第${z}章.md`)
+    const exists = await fileExists(ctx, chapPath)
+    if (!exists) {
+      return { ...inf, chapDir, chapPath, chapNo: nextNo, chapZh: z }
+    }
+    nextNo++
+  }
+  return null
+}
+
+async function getPrevChapterTailText(ctx, cfg, maxChars) {
+  try {
+    if (!ctx || !cfg) return ''
+    const inf = await inferProjectDir(ctx, cfg)
+    if (!inf) return ''
+
+    const chapDir = joinFsPath(inf.projectAbs, '03_章节')
+    const files = await listMarkdownFilesAny(ctx, chapDir)
+    if (!files.length) return ''
+
+    let curPath = ''
+    try {
+      if (ctx.getCurrentFilePath) curPath = String(await ctx.getCurrentFilePath() || '')
+    } catch {}
+    const curBase = curPath ? fsBaseName(curPath) : ''
+    let curNo = 0
+    const m0 = /^(\d{3,})_/.exec(curBase)
+    if (m0 && m0[1]) {
+      const x = parseInt(m0[1], 10)
+      if (Number.isFinite(x)) curNo = x
+    }
+
+    // 优先取“当前章节号 - 1”；否则取目录里最大章节号（排除当前文件），作为上一章。
+    let targetNo = 0
+    if (curNo > 1) {
+      targetNo = curNo - 1
+    } else {
+      for (let i = 0; i < files.length; i++) {
+        const bn = fsBaseName(files[i] || '')
+        if (!bn) continue
+        const mm = /^(\d{3,})_/.exec(bn)
+        if (!mm || !mm[1]) continue
+        const n = parseInt(mm[1], 10)
+        if (!Number.isFinite(n) || n <= 0) continue
+        if (curBase && bn === curBase) continue
+        if (n > targetNo) targetNo = n
+      }
+    }
+
+    if (targetNo <= 0) return ''
+    const pad = String(targetNo).padStart(3, '0')
+    let targetPath = ''
+    for (let i = 0; i < files.length; i++) {
+      const bn = fsBaseName(files[i] || '')
+      if (bn && bn.startsWith(pad + '_')) {
+        targetPath = files[i]
+        break
+      }
+    }
+    if (!targetPath) return ''
+
+    const raw = await readTextAny(ctx, targetPath)
+    const t0 = sliceTail(String(raw || ''), maxChars)
+    return t0
+  } catch {
+    return ''
+  }
+}
+
+async function getPrevTextForRequest(ctx, cfg) {
+  const lim = cfg && cfg.ctx && cfg.ctx.maxPrevChars ? (cfg.ctx.maxPrevChars | 0) : 8000
+  const doc = String(ctx && ctx.getEditorValue ? (ctx.getEditorValue() || '') : '')
+  const tail = sliceTail(doc, lim)
+  // 当前文档已经有足够正文，就直接用它（避免反复读文件）
+  if (safeText(tail).trim().length >= 200) return tail
+
+  const prevChap = await getPrevChapterTailText(ctx, cfg, lim)
+  if (safeText(prevChap).trim()) return prevChap
+  return tail
 }
 
 async function inferProjectDir(ctx, cfg) {
@@ -376,6 +530,7 @@ async function getBibleDocText(ctx, cfg) {
     const inf = await inferProjectDir(ctx, cfg)
     if (!inf) return ''
 
+    const limit = (cfg && cfg.ctx && cfg.ctx.maxBibleChars) ? (cfg.ctx.maxBibleChars | 0) : (cfg && cfg.ctx && cfg.ctx.maxProgressChars ? (cfg.ctx.maxProgressChars | 0) : 10000)
     const files = [
       ['02_故事圣经.md', t('【故事圣经】', '[Bible]')],
       ['02_世界设定.md', t('【世界设定】', '[World]')],
@@ -390,7 +545,7 @@ async function getBibleDocText(ctx, cfg) {
       const abs = joinFsPath(inf.projectAbs, f[0])
       try {
         const text = await readTextAny(ctx, abs)
-        const v = sliceTail(text, cfg.ctx && cfg.ctx.maxProgressChars ? cfg.ctx.maxProgressChars : 10000).trim()
+        const v = sliceTail(text, limit).trim()
         if (v) parts.push(f[1] + '\n' + v)
       } catch {}
     }
@@ -1123,6 +1278,27 @@ async function openSettingsDialog(ctx) {
     return { wrap, inp }
   }
 
+  function mkSelect(label, options, value) {
+    const wrap = document.createElement('div')
+    const lab = document.createElement('div')
+    lab.className = 'ain-lab'
+    lab.textContent = label
+    const sel = document.createElement('select')
+    sel.className = 'ain-in ain-select'
+    const list = Array.isArray(options) ? options : []
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i] || {}
+      const op = document.createElement('option')
+      op.value = it.value == null ? '' : String(it.value)
+      op.textContent = it.label == null ? String(op.value) : String(it.label)
+      sel.appendChild(op)
+    }
+    try { sel.value = value == null ? '' : String(value) } catch {}
+    wrap.appendChild(lab)
+    wrap.appendChild(sel)
+    return { wrap, sel }
+  }
+
   const secBackend = document.createElement('div')
   secBackend.className = 'ain-card'
   secBackend.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${t('后端', 'Backend')}</div>`
@@ -1246,6 +1422,75 @@ async function openSettingsDialog(ctx) {
   rowUp2.appendChild(inpNovelRoot.wrap)
   secUp.appendChild(rowUp2)
 
+  const secCtx = document.createElement('div')
+  secCtx.className = 'ain-card'
+  secCtx.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${t('上下文与约束', 'Context & Constraints')}</div>`
+
+  const hintCtx = document.createElement('div')
+  hintCtx.className = 'ain-muted'
+  hintCtx.textContent = t('提示：这里的单位是“字符”，不是 token；按你的上游模型能力调整即可（例如 128K/256K/1M）。', 'Note: units are characters (not tokens). Tune based on your upstream model window (e.g. 128K/256K/1M).')
+  secCtx.appendChild(hintCtx)
+
+  const presets = [
+    { label: '8K', value: '8000' },
+    { label: '32K', value: '32000' },
+    { label: '128K', value: '128000' },
+    { label: '256K', value: '256000' },
+    { label: '1M', value: '1000000' },
+    { label: t('自定义', 'Custom'), value: '' },
+  ]
+
+  const rowCtx0 = document.createElement('div')
+  rowCtx0.className = 'ain-row'
+  const selPreset = mkSelect(t('上下文预设', 'Context preset'), presets, '')
+  const inpWindow = mkInput(t('模型上下文（字符）', 'Model context (chars)'), (cfg.ctx && cfg.ctx.modelContextChars) ? String(cfg.ctx.modelContextChars) : '32000', 'number')
+  rowCtx0.appendChild(selPreset.wrap)
+  rowCtx0.appendChild(inpWindow.wrap)
+  secCtx.appendChild(rowCtx0)
+
+  const rowCtx1 = document.createElement('div')
+  rowCtx1.className = 'ain-row'
+  const inpPrevChars = mkInput(t('前文尾部上限', 'Prev tail limit'), (cfg.ctx && cfg.ctx.maxPrevChars) ? String(cfg.ctx.maxPrevChars) : '8000', 'number')
+  const inpProgChars = mkInput(t('进度脉络上限', 'Progress limit'), (cfg.ctx && cfg.ctx.maxProgressChars) ? String(cfg.ctx.maxProgressChars) : '10000', 'number')
+  rowCtx1.appendChild(inpPrevChars.wrap)
+  rowCtx1.appendChild(inpProgChars.wrap)
+  secCtx.appendChild(rowCtx1)
+
+  const rowCtx2 = document.createElement('div')
+  rowCtx2.className = 'ain-row'
+  const inpBibleChars = mkInput(t('资料/圣经上限', 'Bible/meta limit'), (cfg.ctx && cfg.ctx.maxBibleChars) ? String(cfg.ctx.maxBibleChars) : ((cfg.ctx && cfg.ctx.maxProgressChars) ? String(cfg.ctx.maxProgressChars) : '10000'), 'number')
+  rowCtx2.appendChild(inpBibleChars.wrap)
+  secCtx.appendChild(rowCtx2)
+
+  const rowCtx3 = document.createElement('div')
+  rowCtx3.className = 'ain-row'
+  const inpUpdChars = mkInput(t('进度生成源文本上限', 'Progress source limit'), (cfg.ctx && cfg.ctx.maxUpdateSourceChars) ? String(cfg.ctx.maxUpdateSourceChars) : '20000', 'number')
+  rowCtx3.appendChild(inpUpdChars.wrap)
+  secCtx.appendChild(rowCtx3)
+
+  const hard = mkTextarea(t('全局硬约束（可空）', 'Global hard constraints (optional)'), getGlobalConstraints(cfg))
+  secCtx.appendChild(hard.wrap)
+
+  function applyCtxPreset(totalChars) {
+    const total = _clampInt(totalChars, 8000, 10000000)
+    inpWindow.inp.value = String(total)
+    // 粗暴但实用的预算：让“前文/资料/进度”都有份额，避免某一项饿死。
+    const prev = Math.max(4000, Math.round(total * 0.25))
+    const prog = Math.max(4000, Math.round(total * 0.15))
+    const bible = Math.max(4000, Math.round(total * 0.25))
+    inpPrevChars.inp.value = String(prev)
+    inpProgChars.inp.value = String(prog)
+    inpBibleChars.inp.value = String(bible)
+    const upd = Math.max(20000, Math.round(total * 0.35))
+    inpUpdChars.inp.value = String(upd)
+  }
+
+  selPreset.sel.onchange = () => {
+    const v = String(selPreset.sel.value || '').trim()
+    if (!v) return
+    applyCtxPreset(v)
+  }
+
   const secEmb = document.createElement('div')
   secEmb.className = 'ain-card'
   secEmb.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${t('Embedding', 'Embedding')}</div>`
@@ -1302,7 +1547,17 @@ async function openSettingsDialog(ctx) {
           baseUrl: inpEmbBase.inp.value,
           apiKey: inpEmbKey.inp.value,
           model: inpEmbModel.inp.value
-        }
+        },
+        ctx: {
+          modelContextChars: _clampInt(inpWindow.inp.value, 8000, 10000000),
+          maxPrevChars: _clampInt(inpPrevChars.inp.value, 1000, 10000000),
+          maxProgressChars: _clampInt(inpProgChars.inp.value, 1000, 10000000),
+          maxBibleChars: _clampInt(inpBibleChars.inp.value, 1000, 10000000),
+          maxUpdateSourceChars: _clampInt(inpUpdChars.inp.value, 1000, 10000000),
+        },
+        constraints: {
+          global: safeText(hard.ta.value).trim()
+        },
       }
       cfg = await saveCfg(ctx, patch)
       ctx.ui.notice(t('已保存', 'Saved'), 'ok', 1400)
@@ -1314,6 +1569,7 @@ async function openSettingsDialog(ctx) {
 
   body.appendChild(secBackend)
   body.appendChild(secUp)
+  body.appendChild(secCtx)
   body.appendChild(secEmb)
   body.appendChild(secRecharge)
   body.appendChild(secSave)
@@ -1578,20 +1834,20 @@ async function openNextOptionsDialog(ctx) {
     throw new Error(t('请先在设置里填写上游 BaseURL 和模型', 'Please set upstream BaseURL and model in Settings first'))
   }
 
-  const { body } = createDialogShell(t('下一章走向候选', 'Next options'))
+  const { body } = createDialogShell(t('走向候选', 'Options'))
 
   const sec = document.createElement('div')
   sec.className = 'ain-card'
   sec.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${t('指令', 'Instruction')}</div>`
 
   const inp = mkTextarea(
-    t('描述你希望下一章怎么发展（Ctrl+Enter 提交，不写也行）', 'Describe what you want next (Ctrl+Enter to submit, optional)'),
+    t('描述你希望本章怎么发展（Ctrl+Enter 提交，不写也行）', 'Describe what you want (Ctrl+Enter to submit, optional)'),
     ''
   )
   sec.appendChild(inp.wrap)
 
   const extra = mkTextarea(
-    t('补充约束（可空）：语气、节奏、视角、禁写项…', 'Extra constraints (optional): tone, pacing, POV, no-go...'),
+    t('硬约束（可空）：语气、节奏、视角、禁写项、变更单…（会进入 system）', 'Hard constraints (optional): tone, pacing, POV, no-go, change log... (goes to system)'),
     ''
   )
   sec.appendChild(extra.wrap)
@@ -1704,8 +1960,7 @@ async function openNextOptionsDialog(ctx) {
   async function doGen() {
     cfg = await loadCfg(ctx)
     const instruction = safeText(inp.ta.value).trim()
-    const ext = safeText(extra.ta.value).trim()
-    const merged = ext ? (instruction ? (instruction + '\n\n补充：' + ext) : ('补充：' + ext)) : instruction
+    const localConstraints = safeText(extra.ta.value).trim()
 
     setBusy(btnGen, true)
     setBusy(btnWrite, true)
@@ -1720,7 +1975,7 @@ async function openNextOptionsDialog(ctx) {
     lastText = ''
 
     try {
-      const r = await callNovel(ctx, 'options', merged || t('给出下一章走向候选', 'Give next chapter options'))
+      const r = await callNovel(ctx, 'options', instruction || t('给出走向候选', 'Give options'), localConstraints)
       if (!r) {
         out.textContent = t('已取消。', 'Cancelled.')
         return
@@ -1768,20 +2023,19 @@ async function openNextOptionsDialog(ctx) {
 
     cfg = await loadCfg(ctx)
     const instruction = safeText(inp.ta.value).trim()
-    const ext = safeText(extra.ta.value).trim()
-    const merged = ext ? (instruction ? (instruction + '\n\n补充：' + ext) : ('补充：' + ext)) : instruction
-    if (!merged) {
+    const localConstraints = safeText(extra.ta.value).trim()
+    const constraints = mergeConstraints(cfg, localConstraints)
+    if (!instruction) {
       ctx.ui.notice(t('请先写一句“指令/目标”', 'Please provide instruction/goal'), 'err', 1800)
       return
     }
 
-    const doc = safeText(ctx.getEditorValue ? ctx.getEditorValue() : '')
-    const prev = sliceTail(doc, cfg.ctx && cfg.ctx.maxPrevChars ? cfg.ctx.maxPrevChars : 8000)
+    const prev = await getPrevTextForRequest(ctx, cfg)
     const progress = await getProgressDocText(ctx, cfg)
     const bible = await getBibleDocText(ctx, cfg)
     let rag = null
     try {
-      rag = await rag_get_hits(ctx, cfg, merged + '\n\n' + sliceTail(prev, 2000))
+      rag = await rag_get_hits(ctx, cfg, instruction + '\n\n' + sliceTail(prev, 2000))
     } catch {}
 
     setBusy(btnWrite, true)
@@ -1798,11 +2052,12 @@ async function openNextOptionsDialog(ctx) {
           model: cfg.upstream.model
         },
         input: {
-          instruction: merged,
+          instruction,
           progress,
           bible,
           prev,
           choice: chosen,
+          constraints: constraints || undefined,
           rag: rag || undefined
         }
       })
@@ -1876,7 +2131,7 @@ async function openWriteWithChoiceDialog(ctx) {
   sec.appendChild(inp.wrap)
 
   const extra = mkTextarea(
-    t('补充约束（可空）：语气、节奏、视角、禁写项…', 'Extra constraints (optional): tone, pacing, POV, no-go...'),
+    t('硬约束（可空）：语气、节奏、视角、禁写项、变更单…（会进入 system）', 'Hard constraints (optional): tone, pacing, POV, no-go, change log... (goes to system)'),
     ''
   )
   sec.appendChild(extra.wrap)
@@ -1942,13 +2197,12 @@ async function openWriteWithChoiceDialog(ctx) {
   let selectedIdx = 0
   let lastText = ''
 
-  function mergedInstruction() {
-    const a = safeText(inp.ta.value).trim()
-    const b = safeText(extra.ta.value).trim()
-    if (!a && !b) return ''
-    if (!b) return a
-    if (!a) return '补充：' + b
-    return a + '\n\n补充：' + b
+  function getInstructionText() {
+    return safeText(inp.ta.value).trim()
+  }
+
+  function getLocalConstraintsText() {
+    return safeText(extra.ta.value).trim()
   }
 
   function renderOptions() {
@@ -1989,8 +2243,9 @@ async function openWriteWithChoiceDialog(ctx) {
 
   async function doOptions() {
     cfg = await loadCfg(ctx)
-    const merged = mergedInstruction()
-    if (!merged) {
+    const instruction = getInstructionText()
+    const localConstraints = getLocalConstraintsText()
+    if (!instruction) {
       ctx.ui.notice(t('请先写清楚“本章目标/要求”', 'Please provide instruction/goal'), 'err', 2000)
       return
     }
@@ -2006,7 +2261,7 @@ async function openWriteWithChoiceDialog(ctx) {
     lastText = ''
 
     try {
-      const opt = await callNovel(ctx, 'options', merged)
+      const opt = await callNovel(ctx, 'options', instruction, localConstraints)
       if (!opt) {
         out.textContent = t('已取消。', 'Cancelled.')
         return
@@ -2051,19 +2306,20 @@ async function openWriteWithChoiceDialog(ctx) {
     if (!chosen) return
 
     cfg = await loadCfg(ctx)
-    const merged = mergedInstruction()
-    if (!merged) {
+    const instruction = getInstructionText()
+    const localConstraints = getLocalConstraintsText()
+    const constraints = mergeConstraints(cfg, localConstraints)
+    if (!instruction) {
       ctx.ui.notice(t('请先写清楚“本章目标/要求”', 'Please provide instruction/goal'), 'err', 2000)
       return
     }
 
-    const doc = safeText(ctx.getEditorValue ? ctx.getEditorValue() : '')
-    const prev = sliceTail(doc, cfg.ctx && cfg.ctx.maxPrevChars ? cfg.ctx.maxPrevChars : 8000)
+    const prev = await getPrevTextForRequest(ctx, cfg)
     const progress = await getProgressDocText(ctx, cfg)
     const bible = await getBibleDocText(ctx, cfg)
     let rag = null
     try {
-      rag = await rag_get_hits(ctx, cfg, merged + '\n\n' + sliceTail(prev, 2000))
+      rag = await rag_get_hits(ctx, cfg, instruction + '\n\n' + sliceTail(prev, 2000))
     } catch {}
 
     setBusy(btnWrite, true)
@@ -2080,11 +2336,12 @@ async function openWriteWithChoiceDialog(ctx) {
           model: cfg.upstream.model
         },
         input: {
-          instruction: merged,
+          instruction,
           progress,
           bible,
           prev,
           choice: chosen,
+          constraints: constraints || undefined,
           rag: rag || undefined
         }
       })
@@ -2128,7 +2385,7 @@ async function openWriteWithChoiceDialog(ctx) {
   })
 }
 
-async function callNovel(ctx, action, instructionOverride) {
+async function callNovel(ctx, action, instructionOverride, constraintsOverride) {
   const cfg = await loadCfg(ctx)
   if (!cfg.token) throw new Error(t('请先登录后端', 'Please login first'))
 
@@ -2137,21 +2394,21 @@ async function callNovel(ctx, action, instructionOverride) {
     const v = await openAskTextDialog(ctx, {
       title: t('输入指令（小说）', 'Enter instruction'),
       label: t('描述你想让 AI 做什么（Ctrl+Enter 提交）', 'Describe what you want (Ctrl+Enter to submit)'),
-      placeholder: t('例如：从这个设定开始写第一章；或者给出下一章走向候选…', 'e.g. write chapter 1 from this idea; or give next options...'),
+      placeholder: t('例如：从这个设定开始写第一章；或者给出走向候选…', 'e.g. write chapter 1 from this idea; or give options...'),
     })
     if (v == null) return null
     instruction = String(v)
   }
   instruction = instruction.trim()
   if (!instruction) return null
-  const doc = String(ctx.getEditorValue() || '')
-  const prev = sliceTail(doc, cfg.ctx && cfg.ctx.maxPrevChars ? cfg.ctx.maxPrevChars : 8000)
+  const prev = await getPrevTextForRequest(ctx, cfg)
   const progress = await getProgressDocText(ctx, cfg)
   const bible = await getBibleDocText(ctx, cfg)
   let rag = null
   try {
     rag = await rag_get_hits(ctx, cfg, instruction + '\n\n' + sliceTail(prev, 2000))
   } catch {}
+  const constraints = mergeConstraints(cfg, constraintsOverride)
 
   const json = await apiFetch(ctx, cfg, 'ai/proxy/chat/', {
     mode: 'novel',
@@ -2166,6 +2423,7 @@ async function callNovel(ctx, action, instructionOverride) {
       progress,
       bible,
       prev,
+      constraints: constraints || undefined,
       rag: rag || undefined
     }
   })
@@ -2179,6 +2437,37 @@ function setBusy(btn, busy) {
 
 function safeText(v) {
   return v == null ? '' : String(v)
+}
+
+function _safeInt(v, fallback) {
+  const n = parseInt(String(v == null ? '' : v), 10)
+  return Number.isFinite(n) ? n : (fallback | 0)
+}
+
+function _clampInt(n, min, max) {
+  const x = _safeInt(n, 0)
+  return Math.max(min | 0, Math.min(max | 0, x))
+}
+
+function getGlobalConstraints(cfg) {
+  try {
+    const v = cfg && cfg.constraints && cfg.constraints.global != null ? String(cfg.constraints.global) : ''
+    return v.trim()
+  } catch {
+    return ''
+  }
+}
+
+function mergeConstraints(cfg, localConstraints) {
+  const g = getGlobalConstraints(cfg)
+  const l = (localConstraints == null ? '' : String(localConstraints)).trim()
+  if (g && l) return g + '\n' + l
+  return g || l
+}
+
+function isActionNotSupportedError(e) {
+  const msg = e && e.message ? String(e.message) : String(e)
+  return /action\s*不支持|不支持或输入不完整|not\s+supported|not\s+support|unsupported/i.test(msg)
 }
 
 function tryParseOptionsDataFromText(text) {
@@ -2263,6 +2552,8 @@ async function progress_generate_update(ctx, cfg, deltaText, extraNote) {
   if (!text) return ''
   const progress = await getProgressDocText(ctx, cfg)
   const bible = await getBibleDocText(ctx, cfg)
+  const prev = await getPrevTextForRequest(ctx, cfg)
+  const constraints = mergeConstraints(cfg, '')
   let rag = null
   try {
     rag = await rag_get_hits(ctx, cfg, text.slice(0, 1600))
@@ -2270,22 +2561,55 @@ async function progress_generate_update(ctx, cfg, deltaText, extraNote) {
 
   const mergedText = extraNote ? (text + '\n\n【补充说明】\n' + safeText(extraNote).trim()) : text
 
-  const json = await apiFetch(ctx, cfg, 'ai/proxy/chat/', {
-    mode: 'novel',
-    action: 'summary',
-    upstream: {
-      baseUrl: cfg.upstream.baseUrl,
-      apiKey: cfg.upstream.apiKey,
-      model: cfg.upstream.model
-    },
-    input: {
-      text: mergedText,
-      progress,
-      bible,
-      rag: rag || undefined
-    }
-  })
-  return safeText(json && json.text).trim()
+  try {
+    const json = await apiFetch(ctx, cfg, 'ai/proxy/chat/', {
+      mode: 'novel',
+      action: 'summary',
+      upstream: {
+        baseUrl: cfg.upstream.baseUrl,
+        apiKey: cfg.upstream.apiKey,
+        model: cfg.upstream.model
+      },
+      input: {
+        text: mergedText,
+        progress,
+        bible,
+        prev,
+        constraints: constraints || undefined,
+        rag: rag || undefined
+      }
+    })
+    return safeText(json && json.text).trim()
+  } catch (e) {
+    // 兼容旧后端：如果它不支持 summary，就降级走 consult（不计费），至少保证“更新进度脉络”可用。
+    if (!isActionNotSupportedError(e)) throw e
+
+    const q = [
+      '任务：基于【新增章节文本】，生成“进度脉络更新提议”。',
+      '要求：按结构化小节输出（主线/时间线/人物状态/伏笔）；只写变更点；条目化；不要正文；不要复述全书。',
+      '输出：Markdown 纯文本（允许列表），不要 JSON，不要 ``` 代码块。',
+      '',
+      '【新增章节文本】',
+      mergedText
+    ].join('\n')
+
+    const resp = await apiFetchConsultWithJob(ctx, cfg, {
+      upstream: {
+        baseUrl: cfg.upstream.baseUrl,
+        apiKey: cfg.upstream.apiKey,
+        model: cfg.upstream.model
+      },
+      input: {
+        question: q,
+        progress,
+        bible,
+        prev,
+        rag: rag || undefined
+      }
+    }, { timeoutMs: 190000 })
+
+    return safeText(resp && resp.text).trim()
+  }
 }
 
 async function progress_append_block(ctx, cfg, blockText, title) {
@@ -2540,6 +2864,7 @@ async function openBootstrapDialog(ctx) {
     lastChapter = ''
     projectTitle = safeText(titleIn.ta.value).trim()
     try {
+      const constraints = mergeConstraints(cfg, '')
       const opt = await apiFetch(ctx, cfg, 'ai/proxy/chat/', {
         mode: 'novel',
         action: 'options',
@@ -2548,7 +2873,7 @@ async function openBootstrapDialog(ctx) {
           apiKey: cfg.upstream.apiKey,
           model: cfg.upstream.model
         },
-        input: { instruction: promptIdea, progress: '', bible: '', prev: '' }
+        input: { instruction: promptIdea, progress: '', bible: '', prev: '', constraints: constraints || undefined }
       })
       const arr = Array.isArray(opt && opt.data) ? opt.data : null
       const chosen = (arr && arr.length) ? arr[0] : { title: '自动', one_line: '自动走向', conflict: '', characters: [], foreshadow: '', risks: '' }
@@ -2560,7 +2885,7 @@ async function openBootstrapDialog(ctx) {
           apiKey: cfg.upstream.apiKey,
           model: cfg.upstream.model
         },
-        input: { instruction: promptIdea, progress: '', bible: '', prev: '', choice: chosen }
+        input: { instruction: promptIdea, progress: '', bible: '', prev: '', choice: chosen, constraints: constraints || undefined }
       })
       lastChapter = safeText(first && first.text).trim()
       if (!lastChapter) throw new Error(t('后端未返回正文', 'Backend returned empty text'))
@@ -2713,8 +3038,7 @@ async function openConsultDialog(ctx) {
     }
     cfg = await loadCfg(ctx)
 
-    const doc = safeText(ctx.getEditorValue ? ctx.getEditorValue() : '')
-    const prev = sliceTail(doc, cfg.ctx && cfg.ctx.maxPrevChars ? cfg.ctx.maxPrevChars : 8000)
+    const prev = await getPrevTextForRequest(ctx, cfg)
     const progress = await getProgressDocText(ctx, cfg)
     const bible = await getBibleDocText(ctx, cfg)
     let rag = null
@@ -2919,7 +3243,8 @@ async function openProgressUpdateDialog(ctx) {
       cfg = await loadCfg(ctx)
       const sel = ctx.getSelection ? ctx.getSelection() : null
       const raw = sel && sel.text ? String(sel.text) : String(ctx.getEditorValue ? (ctx.getEditorValue() || '') : '')
-      const base = sliceTail(raw, 20000).trim()
+      const lim = (cfg && cfg.ctx && cfg.ctx.maxUpdateSourceChars) ? (cfg.ctx.maxUpdateSourceChars | 0) : 20000
+      const base = sliceTail(raw, lim).trim()
       if (!base) {
         out.textContent = t('没有可用文本：请先选中一段正文，或确保当前文档有内容。', 'No text: select some content or ensure the document is not empty.')
         return
@@ -3200,7 +3525,37 @@ export function activate(context) {
         },
         { type: 'divider' },
         {
-          label: t('下一章走向候选', 'Next options'),
+          label: t('开始下一章（新建章节文件）', 'Start next chapter (new file)'),
+          onClick: async () => {
+            try {
+              const cfg = await loadCfg(context)
+              const inf = await computeNextChapterPath(context, cfg)
+              if (!inf) throw new Error(t('未发现项目：请先在“小说→项目管理”选择项目，或打开项目内文件。', 'No project: select one in Project Manager or open a file under the project.'))
+              const ok = await openConfirmDialog(context, {
+                title: t('新建下一章', 'Create next chapter'),
+                message:
+                  t('将在章节目录创建文件：\n', 'Will create file under chapters:\n') +
+                  String(inf.chapPath || '') +
+                  '\n\n' +
+                  t('创建并打开它？', 'Create and open it?'),
+              })
+              if (!ok) return
+              const title = `# 第${inf.chapZh}章`
+              await writeTextAny(context, inf.chapPath, title + '\n\n')
+              try {
+                if (typeof context.openFileByPath === 'function') {
+                  await context.openFileByPath(inf.chapPath)
+                }
+              } catch {}
+              context.ui.notice(t('已创建并打开：', 'Created: ') + String(fsBaseName(inf.chapPath)), 'ok', 2000)
+              context.ui.notice(t('提示：打开该章节后再用“续写正文”并追加，就会写入第二章文件。', 'Tip: open this chapter then use Write and append; it will go into this file.'), 'ok', 2600)
+            } catch (e) {
+              context.ui.notice(t('失败：', 'Failed: ') + (e && e.message ? e.message : String(e)), 'err', 2600)
+            }
+          }
+        },
+        {
+          label: t('走向候选', 'Options'),
           onClick: async () => {
             try {
               await openNextOptionsDialog(context)
@@ -3250,8 +3605,8 @@ export function activate(context) {
               if (!text.trim()) return
               const progress = await getProgressDocText(context, cfg)
               const bible = await getBibleDocText(context, cfg)
-              const doc = String(context.getEditorValue ? (context.getEditorValue() || '') : '')
-              const prev = sliceTail(doc, cfg.ctx && cfg.ctx.maxPrevChars ? cfg.ctx.maxPrevChars : 8000)
+              const prev = await getPrevTextForRequest(context, cfg)
+              const constraints = mergeConstraints(cfg, '')
               let rag = null
               try {
                 rag = await rag_get_hits(context, cfg, text + '\n\n' + sliceTail(prev, 2000))
@@ -3264,7 +3619,7 @@ export function activate(context) {
                   apiKey: cfg.upstream.apiKey,
                   model: cfg.upstream.model
                 },
-                input: { text, progress, bible, prev, rag: rag || undefined }
+                input: { text, progress, bible, prev, constraints: constraints || undefined, rag: rag || undefined }
               })
               context.setEditorValue(String(context.getEditorValue() || '') + '\n\n' + String(json.text || ''))
               context.ui.notice(t('已把审计结果追加到文末', 'Audit appended'), 'ok', 2200)
