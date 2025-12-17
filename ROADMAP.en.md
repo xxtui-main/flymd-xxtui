@@ -2,6 +2,9 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.8.4
+- Fixed: In Excel/Sheets formulas, absolute refs like `$A$1` / `C$2` / `$U:$U` no longer falsely trigger Markdown inline math (KaTeX)
+
 ## Update v0.8.3
 - New: New tab name incremental naming
 

@@ -2,6 +2,9 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## 更新 v0.8.4
+- 修复：Excel/Sheets 公式中 `$A$1` / `C$2` / `$U:$U` 等“绝对引用”不再误触发 Markdown 行内数学（KaTeX）
+
 ## 更新 v0.8.3
 - 新增：新建标签页名字递增命名
 
