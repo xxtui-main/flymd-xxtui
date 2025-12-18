@@ -1863,23 +1863,52 @@ async function openSettingsDialog(ctx) {
     }
   }
 
-  btnDocs.onclick = () => {
-    const url = 'https://www.llingfei.com/novel.html'
+  async function openExternalLink(url) {
+    const u = String(url || '').trim()
+    if (!u) return false
+
+    // 桌面端（Tauri）：优先走系统默认浏览器（不依赖弹窗权限）
     try {
-      // FlyMD 环境里第三个 features 参数可能导致 window.open 失效：按 ai-assistant 的方式走最朴素的调用
-      const w = window.open(url, '_blank')
-      if (!w) {
-        const a = document.createElement('a')
-        a.href = url
-        a.target = '_blank'
-        a.rel = 'noopener noreferrer'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
+      const tauri = (globalThis && globalThis.__TAURI__) ? globalThis.__TAURI__ : null
+      const cands = [
+        () => tauri && tauri.opener && typeof tauri.opener.openUrl === 'function' && tauri.opener.openUrl(u),
+        () => tauri && tauri.plugin && tauri.plugin.opener && typeof tauri.plugin.opener.openUrl === 'function' && tauri.plugin.opener.openUrl(u),
+        () => tauri && tauri.shell && typeof tauri.shell.open === 'function' && tauri.shell.open(u),
+        () => tauri && tauri.plugin && tauri.plugin.shell && typeof tauri.plugin.shell.open === 'function' && tauri.plugin.shell.open(u),
+      ]
+      for (let i = 0; i < cands.length; i++) {
+        try {
+          const r = cands[i]()
+          if (r && typeof r.then === 'function') await r
+          if (r !== false) return true
+        } catch {}
       }
-    } catch (e) {
-      try { location.href = url } catch {}
-    }
+      // 兜底：直接 invoke（不同版本路径可能不一样，失败就忽略）
+      try { if (tauri && tauri.core && typeof tauri.core.invoke === 'function') { await tauri.core.invoke('plugin:opener|open_url', { url: u }); return true } } catch {}
+    } catch {}
+
+    // Web：尽量尝试打开新标签（可能被宿主禁用）
+    try { if (window && typeof window.open === 'function') { const w = window.open(u, '_blank'); if (w) return true } } catch {}
+    try {
+      const a = document.createElement('a')
+      a.href = u
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      return true
+    } catch {}
+    return false
+  }
+
+  btnDocs.onclick = async () => {
+    const url = 'https://www.llingfei.com/novel.html'
+    const ok = await openExternalLink(url)
+    if (ok) return
+    // 最后兜底：至少把链接给用户（否则等于“点击没反应”）
+    try { await navigator.clipboard.writeText(url); ctx.ui.notice(t('已复制文档链接到剪贴板', 'Docs link copied'), 'ok', 2400); return } catch {}
+    ctx.ui.notice(t('无法自动打开，请手动访问：', 'Cannot open automatically, please visit: ') + url, 'err', 4000)
   }
 
   btnMe.onclick = async () => {
