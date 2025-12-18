@@ -181,11 +181,40 @@ export class TabBar {
       | {
           startX: number
           startY: number
+          pointerId: number
           isDragging: boolean
           targetEl: HTMLElement | null
           insertAfter: boolean
         }
       | null = null
+
+    const isOutsideWindowClient = (x: number, y: number, margin: number) => {
+      return x < -margin || y < -margin || x > window.innerWidth + margin || y > window.innerHeight + margin
+    }
+
+    const isOutsideWindowScreen = (x: number, y: number, margin: number) => {
+      try {
+        const left = (window as any).screenX
+        const top = (window as any).screenY
+        const w = (window as any).outerWidth
+        const h = (window as any).outerHeight
+        if (![left, top, w, h, x, y].every((n) => Number.isFinite(n))) return false
+        const right = left + w
+        const bottom = top + h
+        return x < left - margin || y < top - margin || x > right + margin || y > bottom + margin
+      } catch {}
+      return false
+    }
+
+    const isOutsideWindow = (e: PointerEvent, margin: number) => {
+      return isOutsideWindowClient(e.clientX, e.clientY, margin) || isOutsideWindowScreen(e.screenX, e.screenY, margin)
+    }
+
+    const elementFromClientPoint = (x: number, y: number): HTMLElement | null => {
+      if (isOutsideWindowClient(x, y, 0)) return null
+      try { return document.elementFromPoint(x, y) as HTMLElement | null } catch {}
+      return null
+    }
 
     const clearDragIndicators = () => {
       if (!dragState?.targetEl) return
@@ -194,8 +223,12 @@ export class TabBar {
     }
 
     const cleanupDrag = () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp, true)
+      tabEl.removeEventListener('pointermove', handlePointerMove)
+      tabEl.removeEventListener('pointerup', handlePointerUp, true)
+      tabEl.removeEventListener('pointercancel', handlePointerCancel, true)
+      try {
+        if (dragState) tabEl.releasePointerCapture(dragState.pointerId)
+      } catch {}
       tabEl.classList.remove('dragging')
       clearDragIndicators()
       this.draggedTabId = null
@@ -205,7 +238,7 @@ export class TabBar {
       dragState = null
     }
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       if (!dragState || !this.draggedTabId) return
 
       if (!dragState.isDragging) {
@@ -218,8 +251,11 @@ export class TabBar {
         try { document.body.style.cursor = 'grabbing' } catch {}
       }
 
+      // 指针捕获后，event.target 永远是 tabEl；必须用 elementFromPoint 找到“鼠标下的元素”。
+      const under = elementFromClientPoint(e.clientX, e.clientY)
+
       // 允许拖到“新建标签按钮”上，作为“移动到最后”
-      const overNewBtn = (e.target as HTMLElement | null)?.closest?.('.tabbar-new-btn') as HTMLElement | null
+      const overNewBtn = under?.closest?.('.tabbar-new-btn') as HTMLElement | null
       if (overNewBtn) {
         const list = Array.from(this.tabsContainer?.querySelectorAll('.tabbar-tab') || []) as HTMLElement[]
         const last = list.length ? list[list.length - 1] : null
@@ -236,7 +272,7 @@ export class TabBar {
         }
       }
 
-      const targetTab = (e.target as HTMLElement | null)?.closest?.('.tabbar-tab') as HTMLElement | null
+      const targetTab = under?.closest?.('.tabbar-tab') as HTMLElement | null
       if (!targetTab || targetTab === tabEl) {
         clearDragIndicators()
         return
@@ -260,7 +296,7 @@ export class TabBar {
       this.dragOverTabId = targetTab.dataset.tabId || null
     }
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
       if (!dragState) { cleanupDrag(); return }
 
       const wasDragging = dragState.isDragging
@@ -273,6 +309,12 @@ export class TabBar {
 
       if (!wasDragging) return
       this.suppressNextClick = true
+
+      // 拖出窗口后释放：在新实例中打开，成功后销毁原标签（失败则不动，避免丢数据）
+      if (draggedId && isOutsideWindow(e, 8)) {
+        void this.detachTabToNewInstance(draggedId)
+        return
+      }
 
       const targetId = targetEl?.dataset?.tabId || null
       if (!draggedId || !targetId || draggedId === targetId) return
@@ -290,22 +332,28 @@ export class TabBar {
       this.tabManager.moveTab(fromIndex, toIndex)
     }
 
-    tabEl.addEventListener('mousedown', (e) => {
+    const handlePointerCancel = () => cleanupDrag()
+
+    tabEl.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return
       // 点在关闭按钮上不启动拖拽，避免“想关结果开始拖”的糟糕体验
       const t = e.target as HTMLElement | null
       if (t && t.closest('.tabbar-tab-close')) return
 
+      try { e.preventDefault() } catch {}
       this.draggedTabId = tab.id
       dragState = {
         startX: e.clientX,
         startY: e.clientY,
+        pointerId: e.pointerId,
         isDragging: false,
         targetEl: null,
         insertAfter: false,
       }
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp, true)
+      try { tabEl.setPointerCapture(e.pointerId) } catch {}
+      tabEl.addEventListener('pointermove', handlePointerMove)
+      tabEl.addEventListener('pointerup', handlePointerUp, true)
+      tabEl.addEventListener('pointercancel', handlePointerCancel, true)
     }, true)
 
     return tabEl
@@ -455,28 +503,36 @@ export class TabBar {
     }
   }
 
-  private async openTabInNewInstance(tabId: string): Promise<void> {
+  private async openTabInNewInstance(tabId: string): Promise<boolean> {
     const tab = this.tabManager.findTabById(tabId)
-    if (!tab) return
+    if (!tab) return false
     if (!tab.filePath) {
       alert('当前标签尚未保存为文件，无法在新实例中打开。\n请先保存到磁盘后再尝试。')
-      return
+      return false
     }
     if (tab.dirty) {
       alert('当前标签有未保存的更改，禁止在新实例中打开。\n请先保存后再尝试。')
-      return
+      return false
     }
     const flymd = (window as any)
     const openFn = flymd?.flymdOpenInNewInstance as ((path: string) => Promise<void>) | undefined
     if (typeof openFn !== 'function') {
       alert('当前环境不支持新实例打开，请直接从系统中双击该文件。')
-      return
+      return false
     }
     try {
       await openFn(tab.filePath)
+      return true
     } catch (e) {
       console.error('[TabBar] 新实例打开文档失败:', e)
+      return false
     }
+  }
+
+  private async detachTabToNewInstance(tabId: string): Promise<void> {
+    const ok = await this.openTabInNewInstance(tabId)
+    if (!ok) return
+    try { await this.closeTab(tabId) } catch {}
   }
 
   /**
