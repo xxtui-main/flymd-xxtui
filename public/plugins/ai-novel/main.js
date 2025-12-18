@@ -3076,9 +3076,9 @@ async function openWriteWithChoiceDialog(ctx) {
   selThinkingMode.className = 'ain-in ain-select'
   selThinkingMode.style.width = '260px'
   ;[
-    { v: 'none', zh: '不思考（普遍场景）', en: 'None (default)' },
-    { v: 'normal', zh: '正常思考（加入质询）', en: 'Normal (inject checklist)' },
-    { v: 'strong', zh: '强思考（校对增强）', en: 'Strong (slower, steadier)' },
+    { v: 'none', zh: '默认（普遍场景）', en: 'None (default)' },
+    { v: 'normal', zh: '中等（加入质询）', en: 'Normal (inject checklist)' },
+    { v: 'strong', zh: '加强（校对增强）', en: 'Strong (slower, steadier)' },
   ].forEach((it) => {
     const op = document.createElement('option')
     op.value = String(it.v)
@@ -3093,7 +3093,7 @@ async function openWriteWithChoiceDialog(ctx) {
   const agentHint = document.createElement('div')
   agentHint.className = 'ain-muted'
   agentHint.textContent = t(
-    '提示：Agent 会先生成Plan，再逐项执行；思考模式：不思考=普遍场景；正常=写作时会自查修整；强思考=正常思考前提下加入额外的索引，适用复杂剧情。',
+    '提示：Agent 会先生成Plan，再逐项执行；思考模式：默认=普遍场景；中等=写作时会自查修整；加强=正常思考前提下加入额外的索引，适用复杂剧情。越高耗费token越多，甚至翻倍',
     'Note: Agent generates TODO then executes step-by-step with live progress; prose is capped to ≤4000 chars (for review cost), usually costs more chars; Mode: None=consult shown only; Normal=inject consult checklist; Strong=refresh RAG before each segment + checklist (slower, steadier).'
   )
   sec.appendChild(agentBox)
