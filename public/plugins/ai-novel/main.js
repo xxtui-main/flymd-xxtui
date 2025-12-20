@@ -1950,57 +1950,58 @@ function ensureDialogStyle() {
   const st = doc.createElement('style')
   st.id = id
   st.textContent = `
-.ain-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
-.ain-dlg{width:min(980px,96vw);background:#111827;border:1px solid #30363d;border-radius:8px;color:#e6edf3}
-.ain-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #30363d}
-.ain-title{font-size:15px;font-weight:600}
-.ain-winbtns{display:flex;gap:4px;align-items:center}
-.ain-winbtn{background:transparent;border:0;color:#8b949e;font-size:16px;cursor:pointer;min-width:28px;height:28px;line-height:28px;border-radius:6px}
-.ain-winbtn:hover{background:rgba(255,255,255,.1);color:#e6edf3}
+.ain-overlay{position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:999999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.ain-dlg{width:min(980px,96vw);background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}
+.ain-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #334155}
+.ain-title{font-size:16px;font-weight:600;color:#f1f5f9}
+.ain-winbtns{display:flex;gap:6px;align-items:center}
+.ain-winbtn{background:transparent;border:0;color:#94a3b8;font-size:16px;cursor:pointer;min-width:28px;height:28px;line-height:28px;border-radius:6px}
+.ain-winbtn:hover{background:rgba(148,163,184,.15);color:#e2e8f0}
 .ain-close{font-size:20px}
-.ain-body{padding:16px}
-.ain-card{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;margin:10px 0}
-.ain-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ain-lab{font-size:12px;color:#8b949e;margin:8px 0 4px}
-.ain-in{width:100%;padding:8px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;box-sizing:border-box}
-.ain-in:focus{border-color:#58a6ff;outline:none}
-.ain-ta{width:100%;min-height:120px;padding:8px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;box-sizing:border-box;resize:vertical}
-.ain-ta:focus{border-color:#58a6ff;outline:none}
-.ain-out{white-space:pre-wrap;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;min-height:120px}
-.ain-diff{white-space:pre-wrap;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;min-height:120px}
-.ain-diff mark{background:rgba(46,160,67,.25);color:#e6edf3;padding:0 2px;border-radius:2px}
-.ain-diff del{background:rgba(248,81,73,.25);color:#ffa198;text-decoration:line-through;padding:0 2px;border-radius:2px}
-.ain-opt{border:1px solid #30363d;background:#0d1117;border-radius:6px;padding:10px;margin:8px 0;cursor:pointer}
-.ain-opt:hover{border-color:#58a6ff}
-.ain-opt.sel{border-color:#58a6ff;background:#161b22}
-.ain-opt-title{font-weight:600}
-.ain-opt-sub{color:#8b949e;font-size:12px;margin-top:4px}
-.ain-selrow{display:flex;gap:10px;align-items:center;margin-top:10px}
+.ain-body{padding:20px}
+.ain-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin:12px 0}
+.ain-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ain-lab{font-size:12px;color:#94a3b8;margin:10px 0 6px;font-weight:500}
+.ain-in{width:100%;padding:10px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;box-sizing:border-box}
+.ain-in:focus{border-color:#3b82f6;outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.ain-ta{width:100%;min-height:120px;padding:10px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;box-sizing:border-box;resize:vertical}
+.ain-ta:focus{border-color:#3b82f6;outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.ain-out{white-space:pre-wrap;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;min-height:120px;color:#cbd5e1}
+.ain-diff{white-space:pre-wrap;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;min-height:120px}
+.ain-diff mark{background:rgba(34,197,94,.2);color:#86efac;padding:0 2px;border-radius:2px}
+.ain-diff del{background:rgba(239,68,68,.2);color:#fca5a5;text-decoration:line-through;padding:0 2px;border-radius:2px}
+.ain-opt{border:1px solid #334155;background:#1e293b;border-radius:8px;padding:12px;margin:8px 0;cursor:pointer}
+.ain-opt:hover{border-color:#3b82f6;background:#1e3a5f}
+.ain-opt.sel{border-color:#3b82f6;background:#1e3a5f}
+.ain-opt-title{font-weight:600;color:#f1f5f9}
+.ain-opt-sub{color:#94a3b8;font-size:12px;margin-top:4px}
+.ain-selrow{display:flex;gap:12px;align-items:center;margin-top:12px}
 .ain-selrow .ain-lab{margin:0}
 .ain-select{min-width:260px}
+.ain-btn-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .ain-btn[disabled]{opacity:.5;cursor:not-allowed}
-.ain-btn{display:inline-block;padding:8px 14px;border-radius:6px;background:#2563eb;color:#fff;border:0;cursor:pointer;font-size:13px;font-weight:500}
-.ain-btn:hover:not([disabled]){background:#1d4ed8}
-.ain-btn.gray{background:#374151}
-.ain-btn.gray:hover:not([disabled]){background:#4b5563}
-.ain-btn.red{background:#dc2626}
-.ain-btn.red:hover:not([disabled]){background:#b91c1c}
-.ain-muted{color:#8b949e;font-size:12px}
-.ain-ok{color:#7ee787}
-.ain-err{color:#ffa198}
-.ain-todo{background:#0d1117;border:1px dashed #30363d;border-radius:6px;padding:10px}
+.ain-btn{display:inline-block;padding:9px 16px;border-radius:6px;background:#3b82f6;color:#fff;border:0;cursor:pointer;font-size:13px;font-weight:500}
+.ain-btn:hover:not([disabled]){background:#2563eb}
+.ain-btn.gray{background:#475569}
+.ain-btn.gray:hover:not([disabled]){background:#64748b}
+.ain-btn.red{background:#ef4444}
+.ain-btn.red:hover:not([disabled]){background:#dc2626}
+.ain-muted{color:#94a3b8;font-size:12px}
+.ain-ok{color:#86efac}
+.ain-err{color:#fca5a5}
+.ain-todo{background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:12px}
 .ain-todo-item{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
 .ain-todo-st{width:18px;flex:0 0 18px;font-weight:600;line-height:18px}
 .ain-todo-title{flex:1;min-width:0}
 .ain-todo-title .ain-muted{margin-left:6px}
-.ain-todo-log{white-space:pre-wrap;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;margin-top:8px;max-height:240px;overflow:auto}
-.ain-table-wrap{max-height:320px;overflow:auto;border:1px solid #30363d;border-radius:6px;background:#0d1117}
+.ain-todo-log{white-space:pre-wrap;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;margin-top:10px;max-height:240px;overflow:auto}
+.ain-table-wrap{max-height:320px;overflow:auto;border:1px solid #334155;border-radius:8px;background:#0f172a}
 .ain-table{width:100%;border-collapse:collapse}
-.ain-table th,.ain-table td{border-bottom:1px solid #30363d;padding:8px 10px;font-size:12px;vertical-align:top;white-space:nowrap}
-.ain-table th{position:sticky;top:0;background:#161b22;font-weight:600;z-index:1}
+.ain-table th,.ain-table td{border-bottom:1px solid #334155;padding:10px 12px;font-size:12px;vertical-align:top;white-space:nowrap}
+.ain-table th{position:sticky;top:0;background:#1e293b;font-weight:600;z-index:1;color:#f1f5f9}
 .ain-table td.num,.ain-table th.num{text-align:right}
 .ain-table td.mono,.ain-table th.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-.ain-minibar{position:fixed;z-index:1000000;background:#161b22;border:1px solid #30363d;color:#e6edf3;border-radius:999px;padding:0 10px;display:flex;align-items:center;gap:8px;height:var(--ain-bar-h,28px);line-height:var(--ain-bar-h,28px);user-select:none}
+.ain-minibar{position:fixed;z-index:1000000;background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:999px;padding:0 12px;display:flex;align-items:center;gap:10px;height:var(--ain-bar-h,28px);line-height:var(--ain-bar-h,28px);user-select:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}
 .ain-minibar .ain-minititle{font-size:12px;font-weight:600;max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:grab}
 .ain-minibar .ain-minititle:active{cursor:grabbing}
 .ain-minibar .ain-winbtn{height:calc(var(--ain-bar-h,28px) - 4px);line-height:calc(var(--ain-bar-h,28px) - 4px);min-width:24px;border-radius:999px}
@@ -2215,17 +2216,15 @@ async function openSettingsDialog(ctx) {
   secBackend.appendChild(rowAuth)
 
   const btnRow = document.createElement('div')
-  btnRow.style.marginTop = '10px'
+  btnRow.className = 'ain-btn-group'
   const btnLogin = document.createElement('button')
   btnLogin.className = 'ain-btn'
   btnLogin.textContent = t('登录', 'Login')
   const btnRegister = document.createElement('button')
   btnRegister.className = 'ain-btn gray'
-  btnRegister.style.marginLeft = '8px'
   btnRegister.textContent = t('注册', 'Register')
   const btnDocs = document.createElement('a')
   btnDocs.className = 'ain-btn gray'
-  btnDocs.style.marginLeft = '8px'
   btnDocs.textContent = t('使用文档', 'Docs')
   btnDocs.href = 'https://www.llingfei.com/novel.html'
   btnDocs.target = '_blank'
@@ -2233,31 +2232,71 @@ async function openSettingsDialog(ctx) {
   btnDocs.style.textDecoration = 'none'
   const btnMe = document.createElement('button')
   btnMe.className = 'ain-btn gray'
-  btnMe.style.marginLeft = '8px'
   btnMe.textContent = t('刷新余额', 'Refresh billing')
   const inpCard = document.createElement('input')
   inpCard.className = 'ain-in'
   inpCard.type = 'text'
   inpCard.placeholder = t('充值卡号', 'Card token')
   inpCard.style.width = '220px'
-  inpCard.style.marginLeft = '8px'
   const btnRedeem = document.createElement('button')
   btnRedeem.className = 'ain-btn gray'
-  btnRedeem.style.marginLeft = '8px'
   btnRedeem.textContent = t('兑换', 'Redeem')
+  const btnBuyCard = document.createElement('button')
+  btnBuyCard.className = 'ain-btn gray'
+  btnBuyCard.textContent = t('购买充值卡', 'Buy Card')
   btnRow.appendChild(btnLogin)
   btnRow.appendChild(btnRegister)
   btnRow.appendChild(btnDocs)
   btnRow.appendChild(btnMe)
   btnRow.appendChild(inpCard)
   btnRow.appendChild(btnRedeem)
+  btnRow.appendChild(btnBuyCard)
   secBackend.appendChild(btnRow)
+
+  const shopImgWrap = document.createElement('div')
+  shopImgWrap.style.marginTop = '12px'
+  shopImgWrap.style.display = 'none'
+  shopImgWrap.style.textAlign = 'center'
+  const shopImg = document.createElement('img')
+  shopImg.src = 'https://flymd.llingfei.com/pdf/shop.png'
+  shopImg.style.maxWidth = '100%'
+  shopImg.style.borderRadius = '8px'
+  shopImg.style.border = '1px solid #334155'
+  shopImgWrap.appendChild(shopImg)
+  secBackend.appendChild(shopImgWrap)
+
+  btnBuyCard.onclick = () => {
+    shopImgWrap.style.display = shopImgWrap.style.display === 'none' ? 'block' : 'none'
+  }
 
   const billingBox = document.createElement('div')
   billingBox.className = 'ain-muted'
   billingBox.style.marginTop = '10px'
   billingBox.textContent = t('未登录', 'Not logged in')
   secBackend.appendChild(billingBox)
+
+  const authStatus = document.createElement('div')
+  authStatus.style.marginTop = '8px'
+  authStatus.style.padding = '8px 12px'
+  authStatus.style.borderRadius = '6px'
+  authStatus.style.fontSize = '13px'
+  authStatus.style.display = 'none'
+  secBackend.appendChild(authStatus)
+
+  function showAuthStatus(msg, type) {
+    authStatus.textContent = msg
+    authStatus.style.display = 'block'
+    if (type === 'ok') {
+      authStatus.style.background = 'rgba(34,197,94,.15)'
+      authStatus.style.color = '#86efac'
+      authStatus.style.border = '1px solid rgba(34,197,94,.3)'
+    } else {
+      authStatus.style.background = 'rgba(239,68,68,.15)'
+      authStatus.style.color = '#fca5a5'
+      authStatus.style.border = '1px solid rgba(239,68,68,.3)'
+    }
+    setTimeout(() => { authStatus.style.display = 'none' }, type === 'ok' ? 3000 : 5000)
+  }
 
   async function refreshBilling() {
     cfg = await loadCfg(ctx)
@@ -2309,9 +2348,12 @@ async function openSettingsDialog(ctx) {
       })
       cfg = await saveCfg(ctx, { token: String(json.token || '') })
       await refreshBilling()
+      showAuthStatus(t('登录成功', 'Login successful'), 'ok')
       ctx.ui.notice(t('登录成功', 'Login ok'), 'ok', 1600)
     } catch (e) {
-      ctx.ui.notice(t('登录失败：', 'Login failed: ') + (e && e.message ? e.message : String(e)), 'err', 2400)
+      const msg = t('登录失败：', 'Login failed: ') + (e && e.message ? e.message : String(e))
+      showAuthStatus(msg, 'err')
+      ctx.ui.notice(msg, 'err', 2400)
     }
   }
 
@@ -2325,9 +2367,12 @@ async function openSettingsDialog(ctx) {
       })
       cfg = await saveCfg(ctx, { token: String(json.token || '') })
       await refreshBilling()
+      showAuthStatus(t('注册成功', 'Registration successful'), 'ok')
       ctx.ui.notice(t('注册成功', 'Registered'), 'ok', 1600)
     } catch (e) {
-      ctx.ui.notice(t('注册失败：', 'Register failed: ') + (e && e.message ? e.message : String(e)), 'err', 2600)
+      const msg = t('注册失败：', 'Register failed: ') + (e && e.message ? e.message : String(e))
+      showAuthStatus(msg, 'err')
+      ctx.ui.notice(msg, 'err', 2600)
     }
   }
 
@@ -2814,13 +2859,13 @@ async function openUsageLogsDialog(ctx) {
   sec.appendChild(title)
 
   const row = document.createElement('div')
+  row.className = 'ain-btn-group'
   row.style.marginTop = '6px'
   const btnRefresh = document.createElement('button')
   btnRefresh.className = 'ain-btn gray'
   btnRefresh.textContent = t('刷新日志', 'Refresh')
   const btnOpenSettings = document.createElement('button')
   btnOpenSettings.className = 'ain-btn gray'
-  btnOpenSettings.style.marginLeft = '8px'
   btnOpenSettings.textContent = t('去登录/设置', 'Open settings')
   btnOpenSettings.onclick = async () => {
     try { await openSettingsDialog(ctx) } catch {}
@@ -3012,7 +3057,7 @@ function mkTextarea(label, value) {
 
 function mkBtnRow() {
   const row = document.createElement('div')
-  row.style.marginTop = '10px'
+  row.className = 'ain-btn-group'
   return row
 }
 
@@ -3048,7 +3093,7 @@ function openAskTextDialog(ctx, opts) {
     btnOk.textContent = t('确定', 'OK')
     const btnCancel = document.createElement('button')
     btnCancel.className = 'ain-btn gray'
-    btnCancel.style.marginLeft = '8px'
+  
     btnCancel.textContent = t('取消', 'Cancel')
 
     row.appendChild(btnOk)
@@ -3112,7 +3157,7 @@ function openConfirmDialog(ctx, opts) {
     btnOk.textContent = okText
     const btnCancel = document.createElement('button')
     btnCancel.className = 'ain-btn gray'
-    btnCancel.style.marginLeft = '8px'
+  
     btnCancel.textContent = cancelText
 
     row.appendChild(btnOk)
@@ -3185,7 +3230,7 @@ function openPickOptionDialog(ctx, arr) {
     btnOk.textContent = t('确定', 'OK')
     const btnCancel = document.createElement('button')
     btnCancel.className = 'ain-btn gray'
-    btnCancel.style.marginLeft = '8px'
+  
     btnCancel.textContent = t('取消', 'Cancel')
 
     row.appendChild(btnOk)
@@ -3231,13 +3276,11 @@ async function openNextOptionsDialog(ctx) {
 
   const btnInsertJson = document.createElement('button')
   btnInsertJson.className = 'ain-btn gray'
-  btnInsertJson.style.marginLeft = '8px'
   btnInsertJson.textContent = t('插入候选 JSON 到文末', 'Insert JSON to doc')
   btnInsertJson.disabled = true
 
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
   btnWrite.textContent = t('按选中走向续写', 'Write with selected')
   btnWrite.disabled = true
 
@@ -3287,13 +3330,13 @@ async function openNextOptionsDialog(ctx) {
 
   const btnAppendDraft = document.createElement('button')
   btnAppendDraft.className = 'ain-btn gray'
-  btnAppendDraft.style.marginLeft = '8px'
+
   btnAppendDraft.textContent = t('追加为草稿（可审阅）', 'Append as draft (reviewable)')
   btnAppendDraft.disabled = true
 
   const btnReview = document.createElement('button')
   btnReview.className = 'ain-btn gray'
-  btnReview.style.marginLeft = '8px'
+
   btnReview.textContent = t('审阅/修改草稿（对话）', 'Review/Edit draft (chat)')
   btnReview.disabled = true
   row2.appendChild(btnAppend)
@@ -3622,11 +3665,11 @@ async function openWriteWithChoiceDialog(ctx) {
   btnCastExtract.textContent = t('更新人物状态', 'Update states')
   const btnCastAdd = document.createElement('button')
   btnCastAdd.className = 'ain-btn gray'
-  btnCastAdd.style.marginLeft = '8px'
+
   btnCastAdd.textContent = t('添加人物', 'Add')
   const btnCastClear = document.createElement('button')
   btnCastClear.className = 'ain-btn gray'
-  btnCastClear.style.marginLeft = '8px'
+
   btnCastClear.textContent = t('清空', 'Clear')
   castTools.appendChild(btnCastExtract)
   castTools.appendChild(btnCastAdd)
@@ -3982,24 +4025,22 @@ async function openWriteWithChoiceDialog(ctx) {
 
   const btnInsertJson = document.createElement('button')
   btnInsertJson.className = 'ain-btn gray'
-  btnInsertJson.style.marginLeft = '8px'
   btnInsertJson.textContent = t('插入候选 JSON 到文末', 'Insert JSON to doc')
   btnInsertJson.disabled = true
 
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
   btnWrite.textContent = t('按选中走向续写', 'Write with selected')
   btnWrite.disabled = true
 
   const btnWriteDirect = document.createElement('button')
   btnWriteDirect.className = 'ain-btn gray'
-  btnWriteDirect.style.marginLeft = '8px'
+
   btnWriteDirect.textContent = t('直接按指令续写', 'Write directly')
 
   const btnAppend = document.createElement('button')
   btnAppend.className = 'ain-btn gray'
-  btnAppend.style.marginLeft = '8px'
+
   btnAppend.textContent = t('追加到文末（立即生效）', 'Append to doc (immediate)')
   btnAppend.disabled = true
 
@@ -4063,7 +4104,7 @@ async function openWriteWithChoiceDialog(ctx) {
   btnAppendDraft.disabled = true
   const btnReview = document.createElement('button')
   btnReview.className = 'ain-btn gray'
-  btnReview.style.marginLeft = '8px'
+
   btnReview.textContent = t('审阅/修改草稿（对话）', 'Review/Edit draft (chat)')
   btnReview.disabled = true
   row2.appendChild(btnAppendDraft)
@@ -6102,7 +6143,7 @@ async function openBootstrapDialog(ctx) {
 
   const btnAppend = document.createElement('button')
   btnAppend.className = 'ain-btn gray'
-  btnAppend.style.marginLeft = '8px'
+
   btnAppend.textContent = t('创建项目并写入文件', 'Create project & write files')
   btnAppend.disabled = true
 
@@ -6636,7 +6677,7 @@ async function openConsultDialog(ctx) {
 
   const btnAppend = document.createElement('button')
   btnAppend.className = 'ain-btn gray'
-  btnAppend.style.marginLeft = '8px'
+
   btnAppend.textContent = t('把建议追加到文末', 'Append advice to doc')
   btnAppend.disabled = true
 
@@ -6852,19 +6893,19 @@ async function openAuditDialog(ctx) {
 
   const btnAppend = document.createElement('button')
   btnAppend.className = 'ain-btn gray'
-  btnAppend.style.marginLeft = '8px'
+
   btnAppend.textContent = t('追加到文末', 'Append to doc')
   btnAppend.disabled = true
 
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
+
   btnWrite.textContent = t('写入审计文件', 'Write audit file')
   btnWrite.disabled = true
 
   const btnOpen = document.createElement('button')
   btnOpen.className = 'ain-btn gray'
-  btnOpen.style.marginLeft = '8px'
+
   btnOpen.textContent = t('打开审计文件', 'Open audit file')
   btnOpen.disabled = true
 
@@ -7066,7 +7107,7 @@ async function openMetaUpdateDialog(ctx) {
   btnGen.textContent = t('生成更新提议', 'Generate proposal')
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
+
   btnWrite.textContent = t('写入所选资料文件', 'Write selected files')
   btnWrite.disabled = true
   rowBtn.appendChild(btnGen)
@@ -7511,17 +7552,17 @@ async function openImportExistingDialog(ctx) {
 
   const btnIndex = document.createElement('button')
   btnIndex.className = 'ain-btn gray'
-  btnIndex.style.marginLeft = '8px'
+
   btnIndex.textContent = t('构建/更新 RAG 索引', 'Build/Update RAG')
 
   const btnGen = document.createElement('button')
   btnGen.className = 'ain-btn'
-  btnGen.style.marginLeft = '8px'
+
   btnGen.textContent = t('生成初始化提议', 'Generate init proposal')
 
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
+
   btnWrite.textContent = t('写入所选资料文件', 'Write selected files')
   btnWrite.disabled = true
 
@@ -7890,7 +7931,7 @@ async function openRagIndexDialog(ctx) {
 
   const btnOpen = document.createElement('button')
   btnOpen.className = 'ain-btn gray'
-  btnOpen.style.marginLeft = '8px'
+
   btnOpen.textContent = t('打开索引文件', 'Open index file')
 
   row.appendChild(btnBuild)
@@ -7996,12 +8037,12 @@ async function openProgressUpdateDialog(ctx) {
   btnGen.textContent = t('生成更新（优先选中文本）', 'Generate (prefer selection)')
   const btnWrite = document.createElement('button')
   btnWrite.className = 'ain-btn gray'
-  btnWrite.style.marginLeft = '8px'
+
   btnWrite.textContent = t('写入进度脉络文件', 'Write to file')
   btnWrite.disabled = true
   const btnOpen = document.createElement('button')
   btnOpen.className = 'ain-btn gray'
-  btnOpen.style.marginLeft = '8px'
+
   btnOpen.textContent = t('打开 01_进度脉络.md', 'Open 01_进度脉络.md')
   row.appendChild(btnGen)
   row.appendChild(btnWrite)
@@ -8224,7 +8265,7 @@ async function openDraftReviewDialog(ctx, opts) {
   btnSend.textContent = t('发送修改请求', 'Send edit request')
   const btnApply = document.createElement('button')
   btnApply.className = 'ain-btn gray'
-  btnApply.style.marginLeft = '8px'
+
   btnApply.textContent = t('覆盖草稿块（定稿）', 'Overwrite draft block (finalize)')
   btnApply.disabled = !blockId
   row.appendChild(btnSend)
@@ -8432,15 +8473,15 @@ async function openProjectManagerDialog(ctx) {
   btnRefresh.textContent = t('刷新列表', 'Refresh')
   const btnUse = document.createElement('button')
   btnUse.className = 'ain-btn'
-  btnUse.style.marginLeft = '8px'
+
   btnUse.textContent = t('设为当前项目', 'Set current')
   const btnOpenMeta = document.createElement('button')
   btnOpenMeta.className = 'ain-btn gray'
-  btnOpenMeta.style.marginLeft = '8px'
+
   btnOpenMeta.textContent = t('打开资料文件', 'Open meta files')
   const btnAbandon = document.createElement('button')
   btnAbandon.className = 'ain-btn red'
-  btnAbandon.style.marginLeft = '8px'
+
   btnAbandon.textContent = t('弃坑（删除项目）', 'Abandon (delete)')
   rowBtn.appendChild(btnRefresh)
   rowBtn.appendChild(btnUse)
