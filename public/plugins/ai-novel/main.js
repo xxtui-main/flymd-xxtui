@@ -4928,50 +4928,64 @@ function buildFallbackAgentPlan(baseInstruction, targetChars, chunkCount, wantAu
 }
 
 function _ainAgentCoercePlanToExecutable(aiItems, baseInstruction, targetChars, chunkCount, wantAudit) {
-  // 目标：尽量保留 Plan 模型给出的“好内容”，但把结构修成必定可执行，别动不动就整套兜底。
+  // 目标：尽量保留 Plan 模型给出的计划（多 consult/rag/audit 往往是“质量”本体），只修结构让它必定可执行。
+  // 之前那种“拿模型内容去覆盖 5 步模板”的做法，用户看起来就是“全在走兜底”，观感与实际都很差。
   const basePlan = buildFallbackAgentPlan(baseInstruction, targetChars, chunkCount, wantAudit)
-  const ai = Array.isArray(aiItems) ? aiItems.map((x, i) => _ainAgentNormalizePlanItem(x, i)) : []
+  const ai0 = Array.isArray(aiItems) ? aiItems : []
+  const ai = ai0.map((x, i) => ({ ..._ainAgentNormalizePlanItem(x, i), __idx: i }))
   if (!ai.length) return basePlan
 
-  function takeFirst(kind) {
-    for (let i = 0; i < ai.length; i++) {
-      const it = ai[i]
-      if (it && it.type === kind) return it
-    }
-    return null
+  function byType(kind) {
+    return ai.filter((x) => x && x.type === kind).sort((a, b) => (a.__idx | 0) - (b.__idx | 0))
   }
 
-  const consult = takeFirst('consult')
-  const rag = takeFirst('rag')
-  const final = takeFirst('final')
-  const audits = ai.filter((x) => x && x.type === 'audit')
-  const writes = ai.filter((x) => x && x.type === 'write')
+  const rags = byType('rag')
+  const consults = byType('consult')
+  const writes = byType('write')
+  const audits = byType('audit')
+  const finals = byType('final')
 
-  const out = basePlan.slice(0).map((x) => ({ ...x }))
-  let widx = 0
-  for (let i = 0; i < out.length; i++) {
-    const it = out[i]
-    if (!it || !it.type) continue
-    if (it.type === 'consult' && consult && consult.instruction) {
-      it.instruction = consult.instruction
-      if (consult.title) it.title = consult.title
-    } else if (it.type === 'rag' && rag) {
-      if (rag.rag_query) it.rag_query = rag.rag_query
-      if (rag.instruction && !it.rag_query) it.rag_query = rag.instruction
-      if (rag.title) it.title = rag.title
-    } else if (it.type === 'write') {
-      const w = writes[widx++]
-      if (w && w.instruction) it.instruction = w.instruction
-      if (w && w.title) it.title = w.title
-    } else if (it.type === 'audit' && wantAudit) {
-      const a = audits[0]
-      if (a && a.instruction) it.instruction = a.instruction
-      if (a && a.title) it.title = a.title
-    } else if (it.type === 'final' && final && final.instruction) {
-      it.instruction = final.instruction
-      if (final.title) it.title = final.title
+  const wantWrites = _clampInt(chunkCount, 1, 3)
+  const out = []
+
+  // 1) rag：最多 2 个，避免预算爆炸；没有就用兜底 rag。
+  const takeRags = rags.slice(0, 2)
+  if (takeRags.length) out.push(...takeRags.map(({ __idx, ...x }) => x))
+  else {
+    const fbRag = basePlan.find((x) => x && x.type === 'rag')
+    if (fbRag) out.push({ ...fbRag })
+  }
+
+  // 2) consult：必须至少 1 个；尽量保留模型给的（最多 4 个）。
+  if (consults.length) out.push(...consults.slice(0, 4).map(({ __idx, ...x }) => x))
+  else {
+    const fbConsult = basePlan.find((x) => x && x.type === 'consult')
+    if (fbConsult) out.push({ ...fbConsult })
+  }
+
+  // 3) write：必须恰好 wantWrites 个；多了裁掉，少了用兜底补齐。
+  const takeWrites = writes.slice(0, wantWrites).map(({ __idx, ...x }) => ({ ...x }))
+  if (takeWrites.length < wantWrites) {
+    const fbWrites = basePlan.filter((x) => x && x.type === 'write')
+    for (let i = takeWrites.length; i < wantWrites; i++) {
+      const fb = fbWrites[i] || fbWrites[fbWrites.length - 1]
+      if (fb) takeWrites.push({ ...fb })
     }
   }
+  out.push(...takeWrites)
+
+  // 4) audit：用户开启才保留；只保留 1 个（runtime 会把 audit 放到写作之后）。
+  if (wantAudit) {
+    const a0 = (audits[0] ? audits[0] : null)
+    const a = a0 ? (({ __idx, ...x }) => x)(a0) : (basePlan.find((x) => x && x.type === 'audit') || null)
+    if (a) out.push({ ...a })
+  }
+
+  // 5) final：必须最后 1 个；没有就用兜底 final。
+  const f0 = (finals[0] ? finals[0] : null)
+  const fin = f0 ? (({ __idx, ...x }) => x)(f0) : (basePlan.find((x) => x && x.type === 'final') || null)
+  if (fin) out.push({ ...fin })
+
   return out.map((x, i) => _ainAgentNormalizePlanItem(x, i))
 }
 
@@ -5037,6 +5051,21 @@ async function agentBuildPlan(ctx, cfg, base) {
     const apiKey =
       safeText(pu.apiKey).trim() ||
       (cfg && cfg.upstream ? cfg.upstream.apiKey : '')
+
+    // 只有用户显式配置了“Plan 单独上游/模型”才追加质量约束，避免影响旧用户行为。
+    const hasPlanOverride = !!(safeText(pu.model).trim() || safeText(pu.baseUrl).trim() || safeText(pu.apiKey).trim() || planModel)
+    const baseConstraints = safeText(base && base.constraints).trim()
+    const planQualityHint = hasPlanOverride ? [
+      '【Plan 生成要求（只影响 TODO，不影响正文）】',
+      '- TODO 至少 10 条，尽量贴合“进度脉络/故事圣经/前文尾部/走向选择”，避免通用模板措辞。',
+      '- 至少 2 个 rag，rag_query 必须具体（包含人物/地点/设定/伏笔关键词）。',
+      '- 至少 2 个 consult（蓝图/风险点/检查清单/伏笔回收/节奏与视角）。',
+      '- write 的 instruction 需要写清“本段要推进什么冲突/信息/转折”，不要只写“续写”。',
+      '- 必须严格输出 JSON 数组，不要 Markdown/解释。',
+    ].join('\n') : ''
+    const constraints = planQualityHint
+      ? ((baseConstraints ? (baseConstraints + '\n\n') : '') + planQualityHint)
+      : baseConstraints
     const resp = await apiFetch(ctx, cfg, 'ai/proxy/chat/', {
       mode: 'novel',
       action: 'plan',
@@ -5051,7 +5080,7 @@ async function agentBuildPlan(ctx, cfg, base) {
         bible: base && base.bible != null ? base.bible : '',
         prev: safeText(base && base.prev),
         choice: base && base.choice != null ? base.choice : undefined,
-        constraints: safeText(base && base.constraints).trim() || undefined,
+        constraints: constraints || undefined,
         rag: base && base.rag ? base.rag : undefined,
         agent: { chunk_count: chunkCount, target_chars: targetChars, include_audit: wantAudit, strong_thinking: strongThinking, thinking_mode: thinkingMode }
       }
@@ -5059,17 +5088,33 @@ async function agentBuildPlan(ctx, cfg, base) {
     let raw = Array.isArray(resp && resp.data) ? resp.data : null
     if (!raw && resp && resp.text) raw = tryParseAgentPlanDataFromText(resp.text)
     const norm = Array.isArray(raw) ? raw.map((x, i) => _ainAgentNormalizePlanItem(x, i)) : null
-    if (norm && _ainAgentValidatePlan(norm, chunkCount, wantAudit)) return norm
+    if (norm && _ainAgentValidatePlan(norm, chunkCount, wantAudit)) {
+      try {
+        norm.__ain_plan_src = 'ai'
+        norm.__ain_plan_info = `model=${model}; items=${norm.length}; writes=${norm.filter((x) => x && x.type === 'write').length}`
+      } catch {}
+      return norm
+    }
     if (norm && norm.length) {
       // Plan 模型输出不合格：尽量修复成可执行计划，而不是直接废掉。
-      return _ainAgentCoercePlanToExecutable(norm, base && base.instruction, targetChars, chunkCount, wantAudit)
+      const fixed = _ainAgentCoercePlanToExecutable(norm, base && base.instruction, targetChars, chunkCount, wantAudit)
+      try {
+        fixed.__ain_plan_src = 'fixed'
+        fixed.__ain_plan_info = `model=${model}; raw_items=${norm.length}; fixed_items=${fixed.length}; fixed_writes=${fixed.filter((x) => x && x.type === 'write').length}`
+      } catch {}
+      return fixed
     }
   } catch (e) {
     if (!isActionNotSupportedError(e)) throw e
   }
 
   // 旧后端不支持 plan：用本地兜底计划
-  return buildFallbackAgentPlan(base && base.instruction, targetChars, chunkCount, wantAudit)
+  const fb = buildFallbackAgentPlan(base && base.instruction, targetChars, chunkCount, wantAudit)
+  try {
+    fb.__ain_plan_src = 'fallback'
+    fb.__ain_plan_info = `items=${fb.length}; writes=${fb.filter((x) => x && x.type === 'write').length}`
+  } catch {}
+  return fb
 }
 
 async function agentRunPlan(ctx, cfg, base, ui) {
@@ -5098,6 +5143,11 @@ async function agentRunPlan(ctx, cfg, base, ui) {
 
   let items = await agentBuildPlan(ctx, cfg, { ...base, targetChars, chunkCount, audit: wantAudit })
   if (!Array.isArray(items) || !items.length) items = buildFallbackAgentPlan(base && base.instruction, targetChars, chunkCount, wantAudit)
+  try {
+    const src = items && items.__ain_plan_src ? String(items.__ain_plan_src) : ''
+    const info = items && items.__ain_plan_info ? String(items.__ain_plan_info) : ''
+    if (src) pushLog(t('计划来源：', 'Plan source: ') + src + (info ? (' (' + info + ')') : ''))
+  } catch {}
   items = _ainAgentNormalizePlanRuntime(items, wantAudit)
 
   // 强思考模式：每段写作前都插入一个 rag（刷新命中片段，更稳但更慢）
