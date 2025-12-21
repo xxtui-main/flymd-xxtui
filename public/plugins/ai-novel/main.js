@@ -5104,9 +5104,9 @@ function _ainAgentNormThinkingMode(v) {
   if (s === 'normal' || s === 'std' || s === 'standard') return 'normal'
   if (s === 'strong' || s === 'hard' || s === 'st') return 'strong'
   // 兼容中文存储（极少数场景可能会有）
-  if (raw === '不思考') return 'none'
-  if (raw === '正常思考') return 'normal'
-  if (raw === '强思考') return 'strong'
+  if (raw === '正常') return 'none'
+  if (raw === '中等') return 'normal'
+  if (raw === '加强') return 'strong'
   return ''
 }
 
@@ -7137,13 +7137,13 @@ async function openBootstrapDialog(ctx) {
     throw new Error(t('请先在设置里填写上游 BaseURL 和模型', 'Please set upstream BaseURL and model in Settings first'))
   }
 
-  const { body } = createDialogShell(t('一键开坑（从0开始）', 'Start from zero'))
+  const { body } = createDialogShell(t('一键开坑', 'Start from zero'))
 
   const sec = document.createElement('div')
   sec.className = 'ain-card'
   sec.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${t('新建小说项目', 'Create novel project')}</div>`
 
-  const titleIn = mkTextarea(t('项目标题（可改）', 'Project title (editable)'), '')
+  const titleIn = mkTextarea(t('项目标题', 'Project title (editable)'), '')
   titleIn.ta.style.minHeight = '54px'
   sec.appendChild(titleIn.wrap)
 
@@ -8535,7 +8535,7 @@ async function openImportExistingDialog(ctx) {
   if (!ctx.getLibraryRoot) throw new Error(t('当前宿主缺少库根目录接口', 'Host missing library root API'))
   const libRoot = normFsPath(await ctx.getLibraryRoot())
 
-  const { body } = createDialogShell(t('导入现有文稿（初始化资料）', 'Import existing writing (init meta)'))
+  const { body } = createDialogShell(t('导入现有文稿', 'Import existing writing (init meta)'))
 
   const sec = document.createElement('div')
   sec.className = 'ain-card'
@@ -9931,7 +9931,7 @@ export function activate(context) {
           }
         },
         {
-          label: t('写作咨询（不续写）', 'Writing consult (no continuation)'),
+          label: t('写作咨询', 'Writing consult (no continuation)'),
           onClick: async () => {
             try {
               await openConsultDialog(context)
@@ -9942,7 +9942,7 @@ export function activate(context) {
         },
         { type: 'divider' },
         {
-          label: t('新开一卷（创建卷目录+第一章）', 'Start new volume (folder + chapter 1)'),
+          label: t('新开一卷', 'Start new volume (folder + chapter 1)'),
           onClick: async () => {
             try {
               await novel_create_next_volume(context)
@@ -9972,7 +9972,7 @@ export function activate(context) {
           }
         },
         {
-          label: t('审阅/修改草稿（对话）', 'Review/Edit draft (chat)'),
+          label: t('审阅/修改草稿', 'Review/Edit draft (chat)'),
           onClick: async () => {
             try {
               await openLastDraftReviewFromEditor(context)
@@ -9982,7 +9982,7 @@ export function activate(context) {
           }
         },
         {
-          label: t('更新资料文件（提议）', 'Update meta files (proposal)'),
+          label: t('更新资料文件', 'Update meta files (proposal)'),
           onClick: async () => {
             try {
               await openMetaUpdateDialog(context)
@@ -10002,7 +10002,7 @@ export function activate(context) {
           }
         },
         {
-          label: t('RAG 索引（向量检索）', 'RAG index (embeddings)'),
+          label: t('手动索引', 'RAG index (embeddings)'),
           onClick: async () => {
             try {
               await openRagIndexDialog(context)
