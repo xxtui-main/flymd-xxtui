@@ -7172,6 +7172,25 @@ async function openBootstrapDialog(ctx) {
   rowBtn.appendChild(btnAppend)
   sec.appendChild(rowBtn)
 
+  const structBox = document.createElement('div')
+  structBox.style.marginTop = '10px'
+  structBox.style.display = 'flex'
+  structBox.style.flexWrap = 'wrap'
+  structBox.style.gap = '10px'
+  structBox.style.alignItems = 'center'
+
+  const volLine = document.createElement('label')
+  volLine.style.display = 'flex'
+  volLine.style.gap = '8px'
+  volLine.style.alignItems = 'center'
+  const cbSplitVolume = document.createElement('input')
+  cbSplitVolume.type = 'checkbox'
+  cbSplitVolume.checked = true
+  volLine.appendChild(cbSplitVolume)
+  volLine.appendChild(document.createTextNode(t('开启分卷（推荐：创建 卷01_第一卷 并把第一章放入其中）', 'Use volumes (recommended): create Vol01 and put Chapter 1 inside')))
+  structBox.appendChild(volLine)
+  sec.appendChild(structBox)
+
   const a0 = _ainAgentGetCfg(cfg)
   const agentBox = document.createElement('div')
   agentBox.style.marginTop = '10px'
@@ -7709,7 +7728,10 @@ async function openBootstrapDialog(ctx) {
     await writeTextAny(ctx, joinFsPath(projectAbs, '06_人物状态.md'), t('# 人物状态\n\n- （自动维护：每次更新会追加一个“快照”，用于续写上下文）\n', '# Character states\n\n- (Auto-maintained snapshots for writing context)\n'))
     await writeTextAny(ctx, joinFsPath(projectAbs, '.ainovel/index.json'), JSON.stringify({ version: 1, created_at: now }, null, 2))
 
-    const chapDir = joinFsPath(projectAbs, '03_章节')
+    const chapRoot = joinFsPath(projectAbs, '03_章节')
+    const chapDir = cbSplitVolume && cbSplitVolume.checked
+      ? joinFsPath(chapRoot, `卷01_第${zhNumber(1)}卷`)
+      : chapRoot
     const chapPath = joinFsPath(chapDir, '001_第一章.md')
     await writeTextAny(ctx, chapPath, '# 第一章\n\n' + lastChapter + '\n')
  
