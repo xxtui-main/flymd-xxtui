@@ -1719,16 +1719,14 @@ function aiAgentEnsurePanelDom(rootEl) {
     `  <button id="ai-agent-clear" class="ai-agent-btn gray" title="${aiText('清空草稿', 'Clear draft')}">${aiText('清空', 'Clear')}</button>`,
     ' </div>',
     '</div>',
-    `<div class="ai-agent-tip">${aiText('', 'Tell me how to edit; you confirm before applying.')}</div>`,
-    ` <div class="ai-agent-meta" id="ai-agent-meta">${aiText('未开始：可先选中一段文本，再输入修改要求。', 'Not started: optionally select text, then type edit request.')}</div>`,
+    ` <div class="ai-agent-meta" id="ai-agent-meta">${aiText('可用 /问 或 /修改 前缀强制指定模式。', 'Use /chat or /edit prefix to force mode.')}</div>`,
     '<div class="ai-agent-tools">',
     ' <label class="ai-agent-check"><input id="ai-agent-show-del" type="checkbox"/> ' + aiText('显示删除', 'Show deletions') + '</label>',
     ` <button id="ai-agent-open-diff" class="ai-agent-btn gray">${aiText('对比', 'Diff')}</button>`,
     ' <div class="ai-agent-spacer"></div>',
     ` <button id="ai-agent-apply" class="ai-agent-btn">${aiText('写回', 'Apply')}</button>`,
     ` <button id="ai-agent-close" class="ai-agent-btn gray">${aiText('关闭', 'Close')}</button>`,
-    '</div>',
-    `<div class="ai-agent-tip">${aiText('对比在审阅面板中逐条确认。', 'Review changes in the panel.')}</div>`
+    '</div>'
   ].join('')
   return panel
 }
@@ -1768,8 +1766,8 @@ function aiAgentRenderPanel(context) {
     if (!__AI_AGENT__.enabled) meta.textContent = ''
     else if (busy) meta.textContent = aiText(`生成中… 作用范围：${srcLabel}`, `Working… target: ${srcLabel}`)
     else if (!hasDraft) meta.textContent = aiText(`未开始 作用范围：${srcLabel}`, `Not started target: ${srcLabel}`)
-    else if (hasBase) meta.textContent = aiText(`已生成修订草稿 作用范围：${srcLabel} 新增 ${ins} 字 删除 ${del} 字`, `Draft ready target: ${srcLabel}; +${ins}, -${del}`)
-    else meta.textContent = aiText(`已生成修订草稿 作用范围：${srcLabel}`, `Draft ready target: ${srcLabel}`)
+    else if (hasBase) meta.textContent = aiText(`作用范围：${srcLabel} 新增 ${ins} 字 删除 ${del} 字`, `Draft ready target: ${srcLabel}; +${ins}, -${del}`)
+    else meta.textContent = aiText(`作用范围：${srcLabel}`, `Draft ready target: ${srcLabel}`)
   }
 
   if (btnApply) btnApply.disabled = busy || !hasDraft
@@ -3908,7 +3906,16 @@ async function mountWindow(context){
           aiAgentResetState()
           await aiAgentPickSource(context, __AI_AGENT__.target)
           aiAgentRenderPanel(context)
-          try { context.ui.notice(aiText('Agent 模式已开启', 'Agent enabled: tell me how to edit; you confirm to apply.'), 'ok', 2200) } catch {}
+          try {
+            context.ui.notice(
+              aiText(
+                'Agent 已开启',
+                'Agent enabled: AI intent detection. Use /chat or /edit prefix to force mode.'
+              ),
+              'ok',
+              3500
+            )
+          } catch {}
           try { const ta = el.querySelector('#ai-text'); if (ta) ta.focus() } catch {}
         } catch (e) {
           console.error('切换 Agent 模式失败：', e)
@@ -5047,9 +5054,102 @@ async function sendFromInputWithAction(context){
     return
   }
 
-  // Agent 模式：把用户的这句话当作“修改要求”，生成修订草稿（写回需二次确认）
+  // Agent 模式：智能判断用户意图（对话 vs 修改）
   if (__AI_AGENT__ && __AI_AGENT__.enabled) {
-    await sendFromInputAgent(context)
+    const ta = el('ai-text')
+    const rawText = String((ta && ta.value) || '').trim()
+
+    // 快捷前缀：强制指定模式
+    if (rawText.startsWith('/问') || rawText.startsWith('/chat')) {
+      // 强制普通对话模式
+      ta.value = rawText.replace(/^\/[问chat]\s*/, '')
+      await sendFromInput(context)
+      return
+    }
+
+    if (rawText.startsWith('/修改') || rawText.startsWith('/edit')) {
+      // 强制 Agent 修改模式
+      ta.value = rawText.replace(/^\/[修改edit]\s*/, '')
+      await sendFromInputAgent(context)
+      return
+    }
+
+    // AI 智能判断用户意图
+    try {
+      const cfg = await ensureApiConfig(context)
+      const intentPrompt = [
+        {
+          role: 'system',
+          content: aiText(
+            '你是意图判断助手。用户在使用文档编辑器，判断用户是想【修改文档】还是【普通对话】。\n\n' +
+            '【修改文档】：用户明确要求修改、编辑、润色、删除、添加、翻译当前文档内容。\n' +
+            '【普通对话】：用户在询问问题、请教方法、讨论内容，或只是包含修改相关词汇但不是要修改当前文档。\n\n' +
+            '只回答 "edit" 或 "chat"，不要解释。',
+            'You are an intent classifier. The user is in a document editor. Determine if they want to [edit document] or [normal chat].\n\n' +
+            '[edit document]: User explicitly requests to modify, edit, polish, delete, add, or translate the current document content.\n' +
+            '[normal chat]: User is asking questions, seeking advice, discussing content, or mentions edit-related words but not requesting to edit the current document.\n\n' +
+            'Only reply "edit" or "chat", no explanation.'
+          )
+        },
+        {
+          role: 'user',
+          content: rawText
+        }
+      ]
+
+      const intentBody = {
+        model: resolveModelId(cfg),
+        messages: intentPrompt,
+        stream: false,
+        max_tokens: 10,
+        temperature: 0
+      }
+
+      // 显示判断中提示
+      const thinkingEl = DOC().createElement('div')
+      thinkingEl.className = 'ai-msg ai-msg-assistant'
+      thinkingEl.innerHTML = `<div class="ai-msg-content">${aiText('🤔 思考中...', '🤔 Think...')}</div>`
+      const chatEl = el('ai-chat')
+      if (chatEl) chatEl.appendChild(thinkingEl)
+      chatEl?.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' })
+
+      const intentRes = await performAIRequest(cfg, intentBody)
+      const intent = String(intentRes && intentRes.text != null ? intentRes.text : '').trim().toLowerCase()
+
+      // 移除判断提示
+      if (thinkingEl.parentNode) thinkingEl.parentNode.removeChild(thinkingEl)
+
+      if (intent.includes('edit')) {
+        // AI 判断为修改意图 → Agent 修改模式
+        await sendFromInputAgent(context)
+      } else {
+        // AI 判断为对话意图 → 普通对话
+        await sendFromInput(context)
+      }
+    } catch (err) {
+      // AI 判断失败，回退到关键词检测
+      console.warn('AI 意图判断失败，使用关键词检测:', err)
+
+      const editKeywords = [
+        '修改', '改写', '改成', '改为', '更改', '替换', '调整', '变成',
+        '润色', '优化', '美化', '精简', '扩写', '缩写', '改进', '提升',
+        '删除', '去掉', '移除', '删掉', '拿掉',
+        '添加', '加上', '插入', '增加',
+        '格式化', '排版', '缩进', '对齐',
+        '翻译', '译成', '译为',
+        'modify', 'change', 'edit', 'rewrite', 'replace', 'update',
+        'polish', 'optimize', 'improve', 'refine',
+        'delete', 'remove', 'add', 'insert'
+      ]
+
+      const hasEditIntent = editKeywords.some(keyword => rawText.includes(keyword))
+
+      if (hasEditIntent) {
+        await sendFromInputAgent(context)
+      } else {
+        await sendFromInput(context)
+      }
+    }
     return
   }
 
