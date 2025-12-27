@@ -44,7 +44,7 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 
 
 
-![录音转文字](https://github.com/user-attachments/assets/815d5bc2-d367-451a-bfa5-f54f5cc91c5a)
+<img src="https://github.com/user-attachments/assets/815d5bc2-d367-451a-bfa5-f54f5cc91c5a" alt="录音转文字演示" width="400">
 
 
 ## 新功能：AI小说引擎（插件）
