@@ -30,6 +30,22 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 
 ---
 
+## 安卓版（Beta）
+
+**已适配插件**
+- WebDAV同步
+- Rag知识库
+- 待办推送
+- 待办日记（日记/待办）
+- typecho管理
+- AI助手
+
+### 录音转文字/语音输入
+
+
+
+![录音转文字](https://github.com/user-attachments/assets/815d5bc2-d367-451a-bfa5-f54f5cc91c5a)
+
 
 ## 新功能：AI小说引擎（插件）
 
