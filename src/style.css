@@ -1462,23 +1462,26 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .library .lib-toggle { width: 12px; text-align: center; color: var(--muted); }
 .library .lib-children { margin-left: 14px; }
 
-/* 侧栏行内简易图标，避免 Emoji 字体兼容性问题 */
-.library .lib-ico { display: inline-block; vertical-align: middle; width: 16px; height: 16px; fill: var(--muted); stroke: var(--muted); }
-.library .lib-node:hover .lib-ico { fill: var(--fg); stroke: var(--fg); }
-/* 保留文件图标的简易形状，后续可同样替换为 SVG */
-.library .lib-ico-file { position: relative; width: 12px; height: 14px; border: 1px solid currentColor; border-radius: 2px; box-sizing: border-box; color: var(--muted); }
-.library .lib-ico-file::after { content: ''; position: absolute; right: 0; top: 0; width: 0; height: 0; border-left: 4px solid transparent; border-bottom: 4px solid currentColor; }
-/* 文档类型标识：在“纸张”上绘制 2-3 字母的类型缩写 */
-.library .lib-ico-file::before { position: absolute; left: 1px; top: 0; font-size: 8px; line-height: 1; color: currentColor; }
-.library .lib-ico-md::before { content: 'MD'; }
-.library .lib-ico-txt::before { content: 'T'; font-size: 5px; top: 2px; }
-/* TXT 使用紫色主题 */
-.library .lib-ico-txt { color: #7c3aed; }
-/* 悬浮时提亮 */
-.library .lib-node:hover .lib-ico-file:not(.lib-ico-txt) { color: var(--fg); }
-/* PDF：程序图标红色变体（通过 CSS 滤镜近似为红色），悬浮稍微增强 */
-.library .lib-ico-app.lib-ico-pdf { filter: grayscale(1) sepia(1) hue-rotate(-10deg) saturate(8) brightness(0.95) contrast(1.05); }
-.library .lib-node:hover .lib-ico-app.lib-ico-pdf { filter: grayscale(1) sepia(1) hue-rotate(-10deg) saturate(10) brightness(1) contrast(1.1); }
+/* 库侧栏图标：VS Code 风格 SVG 黑白图标 */
+.lib-ico { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex: 0 0 auto; }
+.lib-ico-svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lib-ico-svg path { vector-effect: non-scaling-stroke; }
+.lib-ico-svg text { stroke: none; fill: currentColor; }
+.lib-ico-folder { /* 文件夹图标 */ }
+.lib-ico-file { /* 普通文件图标 */ }
+.lib-ico-pdf .pdf-badge { fill: currentColor; }
+.lib-ico-pdf .pdf-text { fill: var(--bg); stroke: none; }
+.library .lib-ico { color: var(--muted); }
+.library .lib-node:hover .lib-ico { color: var(--fg); }
+.library .lib-node.selected .lib-ico { color: var(--fg); }
 
 /* 文档库/AI 助手占用空间通过 CSS 变量告知容器 */
 .container.with-library-left { --gap-left-library: 300px; }
@@ -3230,16 +3233,11 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 }
 
 /* === UI 美化补充（库侧栏与图床设置）=== */
-/* 库侧栏：简洁模式（隐藏图标、无悬浮效果、紧凑行高） */
-.library .lib-node { min-height: 22px; gap: 0; padding: 3px 8px; }
+/* 库侧栏：紧凑模式（保留图标、无花哨悬浮） */
+.library .lib-node { min-height: 22px; gap: 6px; padding: 3px 8px; }
 .library .lib-node .lib-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; padding-left: 0; }
 .library .lib-node .lib-tg { width: 14px; height: 14px; color: var(--muted); opacity: 0.3; }
 .library .lib-node.expanded .lib-tg { transform: rotate(90deg); color: var(--muted); opacity: 0.5; }
-/* 隐藏所有图标 */
-.library .lib-ico,
-.library .lib-ico-folder,
-.library .lib-ico-file,
-.library .lib-ico-app { display: none !important; }
 /* 悬浮态：轻微文字颜色变化 */
 .library .lib-node:hover { background: transparent !important; transform: none !important; }
 .library .lib-node:hover .lib-name { color: var(--fg); opacity: 1; }
@@ -3254,25 +3252,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 /* 树形缩进 */
 .library .lib-children { margin-left: 16px; padding-left: 6px; }
 
-/* PDF 文件区分：使用淡红色字体 */
-.library .lib-node.file-ext-pdf .lib-name {
-  color: #ef4444;
-  opacity: 0.85;
-}
-/* TXT 文件区分：名字前灰色小圆点 */
-.library .lib-node.file-ext-txt .lib-name::before {
-  content: '● ';
-  color: #9ca3af;
-  font-size: 8px;
-  vertical-align: middle;
-}
-@media (prefers-color-scheme: dark) {
-  .library .lib-node.file-ext-pdf .lib-name {
-    color: #f87171;
-    opacity: 0.9;
-  }
-  .library .lib-node.file-ext-txt .lib-name::before { color: #6b7280; }
-}
+/* 不按扩展名上色：保持一致性 */
 
 /* 图床设置弹窗：分组与描述、开关样式、提示文案 */
 .upl-desc {
@@ -4510,22 +4490,6 @@ body.dark-mode .container.wysiwyg-v2 #md-wysiwyg-root .overlay-host .ov-codecopy
 
 /* 移除阅读模式内所有“横线”式分割视觉（保留背景与内边距） */
 .container:not(.wysiwyg) .preview pre * { border: 0 !important; box-shadow: none !important; }
-
-/* === 侧栏文档图标色（按扩展名）=== */
-.library .lib-node.file-ext-md .lib-ico-file,
-.library .lib-node.file-ext-markdown .lib-ico-file { color: #22c55e; }
-.library .lib-node.file-ext-txt .lib-ico-file { color: #64748b; }
-.library .lib-node.file-ext-json .lib-ico-file { color: #f59e0b; }
-.library .lib-node.file-ext-yml .lib-ico-file,
-.library .lib-node.file-ext-yaml .lib-ico-file { color: #38bdf8; }
-.library .lib-node.file-ext-js .lib-ico-file { color: #eab308; }
-.library .lib-node.file-ext-ts .lib-ico-file { color: #3b82f6; }
-.library .lib-node.file-ext-svg .lib-ico-file { color: #8b5cf6; }
-.library .lib-node.file-ext-png .lib-ico-file,
-.library .lib-node.file-ext-jpg .lib-ico-file,
-.library .lib-node.file-ext-jpeg .lib-ico-file,
-.library .lib-node.file-ext-gif .lib-ico-file { color: #ec4899; }
-
 
 /* 程序图标作为文件夹图标 */
 .library .lib-ico-app { width: 16px; height: 16px; border-radius: 3px; object-fit: cover; }

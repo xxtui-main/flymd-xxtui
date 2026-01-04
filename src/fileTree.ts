@@ -1,6 +1,5 @@
 import { readDir, stat, mkdir, rename, remove, exists, writeTextFile, writeFile, readFile, watch } from '@tauri-apps/plugin-fs'
 import { t } from './i18n'
-import appIconUrl from '../Flymdnew.png?url'
 
 export type FileTreeOptions = {
   // 获取库根目录（未设置时返回 null）
@@ -381,27 +380,84 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
 }
 
 function makeTg(): HTMLElement { const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('viewBox','0 0 24 24'); s.classList.add('lib-tg'); const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d','M9 6l6 6-6 6'); s.appendChild(p); return s as any }
-function makeFolderIcon(path?: string): HTMLElement {
-  const span=document.createElement('span')
-  span.className='lib-ico lib-ico-folder'
-  // 优先使用单个文件夹的自定义图标，其次使用全局默认
-  let icon = '🗂️'
-  try {
-    if (path) {
-      const customIcons = JSON.parse(localStorage.getItem('flymd:folderIcons') || '{}')
-      if (customIcons[path]) icon = customIcons[path]
-      else {
-        const prefs = JSON.parse(localStorage.getItem('flymd:theme:prefs') || '{}')
-        if (prefs.folderIcon) icon = prefs.folderIcon
-      }
-    } else {
-      const prefs = JSON.parse(localStorage.getItem('flymd:theme:prefs') || '{}')
-      if (prefs.folderIcon) icon = prefs.folderIcon
-    }
-  } catch {}
-  span.textContent = icon
-  span.style.fontSize = '16px'
-  return span as any
+
+// VS Code 风格 SVG 图标：文件夹
+function makeFolderSvg(): SVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('width', '16')
+  svg.setAttribute('height', '16')
+  svg.classList.add('lib-ico', 'lib-ico-svg', 'lib-ico-folder')
+  // 文件夹路径：带标签页的文件夹形状
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('d', 'M1.5 3.5h5l1 1.5h6.5v8h-13v-9.5z M1.5 5v8h13v-6.5h-6l-1-1.5h-6z')
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', 'currentColor')
+  path.setAttribute('stroke-width', '1')
+  path.setAttribute('stroke-linejoin', 'round')
+  svg.appendChild(path)
+  return svg
+}
+
+// VS Code 风格 SVG 图标：普通文件（文档带折角）
+function makeFileSvg(): SVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('width', '16')
+  svg.setAttribute('height', '16')
+  svg.classList.add('lib-ico', 'lib-ico-svg', 'lib-ico-file')
+  // 文档形状：带右上角折角
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('d', 'M3 1.5h6.5l3 3v10h-9.5v-13z M9.5 1.5v3h3')
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', 'currentColor')
+  path.setAttribute('stroke-width', '1')
+  path.setAttribute('stroke-linejoin', 'round')
+  svg.appendChild(path)
+  return svg
+}
+
+// VS Code 风格 SVG 图标：PDF 文件（右下角突出徽章）
+function makePdfSvg(): SVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('width', '16')
+  svg.setAttribute('height', '16')
+  svg.classList.add('lib-ico', 'lib-ico-svg', 'lib-ico-pdf')
+  // 文档形状（稍微缩短以给徽章留空间）
+  const docPath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  docPath.setAttribute('d', 'M3 1.5h6.5l3 3v8h-9.5v-11z M9.5 1.5v3h3')
+  docPath.setAttribute('fill', 'none')
+  docPath.setAttribute('stroke', 'currentColor')
+  docPath.setAttribute('stroke-width', '1')
+  docPath.setAttribute('stroke-linejoin', 'round')
+  svg.appendChild(docPath)
+  // 右下角突出徽章
+  const badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  badge.setAttribute('x', '7')
+  badge.setAttribute('y', '10')
+  badge.setAttribute('width', '8')
+  badge.setAttribute('height', '5')
+  badge.setAttribute('rx', '1')
+  badge.setAttribute('fill', 'currentColor')
+  badge.classList.add('pdf-badge')
+  svg.appendChild(badge)
+  // PDF 文字（反白）
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+  text.setAttribute('x', '11')
+  text.setAttribute('y', '13.5')
+  text.setAttribute('font-size', '3.5')
+  text.setAttribute('font-weight', 'bold')
+  text.setAttribute('text-anchor', 'middle')
+  text.classList.add('pdf-text')
+  text.textContent = 'PDF'
+  svg.appendChild(text)
+  return svg
+}
+
+// 统一文件夹图标（不再支持自定义）
+function makeFolderIcon(_path?: string): HTMLElement {
+  return makeFolderSvg() as unknown as HTMLElement
 }
 
 // 移除文件后缀名（用于简洁显示）
@@ -469,8 +525,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
             const gico = document.createElement('span')
-            gico.textContent = '🗂️'
+            gico.className = 'lib-ico lib-ico-folder'
             gico.style.marginRight = '6px'
+            gico.style.color = '#fff'
             const glab = document.createElement('span')
             glab.textContent = e.name
             glab.style.fontSize = '12px'
@@ -589,32 +646,14 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         } catch (err) { console.error('[拖动] 移动失败:', err) }
       })
     } else {
-      // 为文件显示类型化图标：
-      // - markdown/txt 使用简洁的“文档形状”图标，并显示 MD/TXT 标识
-      // - pdf 使用程序图标的红色变体（通过 CSS 滤镜实现区分）
-      // - 其他类型使用程序图标
+      // 为文件显示 VS Code 风格的黑白 SVG 图标
       const ext = (() => { try { return (e.name.split('.').pop() || '').toLowerCase() } catch { return '' } })()
       let iconEl: HTMLElement
-      if (ext === 'md' || ext === 'markdown') {
-        // 按照用户要求：MD 图标保持原样（程序图标），不要改动
-        const img = document.createElement('img')
-        img.className = 'lib-ico lib-ico-app'
-        try { img.setAttribute('src', appIconUrl) } catch {}
-        iconEl = img
-      } else if (ext === 'txt') {
-        const span = document.createElement('span')
-        span.className = 'lib-ico lib-ico-file lib-ico-txt'
-        iconEl = span
-      } else if (ext === 'pdf') {
-        const img = document.createElement('img')
-        img.className = 'lib-ico lib-ico-app lib-ico-pdf'
-        try { img.setAttribute('src', appIconUrl) } catch {}
-        iconEl = img
+      // 根据扩展名选择图标：PDF 使用专用图标，其他使用通用文件图标
+      if (ext === 'pdf') {
+        iconEl = makePdfSvg() as unknown as HTMLElement
       } else {
-        const img = document.createElement('img')
-        img.className = 'lib-ico lib-ico-app'
-        try { img.setAttribute('src', appIconUrl) } catch {}
-        iconEl = img
+        iconEl = makeFileSvg() as unknown as HTMLElement
       }
       // 让图标与文字都成为可拖拽起点（某些内核仅触发“被按住元素”的拖拽，不会透传到父元素）
       try { iconEl.setAttribute('draggable', 'true') } catch {}
@@ -673,12 +712,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
             // 图标
-            const gico = document.createElement('img')
-            try { gico.setAttribute('src', appIconUrl) } catch {}
-            gico.style.width = '16px'
-            gico.style.height = '16px'
-            gico.style.borderRadius = '3px'
-            gico.style.objectFit = 'cover'
+            const gico = document.createElement('span')
+            gico.className = 'lib-ico lib-ico-file'
+            gico.style.color = '#fff'
             gico.style.marginRight = '6px'
             // 文本
             const glab = document.createElement('span')
@@ -1069,54 +1105,6 @@ async function conflictModal(title: string, actions: string[], defaultIndex = 1)
       })
       dom.style.display='flex'
     } catch { resolve(defaultIndex) }
-  })
-}
-
-// 24个可选图标
-export const FOLDER_ICONS = ['📁', '📂', '🗂️', '🗃️', '🗄️', '📚', '📖', '📕', '📗', '📘', '📙', '📓', '📔', '📋', '📑', '📦', '🎯', '⭐', '🔖', '💼', '🎨', '🔧', '⚙️', '🏠']
-
-export async function folderIconModal(folderName: string, icons: string[]): Promise<number | null> {
-  return await new Promise<number | null>((resolve) => {
-    try {
-      let dom = document.getElementById('folder-icon-modal') as HTMLDivElement | null
-      if (!dom) {
-        dom = document.createElement('div'); dom.id='folder-icon-modal'; dom.style.position='fixed'; dom.style.inset='0'; dom.style.background='rgba(0,0,0,0.35)'; dom.style.display='flex'; dom.style.alignItems='center'; dom.style.justifyContent='center'; dom.style.zIndex='9999'
-        const box = document.createElement('div'); box.className='ft-box'; box.style.background='var(--bg)'; box.style.color='var(--fg)'; box.style.border='1px solid var(--border)'; box.style.borderRadius='12px'; box.style.boxShadow='0 12px 36px rgba(0,0,0,0.2)'; box.style.minWidth='320px'; box.style.maxWidth='80vw'
-        const hd = document.createElement('div'); hd.style.padding='12px 16px'; hd.style.fontWeight='600'; hd.style.borderBottom='1px solid var(--border)'; box.appendChild(hd)
-        const bd = document.createElement('div'); bd.style.padding='14px 16px'; bd.style.display='grid'; bd.style.gridTemplateColumns='repeat(8, 1fr)'; bd.style.gap='8px'; box.appendChild(bd)
-        const ft = document.createElement('div'); ft.style.display='flex'; ft.style.gap='8px'; ft.style.justifyContent='flex-end'; ft.style.padding='8px 12px'; ft.style.borderTop='1px solid var(--border)'; box.appendChild(ft)
-        dom.appendChild(box)
-        document.body.appendChild(dom)
-      }
-      const box = dom.firstElementChild as HTMLDivElement
-      const hd = box.children[0] as HTMLDivElement
-      const bd = box.children[1] as HTMLDivElement
-      const ft = box.children[2] as HTMLDivElement
-      hd.textContent = `${folderName} - 选择图标`
-      bd.innerHTML = ''
-      icons.forEach((icon, idx) => {
-        const btn = document.createElement('button')
-        btn.textContent = icon
-        btn.style.fontSize = '24px'
-        btn.style.width = '48px'
-        btn.style.height = '48px'
-        btn.style.border = '1px solid var(--border)'
-        btn.style.borderRadius = '8px'
-        btn.style.background = 'rgba(127,127,127,0.04)'
-        btn.style.cursor = 'pointer'
-        btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(127,127,127,0.12)' })
-        btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(127,127,127,0.04)' })
-        btn.addEventListener('click', () => { dom!.style.display='none'; resolve(idx) })
-        bd.appendChild(btn)
-      })
-      ft.innerHTML = ''
-      const cancelBtn = document.createElement('button')
-      cancelBtn.textContent = '取消'
-      cancelBtn.style.border='1px solid var(--border)'; cancelBtn.style.borderRadius='8px'; cancelBtn.style.padding='6px 12px'; cancelBtn.style.background='rgba(127,127,127,0.08)'; cancelBtn.style.color='var(--fg)'
-      cancelBtn.addEventListener('click', () => { dom!.style.display='none'; resolve(null) })
-      ft.appendChild(cancelBtn)
-      dom.style.display='flex'
-    } catch { resolve(null) }
   })
 }
 
