@@ -307,6 +307,13 @@ body[data-scrollbar-visible="true"] .library {
   border-bottom: 1px solid var(--border);
 }
 
+/* macOS：无边框窗口下 -webkit-app-region: drag 可能吞掉点击（窗口按钮“没反应”），
+   统一交给 JS 的 startDragging() 处理拖动；其它平台保持现状，避免回归。 */
+body.platform-mac .tabbar-row {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .tabbar-placeholder {
   flex: 1;
   min-width: 0;

@@ -5262,19 +5262,23 @@ function initPlatformClass() {
 
 // 窗口拖拽初始化：为 mac / Linux 上的紧凑标题栏补齐拖动支持
 function initWindowDrag() {
-  const titlebar = document.querySelector('.titlebar') as HTMLElement | null
-  if (!titlebar) return
-
   const platform = (navigator.platform || '').toLowerCase()
   const isMac = platform.includes('mac')
-  const isLinux = platform.includes('linux')
-  // Windows 上原生 + -webkit-app-region 已足够，这里只为 mac/Linux 打补丁
-  if (!isMac && !isLinux) return
+  // Windows 上原生 + -webkit-app-region 已足够；Linux 先不动，避免引入不必要的行为变化。
+  // macOS 上 -webkit-app-region 在无边框窗口下可能导致点击命中异常，因此仅在 macOS 用 startDragging 兜底。
+  if (!isMac) return
+
+  // 当前主布局使用 tabbar-row；titlebar 仅为旧布局兼容
+  const titlebar = document.querySelector('.tabbar-row, .titlebar') as HTMLElement | null
+  if (!titlebar) return
 
   const shouldIgnoreTarget = (target: EventTarget | null): boolean => {
     const el = target as HTMLElement | null
     if (!el) return false
-    return !!el.closest('.window-controls, .menu-item, button, a, input, textarea, [data-tauri-drag-ignore]')
+    // 标签栏/窗口控制等可交互区域必须排除，否则会把点击/拖拽排序等交互变成拖动窗口
+    return !!el.closest(
+      '.window-controls, .menu-item, button, a, input, textarea, [data-tauri-drag-ignore], .tabbar-tab, .tabbar-new-btn',
+    )
   }
 
   titlebar.addEventListener('mousedown', (ev: MouseEvent) => {
