@@ -2,6 +2,15 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.9.6
+- Added: Multi-window support — drag a tab out to create a new window; drag back to reopen as a new tab
+- Added: “Ghost window” UI hint while dragging to create a new window
+- Improved: Tab-drag action follows the cursor icon for clearer feedback
+- Improved: PDF view caching to speed up PDF loading
+- Fixed: Linux drag/resize abnormal behaviors
+- Fixed: Adaptive submenu expansion to prevent overflow
+- Fixed: Ghost-window residue; auto-destroy the newly created window after dragging back
+
 ## Update v0.9.5
 - Added: Command palette (Ctrl+Shift+P)
 - Added: Global menu manager for centralized/dynamic menu updates
