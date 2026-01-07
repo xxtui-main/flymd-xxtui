@@ -1,6 +1,8 @@
 // 简版 markdown-it KaTeX 插件，固定使用顶层 katex@0.16
 import type MarkdownIt from 'markdown-it'
 import katex from 'katex'
+// 启用 mhchem：支持 \ce{...} / \pu{...} 等化学公式宏（所见模式/阅读模式共用同一份 KaTeX 实例）
+import 'katex/contrib/mhchem'
 
 type KatexOpts = Parameters<typeof katex.renderToString>[1]
 

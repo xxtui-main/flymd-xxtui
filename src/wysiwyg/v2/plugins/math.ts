@@ -51,6 +51,8 @@ class MathInlineNodeView implements NodeView {
       // 动态导入 KaTeX 及其 CSS（CSS 只会加载一次，用于隐藏 .katex-mathml）
       const [katex] = await Promise.all([
         import('katex'),
+        // 启用 mhchem：支持 \ce{...} / \pu{...} 等化学公式宏
+        import('katex/contrib/mhchem'),
         import('katex/dist/katex.min.css')
       ])
 
@@ -133,6 +135,8 @@ class MathBlockNodeView implements NodeView {
       // 动态导入 KaTeX 及其 CSS（CSS 只会加载一次，用于隐藏 .katex-mathml）
       const [katex] = await Promise.all([
         import('katex'),
+        // 启用 mhchem：支持 \ce{...} / \pu{...} 等化学公式宏
+        import('katex/contrib/mhchem'),
         import('katex/dist/katex.min.css')
       ])
 
