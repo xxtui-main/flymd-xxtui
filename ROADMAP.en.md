@@ -2,6 +2,12 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v0.9.9
+- Added: “Print” entry in the editor right-click menu
+- Fixed: Print rendering issues introduced by the new UI (render via an isolated iframe to avoid blank/incomplete prints)
+- Fixed: KaTeX rendering issues in Reading mode
+- Fixed: Double backslashes when copying KaTeX formulas (inline/block)
+
 ## Update v0.9.8
 - Added: KaTeX mhchem enabled — supports chemical macros `\ce{...}` / `\pu{...}` (consistent across Preview and WYSIWYG)
 - Improved: Built-in “AI Novel Engine” plugin upgraded to v0.6.2: clearer character-state constraints (hidden/dead/pinned), more focused RAG query steering, plus stricter continuity rules and a writing checklist
