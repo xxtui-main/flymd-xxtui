@@ -1455,7 +1455,7 @@ body > .block-menu { display: none !important; }
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 280px;
+    width: 240px;
     background: var(--chrome-panel-bg, var(--panel-bg));
     color: var(--fg);
     overflow-y: auto;
@@ -1484,7 +1484,7 @@ body > .block-menu { display: none !important; }
 .library.side-right.hidden {
   transform: translateX(100%);
 }
-.library .lib-header { position: sticky; top: 0; background: var(--chrome-panel-bg, var(--panel-bg)); border-bottom: none; padding: 8px 8px 6px 8px; display: flex; flex-direction: column; gap: 6px; z-index: 1; }
+.library .lib-header { position: sticky; top: 0; background: var(--chrome-panel-bg, var(--panel-bg)); border-bottom: none; padding: 8px 10px 8px 10px; display: flex; flex-direction: column; gap: 8px; z-index: 1; }
 /* 库选择器行：Obsidian 风格 vault 按钮 + 搜索 */
 .library .lib-vault-row { display: flex; align-items: center; gap: 4px; }
 .library .lib-vault-btn { -webkit-app-region: no-drag; flex: 1; display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: transparent; border: none; border-radius: var(--radius-md); cursor: pointer; color: var(--fg); font-size: 13px; font-weight: 500; text-align: left; min-width: 0; transition: background 0.15s; font-family: inherit; }
@@ -1678,10 +1678,8 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .library .lib-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 2px;
-  padding: 2px;
-  background: var(--hover-bg);
-  border-radius: var(--radius-md);
 }
 .library .lib-action-btn {
   -webkit-app-region: no-drag;
@@ -1704,8 +1702,58 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .library .lib-action-btn.active {
   color: var(--fg);
   font-weight: 500;
-  background: var(--bg);
-  box-shadow: var(--shadow-sm);
+}
+
+/* 图标按钮样式 */
+.library .lib-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: var(--radius-sm);
+}
+.library .lib-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+.library .lib-icon-btn:hover {
+  background: var(--hover-bg);
+}
+.library .lib-icon-btn:hover svg {
+  opacity: 0.9;
+}
+.library .lib-icon-btn.active svg {
+  opacity: 0.9;
+}
+
+/* Tooltip 样式 */
+.library .lib-icon-btn::after {
+  content: attr(title);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  background: var(--tooltip-bg, rgba(0, 0, 0, 0.85));
+  color: var(--tooltip-fg, #fff);
+  font-size: 12px;
+  font-weight: 400;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease 0.3s;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.library .lib-icon-btn:hover::after {
+  opacity: 1;
 }
 .library .hidden { display: none !important; }
 .library { -webkit-app-region: no-drag; }
@@ -1733,7 +1781,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   left: 0;
 }
 .container.with-library-left .lib-outline.outline-floating.side-left {
-  left: 280px; /* 与 .library 宽度保持一致，消除中间空隙 */
+  left: 240px; /* 与 .library 宽度保持一致，消除中间空隙 */
 }
 .lib-outline.outline-floating.side-right {
   /* 右侧：始终贴在右侧 dock/插件面板的左边缘；若无插件则贴容器右侧 */

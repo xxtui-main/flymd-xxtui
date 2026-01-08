@@ -2410,14 +2410,14 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
           <span class="lib-vault-name" id="lib-path"></span>
           <span class="lib-vault-arrow">${ribbonIcons.chevronDown}</span>
         </button>
-        <button class="lib-search-btn" id="btn-search" title="搜索 (Ctrl+F)">${ribbonIcons.search}</button>
       </div>
       <div class="lib-actions">
-        <button class="lib-action-btn active" id="lib-tab-files">${t('tab.files')}</button>
-        <button class="lib-action-btn" id="lib-tab-outline">${t('tab.outline')}</button>
-        <button class="lib-action-btn" id="lib-refresh">${t('lib.refresh')}</button>
-        <button class="lib-action-btn" id="lib-side">${t('lib.side.left')}</button>
-        <button class="lib-action-btn" id="lib-pin">${t('lib.pin.auto')}</button>
+        <button class="lib-action-btn lib-icon-btn active" id="lib-tab-files" title="${t('tab.files')}">${ribbonIcons.layers}</button>
+        <button class="lib-action-btn lib-icon-btn" id="lib-tab-outline" title="${t('tab.outline')}">${ribbonIcons.list}</button>
+        <button class="lib-action-btn lib-icon-btn" id="btn-search" title="${t('search.title')}">${ribbonIcons.search}</button>
+        <button class="lib-action-btn lib-icon-btn hidden" id="lib-refresh" title="${t('lib.refresh')}">${ribbonIcons.refreshCw}</button>
+        <button class="lib-action-btn lib-icon-btn" id="lib-side" title="${t('lib.side.left')}">${ribbonIcons.sidebarLeft}</button>
+        <button class="lib-action-btn lib-icon-btn" id="lib-pin" title="${t('lib.pin.auto')}">${ribbonIcons.pin}</button>
       </div>
     </div>
     <div class="lib-tree" id="lib-tree"></div>
@@ -2476,7 +2476,7 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     // 绑定固定/自动切换按钮
       const elPin = library.querySelector('#lib-pin') as HTMLButtonElement | null
     if (elPin) {
-      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'); applyLibraryLayout() } catch {} })()
+      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.innerHTML = libraryDocked ? ribbonIcons.pinOff : ribbonIcons.pin; elPin.title = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'); applyLibraryLayout() } catch {} })()
       elPin.addEventListener('click', () => { void setLibraryDocked(!libraryDocked) })
     }
       const elSide = library.querySelector('#lib-side') as HTMLButtonElement | null
@@ -5181,8 +5181,8 @@ function updateLibrarySideButton() {
   try {
     const btn = document.getElementById('lib-side') as HTMLButtonElement | null
     if (!btn) return
-    btn.textContent = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
-    btn.title = t('lib.side.toggle')
+    btn.innerHTML = librarySide === 'right' ? ribbonIcons.sidebarRight : ribbonIcons.sidebarLeft
+    btn.title = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
   } catch {}
 }
 
@@ -5328,10 +5328,13 @@ function applyOutlineLayout() {
   async function setLibraryDocked(docked: boolean, persist = true) {
   libraryDocked = !!docked
     try { if (persist && store) { await store.set('libraryDocked', libraryDocked); await store.save() } } catch {}
-  // 更新按钮文案
+  // 更新按钮图标和提示
   try {
     const btn = document.getElementById('lib-pin') as HTMLButtonElement | null
-    if (btn) btn.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+    if (btn) {
+      btn.innerHTML = libraryDocked ? ribbonIcons.pinOff : ribbonIcons.pin
+      btn.title = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+    }
   } catch {}
     applyLibraryLayout()
   // 若当前已显示且切到“非固定”，补绑定悬停自动隐藏
@@ -6799,23 +6802,18 @@ function applyI18nUi() {
     try { (document.getElementById('editor') as HTMLTextAreaElement | null)?.setAttribute('placeholder', t('editor.placeholder')) } catch {}
     try { refreshTitle() } catch {}
     try { refreshStatus() } catch {}
-    // 库页签/按钮
+    // 库页签/按钮（图标模式，仅更新 title）
     try {
-      const localeNow = getLocale()
-      const filesLabel = localeNow === 'en' ? (t as any)('tab.files.short') ?? t('tab.files') : t('tab.files')
-      const outlineLabel = localeNow === 'en' ? (t as any)('tab.outline.short') ?? t('tab.outline') : t('tab.outline')
-      const chooseLabel = localeNow === 'en' ? (t as any)('lib.choose.short') ?? t('lib.choose') : t('lib.choose')
-      const refreshLabel = localeNow === 'en' ? (t as any)('lib.refresh.short') ?? t('lib.refresh') : t('lib.refresh')
       const elF = document.getElementById('lib-tab-files') as HTMLButtonElement | null
-      if (elF) elF.textContent = String(filesLabel)
+      if (elF) elF.title = t('tab.files')
       const elO = document.getElementById('lib-tab-outline') as HTMLButtonElement | null
-      if (elO) elO.textContent = String(outlineLabel)
+      if (elO) elO.title = t('tab.outline')
       const elC = document.getElementById('lib-choose') as HTMLButtonElement | null
-      if (elC) elC.textContent = String(chooseLabel)
+      if (elC) elC.textContent = t('lib.choose')
       const elR = document.getElementById('lib-refresh') as HTMLButtonElement | null
-      if (elR) elR.textContent = String(refreshLabel)
+      if (elR) elR.title = t('lib.refresh')
       const elP = document.getElementById('lib-pin') as HTMLButtonElement | null
-      if (elP) elP.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+      if (elP) elP.title = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
       updateLibrarySideButton()
     } catch {}
     // 图床设置（若已创建）
