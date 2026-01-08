@@ -4051,6 +4051,32 @@ async function openSettingsDialog(ctx) {
   rowEmb1.className = 'ain-row'
   const inpEmbBase = mkInput(t('BaseURL', 'BaseURL'), cfg.embedding && cfg.embedding.baseUrl ? cfg.embedding.baseUrl : '')
   const inpEmbKey = mkInput(t('ApiKey', 'ApiKey'), cfg.embedding && cfg.embedding.apiKey ? cfg.embedding.apiKey : '', 'password')
+  try {
+    const a = document.createElement('a')
+    a.href = 'https://jina.ai/'
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.className = 'ain-notice-link'
+    a.style.fontSize = '12px'
+    a.style.fontWeight = '500'
+    a.textContent = t('点此免费获取APIkey', 'Get API key for free')
+    a.addEventListener('click', async (ev) => {
+      try {
+        const ok = await openExternalViaTauri(a.href)
+        if (ok) {
+          try { ev.preventDefault() } catch {}
+        }
+      } catch {}
+    })
+    const lab = inpEmbKey.wrap.querySelector('.ain-lab')
+    if (lab) {
+      lab.style.display = 'flex'
+      lab.style.alignItems = 'center'
+      lab.style.gap = '8px'
+      a.style.marginLeft = 'auto'
+      lab.appendChild(a)
+    }
+  } catch {}
   rowEmb1.appendChild(inpEmbBase.wrap)
   rowEmb1.appendChild(inpEmbKey.wrap)
   secEmb.appendChild(rowEmb1)
@@ -4058,7 +4084,23 @@ async function openSettingsDialog(ctx) {
   const rowEmb2 = document.createElement('div')
   rowEmb2.className = 'ain-row'
   const inpEmbModel = mkInput(t('embedding 模型', 'Embedding model'), cfg.embedding && cfg.embedding.model ? cfg.embedding.model : '')
+  const embPresets = [
+    { value: '', label: t('自定义', 'Custom') },
+    { value: 'jina', label: t('Jina（推荐）', 'Jina (recommended)') },
+  ]
+  const embBase0 = safeText(inpEmbBase.inp.value).trim()
+  const embModel0 = safeText(inpEmbModel.inp.value).trim()
+  const embPreset0 = (embBase0 === 'https://api.jina.ai/v1' && embModel0 === 'jina-embeddings-v3') ? 'jina' : ''
+  const selEmbPreset = mkSelect(t('内置', 'Built-in'), embPresets, embPreset0)
+  selEmbPreset.sel.onchange = () => {
+    const v = String(selEmbPreset.sel.value || '').trim()
+    if (v === 'jina') {
+      inpEmbBase.inp.value = 'https://api.jina.ai/v1'
+      inpEmbModel.inp.value = 'jina-embeddings-v3'
+    }
+  }
   rowEmb2.appendChild(inpEmbModel.wrap)
+  rowEmb2.appendChild(selEmbPreset.wrap)
   secEmb.appendChild(rowEmb2)
 
   const ragCfg = (cfg && cfg.rag && typeof cfg.rag === 'object') ? cfg.rag : {}
