@@ -2414,6 +2414,7 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
       <div class="lib-actions">
         <button class="lib-action-btn lib-icon-btn active" id="lib-tab-files" title="${t('tab.files')}">${ribbonIcons.layers}</button>
         <button class="lib-action-btn lib-icon-btn" id="lib-tab-outline" title="${t('tab.outline')}">${ribbonIcons.list}</button>
+        <button class="lib-action-btn lib-icon-btn" id="lib-layout" title="${t('outline.layout')}">${ribbonIcons.columns}</button>
         <button class="lib-action-btn lib-icon-btn" id="btn-search" title="${t('search.title')}">${ribbonIcons.search}</button>
         <button class="lib-action-btn lib-icon-btn hidden" id="lib-refresh" title="${t('lib.refresh')}">${ribbonIcons.refreshCw}</button>
         <button class="lib-action-btn lib-icon-btn" id="lib-side" title="${t('lib.side.left')}">${ribbonIcons.sidebarLeft}</button>
@@ -2468,11 +2469,21 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
       }
       tabFiles?.addEventListener('click', () => activateLibTab('files'))
       tabOutline?.addEventListener('click', () => activateLibTab('outline'))
-      // 大纲标签右键菜单：选择“嵌入 / 剥离 / 右侧”三种布局
+      // 大纲标签右键菜单：选择"嵌入 / 剥离 / 右侧"三种布局
       tabOutline?.addEventListener('contextmenu', (ev) => {
         try { ev.preventDefault() } catch {}
         try { showOutlineLayoutMenu(ev.clientX, ev.clientY) } catch {}
       })
+      // 布局按钮点击显示布局菜单
+      const elLayout = library.querySelector('#lib-layout') as HTMLButtonElement | null
+      if (elLayout) {
+        elLayout.addEventListener('click', (ev) => {
+          try {
+            const rect = elLayout.getBoundingClientRect()
+            showOutlineLayoutMenu(rect.left, rect.bottom + 4)
+          } catch {}
+        })
+      }
     // 绑定固定/自动切换按钮
       const elPin = library.querySelector('#lib-pin') as HTMLButtonElement | null
     if (elPin) {
@@ -6808,6 +6819,8 @@ function applyI18nUi() {
       if (elF) elF.title = t('tab.files')
       const elO = document.getElementById('lib-tab-outline') as HTMLButtonElement | null
       if (elO) elO.title = t('tab.outline')
+      const elL = document.getElementById('lib-layout') as HTMLButtonElement | null
+      if (elL) elL.title = t('outline.layout')
       const elC = document.getElementById('lib-choose') as HTMLButtonElement | null
       if (elC) elC.textContent = t('lib.choose')
       const elR = document.getElementById('lib-refresh') as HTMLButtonElement | null
