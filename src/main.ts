@@ -5316,10 +5316,6 @@ function applyOutlineLayout() {
       visible = !lib.classList.contains('hidden')
     }
       if (container) {
-        const hidden = !visible
-        container.classList.toggle('library-hidden', hidden)
-        container.classList.toggle('library-hidden-left', hidden && librarySide !== 'right')
-        container.classList.toggle('library-hidden-right', hidden && librarySide === 'right')
         container.classList.remove('with-library-left', 'with-library-right')
         if (visible && libraryDocked) {
           container.classList.add('with-library')

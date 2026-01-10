@@ -732,6 +732,7 @@ body.compact-titlebar .window-btn.window-close:hover {
 }
 
 .container {
+  --library-width: 240px;
   --gap-left-library: 0px;
   --gap-right-library: 0px;
   /* 大纲独立布局左右占位宽度（默认 0，仅在剥离模式下使用） */
@@ -800,16 +801,6 @@ body.compact-titlebar .window-btn.window-close:hover {
   );
   padding-left: calc(24px + var(--workspace-left-gap, 0px));
   padding-right: calc(24px + var(--workspace-right-gap, 0px));
-}
-
-/* 侧栏收起后：正文更靠边，减少大屏中间留白 */
-body:not(.sticky-note-mode) .container.library-hidden-left:not(.wysiwyg):not(.wysiwyg-v2) .editor {
-  margin-left: 0;
-  margin-right: auto;
-}
-body:not(.sticky-note-mode) .container.library-hidden-right:not(.wysiwyg):not(.wysiwyg-v2) .editor {
-  margin-left: auto;
-  margin-right: 0;
 }
 
 .preview {
@@ -1055,9 +1046,6 @@ body > .block-menu { display: none !important; }
   line-height: var(--layout-line-height, 1.75);
   letter-spacing: 0.01em;
 }
-/* 侧栏收起后：所见正文靠边 */
-body:not(.sticky-note-mode) .container.wysiwyg-v2.library-hidden-left .ProseMirror { margin: 0 auto 0 0; }
-body:not(.sticky-note-mode) .container.wysiwyg-v2.library-hidden-right .ProseMirror { margin: 0 0 0 auto; }
 .container.wysiwyg-v2 .ProseMirror img,
 .container.wysiwyg-v2 .ProseMirror video { max-width: 100%; height: auto; }
 /* 所见模式图片排版：尽量对齐阅读模式的 .preview img 样式 */
@@ -1380,9 +1368,6 @@ body:not(.sticky-note-mode) .container.wysiwyg-v2.library-hidden-right .ProseMir
   /* 添加过渡动画，配合侧栏展开 */
   transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-/* 侧栏收起后：阅读正文靠边 */
-body:not(.sticky-note-mode) .container.library-hidden-left .preview-body { margin: 0 auto 0 0; }
-body:not(.sticky-note-mode) .container.library-hidden-right .preview-body { margin: 0 0 0 auto; }
 
 .preview-meta {
   margin: 0 auto 12px auto;
@@ -1472,7 +1457,7 @@ body:not(.sticky-note-mode) .container.library-hidden-right .preview-body { marg
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 240px;
+    width: var(--library-width, 240px);
     background: var(--chrome-panel-bg, var(--panel-bg));
     color: var(--fg);
     overflow-y: auto;
@@ -1911,8 +1896,8 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .library .lib-node.selected .lib-ico { color: var(--fg); }
 
 /* 文档库/AI 助手占用空间通过 CSS 变量告知容器 */
-.container.with-library-left { --gap-left-library: 300px; }
-.container.with-library-right { --gap-right-library: 300px; }
+.container.with-library-left { --gap-left-library: var(--library-width, 240px); }
+.container.with-library-right { --gap-right-library: var(--library-width, 240px); }
 /* 大纲独立列占用空间（通过类名声明左右占位） */
 .container.with-outline-left { --gap-left-outline: 260px; }
 .container.with-outline-right { --gap-right-outline: 260px; }
