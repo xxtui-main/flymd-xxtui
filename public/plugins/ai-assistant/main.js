@@ -5875,7 +5875,7 @@ export async function activate(context) {
       // 一级菜单：咨询（尽量排在最前）
       try {
         const d0 = context.addContextMenuItem({
-          label: aiText('咨询', 'Consult'),
+          label: aiText('问AI', 'Consult'),
           icon: '💡',
           onClick: async (ctx) => {
             try { openConsultInputOverlay(context, ctx) } catch {}
