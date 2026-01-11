@@ -395,6 +395,7 @@ body.platform-mac .tabbar-row {
 .tabbar-placeholder {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   -webkit-app-region: no-drag;
 }
 
@@ -402,9 +403,16 @@ body.platform-mac .tabbar-row {
   display: none; /* 隐藏文件名显示，标签页已包含文件名 */
 }
 
+/* tabbar-row 内的标签栏容器 */
+.tabbar-row .tabbar {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* window-controls 固定在右侧 */
 .tabbar-row .window-controls {
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* 旧标题栏（兼容） */
@@ -461,6 +469,9 @@ body.platform-windows.no-native-decorations .window-controls {
   height: 100%;
   padding: 0 12px;
   gap: 8px;
+  position: relative;
+  z-index: 100;
+  background: var(--chrome-bg, var(--bg));
 }
 
 body.compact-titlebar .window-controls {
@@ -6844,7 +6855,8 @@ body.focus-mode.custom-titlebar-active .focus-trigger-zone {
   border-bottom: none;
   padding: 0 4px;
   user-select: none;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -6861,7 +6873,8 @@ body.focus-mode.custom-titlebar-active .focus-trigger-zone {
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  flex: 1;
+  flex: 0 1 auto;
+  max-width: 100%;
   gap: 2px;
   /* 隐藏滚动条但保持滚动功能 */
   scrollbar-width: none;

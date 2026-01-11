@@ -1248,7 +1248,7 @@ app.innerHTML = `
       <button class="ribbon-btn" id="btn-about" title="${t('menu.about')}">${ribbonIcons.info}</button>
     </div>
     <div class="ribbon-bottom">
-      <button class="ribbon-btn" id="btn-theme" title="${t('menu.theme.tooltip')}">${ribbonIcons.sun}</button>
+      <button class="ribbon-btn" id="btn-theme" title="${t('menu.theme.tooltip')}">${ribbonIcons.settings}</button>
       <button class="ribbon-btn" id="btn-extensions" title="${t('menu.extensions')}">${ribbonIcons.package}</button>
       <button class="ribbon-btn" id="btn-lang" title="${t('menu.language')}">${ribbonIcons.globe}</button>
     </div>
@@ -1403,17 +1403,20 @@ try {
     })
   }
   if (maxBtn) {
+    // SVG 图标：最大化（单方框）和还原（双重叠方框）
+    const svgMaximize = '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1" fill="none"/></svg>'
+    const svgRestore = '<svg viewBox="0 0 10 10"><rect x="3" y="1" width="6" height="6" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1" y="3" width="6" height="6" stroke="currentColor" stroke-width="1" fill="none"/></svg>'
     maxBtn.addEventListener('click', async () => {
       try {
         const win = getCurrentWindow()
         const isMax = await win.isMaximized()
         if (isMax) {
           await win.unmaximize()
-          maxBtn.textContent = '+'
+          maxBtn.innerHTML = svgMaximize
           maxBtn.title = '最大化'
         } else {
           await win.maximize()
-          maxBtn.textContent = '+'
+          maxBtn.innerHTML = svgRestore
           maxBtn.title = '还原'
         }
       } catch {}
