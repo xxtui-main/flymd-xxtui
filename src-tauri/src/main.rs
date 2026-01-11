@@ -43,19 +43,19 @@ fn linux_transparency_supported() -> bool {
   let Ok((conn, screen_num)) = RustConnection::connect(None) else { return false; };
 
   let atom_name = format!("_NET_WM_CM_S{screen_num}");
-  let atom_reply = match conn
-    .intern_atom(false, atom_name.as_bytes())
-    .and_then(|c| c.reply())
-  {
-    Ok(r) => r,
+  let atom_reply = match conn.intern_atom(false, atom_name.as_bytes()) {
+    Ok(cookie) => match cookie.reply() {
+      Ok(r) => r,
+      Err(_) => return false,
+    },
     Err(_) => return false,
   };
 
-  let owner_reply = match conn
-    .get_selection_owner(atom_reply.atom)
-    .and_then(|c| c.reply())
-  {
-    Ok(r) => r,
+  let owner_reply = match conn.get_selection_owner(atom_reply.atom) {
+    Ok(cookie) => match cookie.reply() {
+      Ok(r) => r,
+      Err(_) => return false,
+    },
     Err(_) => return false,
   };
 
@@ -1882,7 +1882,7 @@ async fn force_remove_path(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn run_installer(path: String) -> Result<(), String> {
+async fn run_installer(_path: String) -> Result<(), String> {
   #[cfg(target_os = "windows")]
   {
     use std::process::Command;
