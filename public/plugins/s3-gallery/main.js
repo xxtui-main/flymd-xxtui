@@ -1,4 +1,4 @@
-// S3 图床相册插件：浏览与管理通过内置 S3/R2 图床上传的图片
+// 图床相册插件：浏览与管理图床图片（S3/R2 或 ImgLa）
 // 设计原则：
 // - 只做一件事：列出历史上传图片，提供复制链接 / 插入文档 / 删除云端对象
 // - 所有 UI 用 JS/DOM 绘制，不调用原生对话框
@@ -32,6 +32,17 @@ let _listRoot = null
 let _loadingEl = null
 let _ctx = null
 let _records = []
+
+// 当前图床模式：'s3' | 'imgla'
+let _mode = 's3'
+let _controlsEl = null
+let _titleEl = null
+let _providerTagEl = null
+let _albumSelectEl = null
+let _albumRefreshBtnEl = null
+let _loadMoreBtnEl = null
+let _imglaPage = 1
+let _imglaAlbumId = ''
 
 // 悬浮预览层：鼠标悬浮缩略图时展示大图，避免改动现有布局
 let _previewRoot = null
@@ -151,6 +162,117 @@ function s3gShowPreview(url, caption) {
   })
 }
 
+async function s3gGetUploaderRawConfig() {
+  try {
+    const w = typeof window !== 'undefined' ? window : null
+    const fn1 = w && w.flymdGetUploaderStoreRaw
+    if (typeof fn1 === 'function') return await fn1()
+  } catch {}
+  try {
+    const w = typeof window !== 'undefined' ? window : null
+    const fn2 = w && w.flymdGetUploaderRawConfig
+    if (typeof fn2 === 'function') return await fn2()
+  } catch {}
+  return null
+}
+
+function s3gNormalizeUploader(raw) {
+  const provider = raw && String(raw.provider || '').toLowerCase() === 'imgla' ? 'imgla' : 's3'
+  if (provider === 'imgla') {
+    return {
+      provider: 'imgla',
+      baseUrl: 'https://www.imgla.net',
+      token: String(raw.imglaToken || raw.token || '').trim(),
+      albumId: raw.imglaAlbumId != null ? raw.imglaAlbumId : raw.albumId,
+    }
+  }
+  return { provider: 's3' }
+}
+
+function s3gProviderLabel(mode) {
+  return mode === 'imgla' ? 'ImgLa' : 'S3/R2'
+}
+
+function s3gApplyModeUi(mode) {
+  _mode = mode === 'imgla' ? 'imgla' : 's3'
+  if (_titleEl) {
+    _titleEl.textContent =
+      s3gText('图床相册', 'Image Gallery') + ' · ' + s3gProviderLabel(_mode)
+  }
+  if (_providerTagEl) _providerTagEl.textContent = s3gText('当前：', 'Current: ') + s3gProviderLabel(_mode)
+  const showAlbum = _mode === 'imgla'
+  if (_albumSelectEl) _albumSelectEl.style.display = showAlbum ? 'block' : 'none'
+  if (_albumRefreshBtnEl) _albumRefreshBtnEl.style.display = showAlbum ? 'block' : 'none'
+  if (_loadMoreBtnEl) _loadMoreBtnEl.style.display = showAlbum ? 'block' : 'none'
+}
+
+function s3gGetSelectedImglaAlbumId() {
+  try {
+    if (!_albumSelectEl) return ''
+    const v = String(_albumSelectEl.value || '').trim()
+    return v
+  } catch {}
+  return ''
+}
+
+async function s3gLoadImglaAlbums(context, cfg) {
+  if (!context || !context.invoke || !_albumSelectEl) return
+  const baseUrl = cfg && cfg.baseUrl ? String(cfg.baseUrl) : ''
+  const token = cfg && cfg.token ? String(cfg.token) : ''
+  if (!baseUrl || !token) {
+    _albumSelectEl.innerHTML = ''
+    const opt = document.createElement('option')
+    opt.value = ''
+    opt.textContent = s3gText('请先在设置中填写 ImgLa 令牌', 'Please configure ImgLa token in Settings first')
+    _albumSelectEl.appendChild(opt)
+    return
+  }
+  _albumSelectEl.innerHTML = ''
+  const optLoading = document.createElement('option')
+  optLoading.value = ''
+  optLoading.textContent = s3gText('加载相册中…', 'Loading albums…')
+  _albumSelectEl.appendChild(optLoading)
+
+  try {
+    const list = await context.invoke('flymd_imgla_list_albums', { req: { baseUrl, token } })
+    const albums = Array.isArray(list) ? list : []
+    _albumSelectEl.innerHTML = ''
+    const optAll = document.createElement('option')
+    optAll.value = ''
+    optAll.textContent = s3gText('全部相册', 'All albums')
+    _albumSelectEl.appendChild(optAll)
+    for (const a of albums) {
+      if (!a) continue
+      const id = a.id != null ? String(a.id) : ''
+      const name = typeof a.name === 'string' ? a.name : id
+      if (!id) continue
+      const opt = document.createElement('option')
+      opt.value = id
+      opt.textContent = name || id
+      _albumSelectEl.appendChild(opt)
+    }
+
+    // 默认选中：优先使用设置中的 albumId，其次用上次选择
+    const stored = (() => {
+      try {
+        const ls = typeof localStorage !== 'undefined' ? localStorage : null
+        const v = ls && ls.getItem('flymd.imgla.albumId')
+        return v ? String(v) : ''
+      } catch { return '' }
+    })()
+    const fromCfg = cfg && cfg.albumId != null ? String(cfg.albumId) : ''
+    const desired = stored || fromCfg || ''
+    if (desired) _albumSelectEl.value = desired
+    _imglaAlbumId = s3gGetSelectedImglaAlbumId()
+  } catch (e) {
+    _albumSelectEl.innerHTML = ''
+    const optFail = document.createElement('option')
+    optFail.value = ''
+    optFail.textContent = s3gText('相册列表获取失败', 'Failed to fetch albums')
+    _albumSelectEl.appendChild(optFail)
+  }
+}
+
 function ensurePanel(context) {
   _ctx = context
   if (_panel && document.body.contains(_panel)) return _panel
@@ -181,8 +303,9 @@ function ensurePanel(context) {
   header.style.background = 'rgba(0,0,0,0.25)'
 
   const title = document.createElement('div')
-  title.textContent = s3gText('S3 图床相册', 'S3 Image Gallery')
+  title.textContent = s3gText('图床相册', 'Image Gallery')
   title.style.fontWeight = '600'
+  _titleEl = title
 
   const rightBox = document.createElement('div')
   rightBox.style.display = 'flex'
@@ -233,10 +356,62 @@ function ensurePanel(context) {
   body.style.padding = '8px 12px'
   body.style.overflow = 'hidden'
 
+  const controls = document.createElement('div')
+  controls.style.display = 'flex'
+  controls.style.alignItems = 'center'
+  controls.style.gap = '8px'
+  controls.style.marginBottom = '6px'
+
+  const providerTag = document.createElement('div')
+  providerTag.style.fontSize = '11px'
+  providerTag.style.opacity = '0.8'
+  providerTag.style.whiteSpace = 'nowrap'
+  _providerTagEl = providerTag
+
+  const albumSelect = document.createElement('select')
+  albumSelect.style.flex = '1'
+  albumSelect.style.minWidth = '0'
+  albumSelect.style.padding = '4px 8px'
+  albumSelect.style.borderRadius = '6px'
+  albumSelect.style.border = '1px solid rgba(255,255,255,0.12)'
+  albumSelect.style.background = 'rgba(0,0,0,0.2)'
+  albumSelect.style.color = 'inherit'
+  albumSelect.style.fontSize = '12px'
+  albumSelect.onchange = () => {
+    _imglaAlbumId = s3gGetSelectedImglaAlbumId()
+    try {
+      const ls = typeof localStorage !== 'undefined' ? localStorage : null
+      if (ls) ls.setItem('flymd.imgla.albumId', _imglaAlbumId || '')
+    } catch {}
+    _imglaPage = 1
+    void refreshList(_ctx)
+  }
+  _albumSelectEl = albumSelect
+
+  const albumRefreshBtn = document.createElement('button')
+  albumRefreshBtn.textContent = s3gText('刷新相册', 'Refresh albums')
+  albumRefreshBtn.style.cursor = 'pointer'
+  albumRefreshBtn.style.border = '1px solid rgba(255,255,255,0.12)'
+  albumRefreshBtn.style.borderRadius = '6px'
+  albumRefreshBtn.style.padding = '4px 10px'
+  albumRefreshBtn.style.background = 'rgba(0,0,0,0.2)'
+  albumRefreshBtn.style.color = 'inherit'
+  albumRefreshBtn.style.fontSize = '12px'
+  albumRefreshBtn.onclick = () => {
+    _imglaPage = 1
+    void refreshList(_ctx)
+  }
+  _albumRefreshBtnEl = albumRefreshBtn
+
+  controls.appendChild(providerTag)
+  controls.appendChild(albumSelect)
+  controls.appendChild(albumRefreshBtn)
+  _controlsEl = controls
+
   const hint = document.createElement('div')
   hint.textContent = s3gText(
-    '仅展示通过内置 S3/R2 图床成功上传的图片。删除操作会尝试从云端删除对象，请谨慎使用。',
-    'Only shows images successfully uploaded via the built-in S3/R2 image host. Deletion will attempt to remove objects from the cloud; use with caution.',
+    '相册：S3/R2 显示本机上传历史；ImgLa 显示所选相册内的远端图片。删除会尝试从云端删除对象，请谨慎使用。',
+    'Gallery: S3/R2 shows local upload history; ImgLa shows remote images in the selected album. Deletion removes remote objects; use with caution.',
   )
   hint.style.fontSize = '11px'
   hint.style.opacity = '0.75'
@@ -258,15 +433,36 @@ function ensurePanel(context) {
   listRoot.style.paddingBottom = '4px'
   _listRoot = listRoot
 
+  const footer = document.createElement('div')
+  footer.style.display = 'flex'
+  footer.style.justifyContent = 'center'
+  footer.style.padding = '6px 0 2px 0'
+
+  const loadMoreBtn = document.createElement('button')
+  loadMoreBtn.textContent = s3gText('加载更多', 'Load more')
+  loadMoreBtn.style.cursor = 'pointer'
+  loadMoreBtn.style.border = '1px solid rgba(255,255,255,0.12)'
+  loadMoreBtn.style.borderRadius = '6px'
+  loadMoreBtn.style.padding = '4px 10px'
+  loadMoreBtn.style.background = 'rgba(0,0,0,0.2)'
+  loadMoreBtn.style.color = 'inherit'
+  loadMoreBtn.style.fontSize = '12px'
+  loadMoreBtn.onclick = () => { void loadMoreImgla(_ctx) }
+  _loadMoreBtnEl = loadMoreBtn
+  footer.appendChild(loadMoreBtn)
+
+  body.appendChild(controls)
   body.appendChild(hint)
   body.appendChild(loading)
   body.appendChild(listRoot)
+  body.appendChild(footer)
 
   panel.appendChild(header)
   panel.appendChild(body)
 
   document.body.appendChild(panel)
   _panel = panel
+  try { s3gApplyModeUi(_mode) } catch {}
   return panel
 }
 
@@ -467,27 +663,77 @@ async function refreshList(context) {
   if (!context || !context.invoke) return
   if (_loadingEl) _loadingEl.style.display = 'block'
   try {
+    const raw = await s3gGetUploaderRawConfig()
+    const cfg = s3gNormalizeUploader(raw || {})
+    s3gApplyModeUi(cfg.provider)
+
+    if (cfg.provider === 'imgla') {
+      const baseUrl = String(cfg.baseUrl || '').trim()
+      const token = String(cfg.token || '').trim()
+      if (!token) {
+        renderList([])
+        context.ui &&
+          context.ui.notice &&
+          context.ui.notice(
+            s3gText('未配置 ImgLa 图床：请先在设置中填写令牌', 'ImgLa is not configured: please set token in Settings'),
+            'err',
+            2800,
+          )
+        return
+      }
+
+      _imglaPage = 1
+      await s3gLoadImglaAlbums(context, cfg)
+      _imglaAlbumId = s3gGetSelectedImglaAlbumId()
+      const albumNum = _imglaAlbumId ? parseInt(_imglaAlbumId, 10) : 0
+      const list = await context.invoke('flymd_imgla_list_images', {
+        req: {
+          baseUrl,
+          token,
+          albumId: albumNum > 0 ? albumNum : undefined,
+          page: 1,
+        },
+      })
+      if (Array.isArray(list)) {
+        renderList(list)
+        if (_loadMoreBtnEl) _loadMoreBtnEl.disabled = list.length === 0
+      } else {
+        renderList([])
+      }
+      return
+    }
+
     const list = await context.invoke('flymd_list_uploaded_images')
     if (Array.isArray(list)) {
-      renderList(list)
+      // 兼容：若历史中包含 ImgLa 记录（bucket/provider），在 S3/R2 模式下不显示
+      const filtered = list.filter((r) => {
+        try {
+          const p = r && r.provider ? String(r.provider) : ''
+          if (p && p.toLowerCase() === 'imgla') return false
+          const b = r && r.bucket ? String(r.bucket) : ''
+          if (b === 'imgla') return false
+        } catch {}
+        return true
+      })
+      renderList(filtered)
     } else {
       renderList([])
       context.ui &&
         context.ui.notice &&
         context.ui.notice(
-          s3gText('S3 图床相册：后端未返回列表', 'S3 gallery: backend did not return a list'),
+          s3gText('图床相册：后端未返回列表', 'Gallery: backend did not return a list'),
           'err',
           2400,
         )
     }
   } catch (e) {
-    console.error('[s3-gallery] 拉取上传历史失败', e)
+    console.error('[s3-gallery] 刷新失败', e)
     renderList([])
     const msg = e && e.message ? String(e.message) : String(e || '未知错误')
     context.ui &&
       context.ui.notice &&
       context.ui.notice(
-        s3gText('获取图床历史失败：', 'Failed to fetch upload history: ') +
+        s3gText('刷新失败：', 'Refresh failed: ') +
           msg,
         'err',
         2800,
@@ -497,13 +743,72 @@ async function refreshList(context) {
   }
 }
 
+async function loadMoreImgla(context) {
+  if (_mode !== 'imgla') return
+  if (!context || !context.invoke) return
+  const raw = await s3gGetUploaderRawConfig()
+  const cfg = s3gNormalizeUploader(raw || {})
+  const baseUrl = String(cfg.baseUrl || '').trim()
+  const token = String(cfg.token || '').trim()
+  if (!baseUrl || !token) return
+
+  const nextPage = (_imglaPage || 1) + 1
+  const albumIdStr = s3gGetSelectedImglaAlbumId()
+  const albumNum = albumIdStr ? parseInt(albumIdStr, 10) : 0
+  try {
+    if (_loadMoreBtnEl) _loadMoreBtnEl.disabled = true
+    const list = await context.invoke('flymd_imgla_list_images', {
+      req: {
+        baseUrl,
+        token,
+        albumId: albumNum > 0 ? albumNum : undefined,
+        page: nextPage,
+      },
+    })
+    const arr = Array.isArray(list) ? list : []
+    if (!arr.length) {
+      context.ui &&
+        context.ui.notice &&
+        context.ui.notice(
+          s3gText('没有更多图片了', 'No more images'),
+          'ok',
+          1600,
+        )
+      return
+    }
+    _imglaPage = nextPage
+    const merged = Array.isArray(_records) ? _records.concat(arr) : arr
+    renderList(merged)
+  } catch (e) {
+    console.warn('[s3-gallery] 加载更多失败', e)
+  } finally {
+    if (_loadMoreBtnEl) _loadMoreBtnEl.disabled = false
+  }
+}
+
 async function deleteRecord(context, rec) {
   if (!context || !rec) return
+
+  const isImgLa = (() => {
+    try {
+      const p = rec && rec.provider ? String(rec.provider).toLowerCase() : ''
+      if (p === 'imgla') return true
+      const b = rec && rec.bucket ? String(rec.bucket) : ''
+      if (b === 'imgla') return true
+      if (_mode === 'imgla') return true
+    } catch {}
+    return false
+  })()
+
   try {
     const ok = await context.ui.confirm(
       s3gText(
-        '确定要删除这张图片吗？此操作会从 S3/R2 中删除对象，且可能导致已有文档中的链接失效。',
-        'Are you sure you want to delete this image? This will delete the object from S3/R2 and may break links in existing documents.',
+        isImgLa
+          ? '确定要删除这张图片吗？此操作会从 ImgLa 中删除图片，且可能导致已有文档中的链接失效。'
+          : '确定要删除这张图片吗？此操作会从 S3/R2 中删除对象，且可能导致已有文档中的链接失效。',
+        isImgLa
+          ? 'Are you sure you want to delete this image? This will delete it from ImgLa and may break links in existing documents.'
+          : 'Are you sure you want to delete this image? This will delete the object from S3/R2 and may break links in existing documents.',
       ),
     )
     if (!ok) return
@@ -522,41 +827,87 @@ async function deleteRecord(context, rec) {
     return
   }
 
-  let cfg = null
-  try {
-    const getter = typeof window !== 'undefined' ? (window).flymdGetUploaderConfig : null
-    if (typeof getter === 'function') {
-      cfg = await getter()
+  const raw = await s3gGetUploaderRawConfig()
+
+  if (isImgLa) {
+    const cfg = s3gNormalizeUploader(raw || {})
+    const baseUrl = String(cfg.baseUrl || '').trim()
+    const token = String(cfg.token || '').trim()
+    const remoteKey = (() => {
+      try {
+        const k = rec.remote_key || rec.remoteKey || rec.key
+        const n = typeof k === 'number' ? k : parseInt(String(k || ''), 10)
+        return Number.isFinite(n) ? n : 0
+      } catch { return 0 }
+    })()
+    if (!baseUrl || !token || !remoteKey) {
+      context.ui &&
+        context.ui.notice &&
+        context.ui.notice(
+          s3gText('未配置 ImgLa 图床或图片 key 无效，无法删除', 'ImgLa not configured or invalid image key, cannot delete'),
+          'err',
+          3200,
+        )
+      return
     }
-  } catch (e) {
-    console.warn('[s3-gallery] 读取图床配置失败', e)
+    try {
+      await context.invoke('flymd_imgla_delete_image', {
+        req: { baseUrl, token, key: remoteKey },
+      })
+      context.ui &&
+        context.ui.notice &&
+        context.ui.notice(
+          s3gText('已从 ImgLa 删除图片', 'Image deleted from ImgLa'),
+          'ok',
+          2200,
+        )
+      _records = _records.filter((r) => {
+        const rk = r && (r.remote_key || r.remoteKey || 0)
+        const n = typeof rk === 'number' ? rk : parseInt(String(rk || ''), 10)
+        return n !== remoteKey
+      })
+      renderList(_records)
+    } catch (e) {
+      console.error('[s3-gallery] 删除 ImgLa 图片失败', e)
+      const msg = e && e.message ? String(e.message) : String(e || '未知错误')
+      context.ui &&
+        context.ui.notice &&
+        context.ui.notice(
+          s3gText('删除远端图片失败：', 'Failed to delete remote image: ') + msg,
+          'err',
+          3200,
+        )
+    }
+    return
   }
 
-  if (!cfg || !cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
+  // S3/R2 删除：需要 accessKey/secret/bucket
+  const cfg = raw || null
+  const ak = cfg && cfg.accessKeyId ? String(cfg.accessKeyId) : ''
+  const sk = cfg && cfg.secretAccessKey ? String(cfg.secretAccessKey) : ''
+  const bucket0 = cfg && cfg.bucket ? String(cfg.bucket) : ''
+  if (!ak || !sk || !bucket0) {
     context.ui &&
       context.ui.notice &&
       context.ui.notice(
-        s3gText(
-          '尚未在宿主中配置 S3/R2 图床，无法执行远端删除',
-          'S3/R2 image host is not configured in the host, cannot delete remote images',
-        ),
+        s3gText('尚未在宿主中配置 S3/R2 图床，无法执行远端删除', 'S3/R2 image host is not configured in the host, cannot delete remote images'),
         'err',
         3200,
       )
     return
   }
 
-  const endpoint = cfg.endpoint || null
-  const region = cfg.region || null
-  const forcePathStyle = cfg.forcePathStyle !== false
-  const customDomain = cfg.customDomain || null
+  const endpoint = (cfg && cfg.endpoint) ? cfg.endpoint : null
+  const region = (cfg && cfg.region) ? cfg.region : null
+  const forcePathStyle = !(cfg && cfg.forcePathStyle === false)
+  const customDomain = (cfg && cfg.customDomain) ? cfg.customDomain : null
 
   try {
     await context.invoke('flymd_delete_uploaded_image', {
       req: {
-        accessKeyId: cfg.accessKeyId,
-        secretAccessKey: cfg.secretAccessKey,
-        bucket: rec.bucket || cfg.bucket,
+        accessKeyId: ak,
+        secretAccessKey: sk,
+        bucket: rec.bucket || bucket0,
         region,
         endpoint,
         forcePathStyle,
@@ -594,8 +945,8 @@ export async function activate(context) {
   // 插件激活时只挂菜单，不做其他副作用
   _ctx = context
   context.addMenuItem({
-    label: s3gText('S3 图床相册', 'S3 Image Gallery'),
-    title: s3gText('查看并管理内置图床上传的图片', 'Browse and manage images uploaded via the built-in image host'),
+    label: s3gText('图床相册', 'Image Gallery'),
+    title: s3gText('查看并管理图床图片（S3/R2 或 ImgLa）', 'Browse and manage images from S3/R2 or ImgLa'),
     onClick: async () => {
       const panel = ensurePanel(context)
       panel.style.display = 'flex'
@@ -620,6 +971,14 @@ export function deactivate() {
   _listRoot = null
   _loadingEl = null
   _records = []
+  _controlsEl = null
+  _titleEl = null
+  _providerTagEl = null
+  _albumSelectEl = null
+  _albumRefreshBtnEl = null
+  _loadMoreBtnEl = null
+  _imglaPage = 1
+  _imglaAlbumId = ''
   _previewRoot = null
   _previewImg = null
   _previewCaption = null

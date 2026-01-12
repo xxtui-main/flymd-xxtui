@@ -192,8 +192,8 @@
     },
     {
       "homepage": "https://github.com/flyhunterl/flymd",
-      "name": "S3 图床相册",
-      "description": "查看并管理通过内置 S3/R2 图床上传的图片，支持复制链接、插入当前文档以及删除远端对象。",
+      "name": "图床相册",
+      "description": "查看并管理通过内置图床上传的图片，支持复制链接、插入当前文档以及删除远端对象。",
       "author": "flyMD",
       "id": "s3-gallery",
       "category": "图床上传",
