@@ -890,7 +890,7 @@ async function deleteRecord(context, rec) {
     context.ui &&
       context.ui.notice &&
       context.ui.notice(
-        s3gText('尚未在宿主中配置 S3/R2 图床，无法执行远端删除', 'S3/R2 image host is not configured in the host, cannot delete remote images'),
+        s3gText('尚未在宿主中配置内置图床，无法执行远端删除', 'Built-in image host is not configured in the host, cannot delete remote images'),
         'err',
         3200,
       )
