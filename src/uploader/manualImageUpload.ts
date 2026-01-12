@@ -1,4 +1,4 @@
-// 右键单张图片上传到图床（S3/R2）
+// 右键单张图片上传到图床（S3/R2 或 ImgLa）
 // 设计原则：
 // - 只做一件事：从当前右键命中的图片读取本地文件 -> 上传到图床 -> 生成 Markdown 并复制到剪贴板
 // - 不改动文档内容，避免破坏用户现有引用（Never break userspace）
@@ -7,9 +7,11 @@
 import { readFile } from '@tauri-apps/plugin-fs'
 import { Store } from '@tauri-apps/plugin-store'
 import type { ContextMenuContext } from '../ui/contextMenus'
-import { uploadImageToS3R2, type UploaderConfig } from './s3'
+import type { AnyUploaderConfig } from './types'
+import { uploadImageToCloud } from './upload'
 import { transcodeToWebpIfNeeded } from '../utils/image'
 import { NotificationManager } from '../core/uiNotifications'
+import { parseUploaderConfigForManagement } from './storeConfig'
 
 let _store: Store | null = null
 
@@ -23,31 +25,15 @@ async function getStore(): Promise<Store | null> {
   }
 }
 
-async function getManualUploaderConfig(): Promise<UploaderConfig | null> {
+async function getManualUploaderConfig(): Promise<AnyUploaderConfig | null> {
   try {
     const store = await getStore()
     if (!store) return null
     const up = await store.get('uploader')
-    if (!up || typeof up !== 'object') return null
-    const o = up as any
-    const cfg: UploaderConfig = {
-      // 手动上传不受 enabled 开关限制，这里总是视为启用
-      enabled: true,
-      accessKeyId: String(o.accessKeyId || ''),
-      secretAccessKey: String(o.secretAccessKey || ''),
-      bucket: String(o.bucket || ''),
-      region: typeof o.region === 'string' ? o.region : undefined,
-      endpoint: typeof o.endpoint === 'string' ? o.endpoint : undefined,
-      customDomain: typeof o.customDomain === 'string' ? o.customDomain : undefined,
-      keyTemplate: typeof o.keyTemplate === 'string' ? o.keyTemplate : '{year}/{month}{fileName}{md5}.{extName}',
-      aclPublicRead: o.aclPublicRead !== false,
-      forcePathStyle: o.forcePathStyle !== false,
-      convertToWebp: !!o.convertToWebp,
-      webpQuality: typeof o.webpQuality === 'number' ? o.webpQuality : 0.85,
-      saveLocalAsWebp: !!o.saveLocalAsWebp,
-    }
-    if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) return null
-    return cfg
+    const cfg = parseUploaderConfigForManagement(up as any, { enabledOnly: false })
+    if (!cfg) return null
+    // 手动上传不受 enabled 开关限制，这里强制视为启用
+    return { ...cfg, enabled: true }
   } catch {
     return null
   }
@@ -200,7 +186,7 @@ export async function uploadImageFromContextMenu(ctx: ContextMenuContext): Promi
     if (!cfg) {
       NotificationManager.show(
         'plugin-error',
-        '尚未配置图床：请先在“图床 (S3/R2)”设置中填写访问密钥与存储桶信息',
+        '尚未配置图床：请先在“图床设置”中填写所选图床的必要信息',
         3200,
       )
       return
@@ -243,7 +229,7 @@ export async function uploadImageFromContextMenu(ctx: ContextMenuContext): Promi
 
     let publicUrl: string
     try {
-      const res = await uploadImageToS3R2(input, nameForUpload, mime, cfg)
+      const res = await uploadImageToCloud(input, nameForUpload, mime, cfg)
       publicUrl = res.publicUrl
     } catch (e: any) {
       console.error('[Uploader] 单图上传失败', e)

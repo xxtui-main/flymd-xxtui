@@ -2,6 +2,10 @@
 // 从 main.ts 拆分：负责图床设置弹窗的 DOM 操作与交互逻辑
 
 import type { Store } from '@tauri-apps/plugin-store'
+import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
+
+const IMGLA_BASE_URL = 'https://www.imgla.net'
 
 export type UploaderDialogDeps = {
   getStore(): Store | null
@@ -51,6 +55,7 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
   const form = overlay?.querySelector('#upl-form') as HTMLFormElement | null
   if (!overlay || !form) return
 
+  const inputProvider = overlay.querySelector('#upl-provider') as HTMLSelectElement
   const inputEnabled = overlay.querySelector('#upl-enabled') as HTMLInputElement
   const inputAlwaysLocal = overlay.querySelector('#upl-always-local') as HTMLInputElement
   const inputAk = overlay.querySelector('#upl-ak') as HTMLInputElement
@@ -62,6 +67,11 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
   const inputTpl = overlay.querySelector('#upl-template') as HTMLInputElement
   const inputPathStyle = overlay.querySelector('#upl-pathstyle') as HTMLInputElement
   const inputAcl = overlay.querySelector('#upl-acl') as HTMLInputElement
+  const inputImglaToken = overlay.querySelector('#upl-imgla-token') as HTMLInputElement
+  const inputImglaStrategy = overlay.querySelector('#upl-imgla-strategy') as HTMLInputElement
+  const selectImglaAlbum = overlay.querySelector('#upl-imgla-album') as HTMLSelectElement
+  const btnImglaAlbumRefresh = overlay.querySelector('#upl-imgla-album-refresh') as HTMLButtonElement
+  const linkImglaOpen = overlay.querySelector('#upl-imgla-open') as HTMLAnchorElement
   const inputWebpEnable = overlay.querySelector('#upl-webp-enable') as HTMLInputElement
   const inputWebpQuality = overlay.querySelector('#upl-webp-quality') as HTMLInputElement
   const labelWebpQualityVal = overlay.querySelector('#upl-webp-quality-val') as HTMLSpanElement
@@ -73,10 +83,76 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
 
   const store = deps.getStore()
 
+  const getProvider = (): 's3' | 'imgla' => {
+    const v = String(inputProvider?.value || '').toLowerCase()
+    return v === 'imgla' ? 'imgla' : 's3'
+  }
+
+  const applyProviderVisibility = () => {
+    try {
+      const provider = getProvider()
+      const groups = overlay.querySelectorAll('.upl-group[data-upl-provider]')
+      groups.forEach((el) => {
+        const p = String((el as HTMLElement).getAttribute('data-upl-provider') || '').toLowerCase()
+        ;(el as HTMLElement).classList.toggle('hidden', p !== provider)
+      })
+    } catch {}
+  }
+
+  const parseIntOr = (v: string, fallback: number) => {
+    const n = parseInt(String(v || '').trim(), 10)
+    return Number.isFinite(n) && n > 0 ? n : fallback
+  }
+
+  const fillSelect = (
+    sel: HTMLSelectElement,
+    items: Array<{ value: string; label: string }>,
+    selected?: string,
+  ) => {
+    try {
+      sel.innerHTML = ''
+      for (const it of items) {
+        const opt = document.createElement('option')
+        opt.value = it.value
+        opt.textContent = it.label
+        sel.appendChild(opt)
+      }
+      if (selected !== undefined) sel.value = selected
+    } catch {}
+  }
+
+  const refreshImglaAlbums = async () => {
+    try {
+      if (!selectImglaAlbum) return
+      const token = String(inputImglaToken?.value || '').trim()
+      if (!token) {
+        fillSelect(selectImglaAlbum, [{ value: '', label: '请先填写 ImgLa 令牌' }], '')
+        return
+      }
+      fillSelect(selectImglaAlbum, [{ value: '', label: '加载中...' }], '')
+      const list: any = await invoke('flymd_imgla_list_albums', { req: { baseUrl: IMGLA_BASE_URL, token } } as any)
+      const albums = Array.isArray(list) ? list : []
+      const opts: Array<{ value: string; label: string }> = [{ value: '', label: '全部相册' }]
+      for (const a of albums) {
+        const id = a && typeof a.id !== 'undefined' ? String(a.id) : ''
+        const name = a && typeof a.name === 'string' ? a.name : id
+        if (!id) continue
+        opts.push({ value: id, label: name })
+      }
+      const desired = String((selectImglaAlbum as any).dataset?.desired || (selectImglaAlbum as any).value || '')
+      fillSelect(selectImglaAlbum, opts, desired || '')
+      try { delete (selectImglaAlbum as any).dataset.desired } catch {}
+    } catch (e) {
+      fillSelect(selectImglaAlbum, [{ value: '', label: '相册列表获取失败' }], '')
+    }
+  }
+
   // 预填
   try {
     if (store) {
       const up = (await store.get('uploader')) as any
+      const provider = String(up?.provider || '').toLowerCase() === 'imgla' ? 'imgla' : 's3'
+      if (inputProvider) inputProvider.value = provider
       inputEnabled.checked = !!up?.enabled
       inputAlwaysLocal.checked = !!up?.alwaysLocal
       inputAk.value = up?.accessKeyId || ''
@@ -88,6 +164,18 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
       inputTpl.value = up?.keyTemplate || '{year}/{month}{fileName}{md5}.{extName}'
       inputPathStyle.checked = up?.forcePathStyle !== false
       inputAcl.checked = up?.aclPublicRead !== false
+      inputImglaToken.value = up?.imglaToken || up?.token || ''
+      inputImglaStrategy.value = String(
+        (typeof up?.imglaStrategyId === 'number' ? up.imglaStrategyId : parseIntOr(String(up?.imglaStrategyId || ''), 1)) ||
+          (typeof up?.strategyId === 'number' ? up.strategyId : parseIntOr(String(up?.strategyId || ''), 1)) ||
+          1,
+      )
+      const albumId = up?.imglaAlbumId ?? up?.albumId
+      const albumStr = (albumId === null || albumId === undefined || albumId === '') ? '' : String(albumId)
+      if (selectImglaAlbum) {
+        ;(selectImglaAlbum as any).dataset.desired = albumStr
+        fillSelect(selectImglaAlbum, [{ value: '', label: '全部相册' }], albumStr)
+      }
       inputWebpEnable.checked = !!up?.convertToWebp
       const q = typeof up?.webpQuality === 'number' ? up.webpQuality : 0.85
       inputWebpQuality.value = String(q)
@@ -97,12 +185,25 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
   } catch {}
 
   showUploaderOverlay(true)
+  applyProviderVisibility()
+  try { await refreshImglaAlbums() } catch {}
+
+  // 打开 ImgLa 官网
+  try {
+    if (linkImglaOpen) {
+      linkImglaOpen.addEventListener('click', (ev) => {
+        ev.preventDefault()
+        void openUrl('https://www.imgla.net/')
+      })
+    }
+  } catch {}
 
   // 开关即时生效：切换启用时立即写入（仅在必填项齐全时生效）
   try {
     const applyImmediate = async () => {
       try {
         const cfg = {
+          provider: getProvider(),
           enabled: !!inputEnabled.checked,
           alwaysLocal: !!inputAlwaysLocal.checked,
           accessKeyId: inputAk.value.trim(),
@@ -114,16 +215,31 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
           keyTemplate: inputTpl.value.trim() || '{year}/{month}{fileName}{md5}.{extName}',
           forcePathStyle: !!inputPathStyle.checked,
           aclPublicRead: !!inputAcl.checked,
+          imglaToken: inputImglaToken.value.trim() || '',
+          imglaStrategyId: parseIntOr(inputImglaStrategy.value, 1),
+          imglaAlbumId: (() => {
+            const v = String(selectImglaAlbum?.value || '').trim()
+            const n = parseInt(v, 10)
+            return Number.isFinite(n) && n > 0 ? n : ''
+          })(),
           convertToWebp: !!inputWebpEnable.checked,
           webpQuality: (() => { const n = parseFloat(inputWebpQuality.value); return Number.isFinite(n) ? n : 0.85 })(),
           saveLocalAsWebp: !!inputWebpLocal.checked,
         }
         if (cfg.enabled && !cfg.alwaysLocal) {
-          if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
-            // 直接使用 alert，避免额外依赖
-            alert('启用上传需要 AccessKeyId、SecretAccessKey、Bucket')
-            inputEnabled.checked = false
-            return
+          if (cfg.provider === 'imgla') {
+            if (!cfg.imglaToken) {
+              alert('启用 ImgLa 上传需要填写令牌')
+              inputEnabled.checked = false
+              return
+            }
+          } else {
+            if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
+              // 直接使用 alert，避免额外依赖
+              alert('启用上传需要 AccessKeyId、SecretAccessKey、Bucket')
+              inputEnabled.checked = false
+              return
+            }
           }
         }
         if (store) {
@@ -135,8 +251,17 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
         console.warn('即时应用图床开关失败', e)
       }
     }
+    inputProvider?.addEventListener('change', () => {
+      applyProviderVisibility()
+      void applyImmediate()
+      void refreshImglaAlbums()
+    })
     inputEnabled.addEventListener('change', () => { void applyImmediate() })
     inputAlwaysLocal.addEventListener('change', () => { void applyImmediate() })
+    inputImglaToken?.addEventListener('change', () => { void applyImmediate(); void refreshImglaAlbums() })
+    inputImglaStrategy?.addEventListener('change', () => { void applyImmediate() })
+    selectImglaAlbum?.addEventListener('change', () => { void applyImmediate() })
+    btnImglaAlbumRefresh?.addEventListener('click', (ev) => { ev.preventDefault(); void refreshImglaAlbums() })
     inputWebpEnable.addEventListener('change', () => { void applyImmediate() })
     inputWebpQuality.addEventListener('input', () => {
       try {
@@ -155,6 +280,7 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
     e.preventDefault()
     try {
       const cfg = {
+        provider: getProvider(),
         enabled: !!inputEnabled.checked,
         alwaysLocal: !!inputAlwaysLocal.checked,
         accessKeyId: inputAk.value.trim(),
@@ -166,14 +292,28 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
         keyTemplate: inputTpl.value.trim() || '{year}/{month}{fileName}{md5}.{extName}',
         forcePathStyle: !!inputPathStyle.checked,
         aclPublicRead: !!inputAcl.checked,
+        imglaToken: inputImglaToken.value.trim() || '',
+        imglaStrategyId: parseIntOr(inputImglaStrategy.value, 1),
+        imglaAlbumId: (() => {
+          const v = String(selectImglaAlbum?.value || '').trim()
+          const n = parseInt(v, 10)
+          return Number.isFinite(n) && n > 0 ? n : ''
+        })(),
         convertToWebp: !!inputWebpEnable.checked,
         webpQuality: (() => { const n = parseFloat(inputWebpQuality.value); return Number.isFinite(n) ? n : 0.85 })(),
         saveLocalAsWebp: !!inputWebpLocal.checked,
       }
       if (cfg.enabled && !cfg.alwaysLocal) {
-        if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
-          alert('启用直传时 AccessKeyId、SecretAccessKey、Bucket 为必填')
-          return
+        if (cfg.provider === 'imgla') {
+          if (!cfg.imglaToken) {
+            alert('启用 ImgLa 上传需要填写令牌')
+            return
+          }
+        } else {
+          if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) {
+            alert('启用直传时 AccessKeyId、SecretAccessKey、Bucket 为必填')
+            return
+          }
         }
       }
       if (store) {
@@ -199,7 +339,10 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
     ev.preventDefault()
     try {
       if (!testRes) return
-      const ep = (inputEndpoint?.value || '').trim()
+      const ep =
+        getProvider() === 'imgla'
+          ? IMGLA_BASE_URL
+          : (inputEndpoint?.value || '').trim()
       testRes.textContent = '测试中...'
       ;(testRes as any).className = ''
       testRes.id = 'upl-test-result'
@@ -220,4 +363,3 @@ export async function openUploaderDialog(deps: UploaderDialogDeps): Promise<void
   overlay.addEventListener('click', onOverlayClick)
   if (btnTest) btnTest.addEventListener('click', onTestClick)
 }
-

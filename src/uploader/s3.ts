@@ -1,25 +1,11 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { S3UploaderConfig } from './types'
 // 直连 S3/R2（SigV4）最小实现：
 // - 支持 path-style 与自定义域名
 // - 默认模板 {year}/{month}{fileName}{md5}.{extName}
 // - 仅依赖 Web Crypto（SHA-256/HMAC-SHA256）+ 轻量 MD5 实现
 
-export type UploaderConfig = {
-  enabled: boolean
-  accessKeyId: string
-  secretAccessKey: string
-  bucket: string
-  region?: string
-  endpoint?: string
-  customDomain?: string
-  keyTemplate?: string
-  aclPublicRead?: boolean
-  forcePathStyle?: boolean
-  // 新增：前端转码为 WebP 的配置（可选）
-  convertToWebp?: boolean
-  webpQuality?: number
-  saveLocalAsWebp?: boolean
-}
+export type UploaderConfig = S3UploaderConfig
 
 function isTauriRuntime(): boolean {
   try {

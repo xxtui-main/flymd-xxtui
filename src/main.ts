@@ -24,13 +24,15 @@ import { readTextFile, writeTextFile, readDir, stat, readFile, mkdir  , rename, 
 import { Store } from '@tauri-apps/plugin-store'
 import { open as openFileHandle, BaseDirectory } from '@tauri-apps/plugin-fs'
 // Tauri v2 插件 opener 的导出为 openUrl / openPath，不再是 open
-import { openPath } from '@tauri-apps/plugin-opener'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { appLocalDataDir } from '@tauri-apps/api/path'
 import fileTree from './fileTree'
-import { uploadImageToS3R2, type UploaderConfig } from './uploader/s3'
+import type { AnyUploaderConfig } from './uploader/types'
+import { uploadImageToCloud } from './uploader/upload'
+import { parseUploaderConfigEnabledOnly, parseUploaderConfigForManagement } from './uploader/storeConfig'
 import { openUploaderDialog as openUploaderDialogInternal, testUploaderConnectivity } from './uploader/uploaderDialog'
 import { uploadImageFromContextMenu } from './uploader/manualImageUpload'
 import { transcodeToWebpIfNeeded } from './utils/image'
@@ -758,7 +760,7 @@ function toPluginAssetUrl(absDir: string | null, relPath: string): string {
   } catch { return '' }
 }
 const builtinPlugins: InstalledPlugin[] = [
-  { id: 'uploader-s3', name: '图床 (S3/R2)', version: 'builtin', enabled: undefined, dir: '', main: '', builtin: true, description: '粘贴/拖拽图片自动上传，支持 S3/R2 直连，使用设置中的凭据。' },
+  { id: 'uploader-s3', name: '内置图床', version: 'builtin', enabled: undefined, dir: '', main: '', builtin: true, description: '粘贴/拖拽图片自动上传，支持 S3/R2 或 ImgLa，使用设置中的凭据。' },
   { id: 'webdav-sync', name: 'WebDAV 同步', version: 'builtin', enabled: undefined, dir: '', main: '', builtin: true, description: 'F5/启动/关闭前同步，基于修改时间覆盖' }
 ]
 
@@ -2656,7 +2658,16 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
       <div class="upl-desc">${t('upl.desc')}</div>
       <form class="upl-body" id="upl-form">
         <div class="upl-grid">
-          <div class="upl-section-title">${t('upl.section.basic')}</div>
+          <div class="upl-section-title" id="upl-sec-provider">${t('upl.section.provider')}</div>
+          <label for="upl-provider">${t('upl.provider')}</label>
+          <div class="upl-field">
+            <select id="upl-provider">
+              <option value="s3">${t('upl.provider.s3')}</option>
+              <option value="imgla">${t('upl.provider.imgla')}</option>
+            </select>
+            <div class="upl-hint" id="upl-provider-hint">${t('upl.provider.hint')}</div>
+          </div>
+          <div class="upl-section-title" id="upl-sec-basic">${t('upl.section.basic')}</div>
           <label for="upl-enabled">${t('upl.enable')}</label>
           <div class="upl-field">
             <label class="switch">
@@ -2670,37 +2681,69 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
               <input id="upl-always-local" type="checkbox" />
               <span class="trk"></span><span class="kn"></span>
             </label>
-            <div class="upl-hint">${t('upl.hint.alwaysLocal')}</div>
+            <div class="upl-hint" id="upl-hint-alwaysLocal">${t('upl.hint.alwaysLocal')}</div>
           </div>
-          <label for="upl-ak">${t('upl.ak')}</label>
-          <div class="upl-field"><input id="upl-ak" type="text" placeholder="${t('upl.ak.ph')}" /></div>
-          <label for="upl-sk">${t('upl.sk')}</label>
-          <div class="upl-field"><input id="upl-sk" type="password" placeholder="${t('upl.sk.ph')}" /></div>
-          <label for="upl-bucket">${t('upl.bucket')}</label>
-          <div class="upl-field"><input id="upl-bucket" type="text" placeholder="${t('upl.bucket.ph')}" /></div>
-          <label for="upl-endpoint">${t('upl.endpoint')}</label>
-          <div class="upl-field">
-            <input id="upl-endpoint" type="url" placeholder="${t('upl.endpoint.ph')}" />
-            <div class="upl-hint">${t('upl.endpoint.hint')}</div>
+
+          <div class="upl-group" data-upl-provider="s3">
+            <label for="upl-ak">${t('upl.ak')}</label>
+            <div class="upl-field"><input id="upl-ak" type="text" placeholder="${t('upl.ak.ph')}" /></div>
+            <label for="upl-sk">${t('upl.sk')}</label>
+            <div class="upl-field"><input id="upl-sk" type="password" placeholder="${t('upl.sk.ph')}" /></div>
+            <label for="upl-bucket">${t('upl.bucket')}</label>
+            <div class="upl-field"><input id="upl-bucket" type="text" placeholder="${t('upl.bucket.ph')}" /></div>
+            <label for="upl-endpoint">${t('upl.endpoint')}</label>
+            <div class="upl-field">
+              <input id="upl-endpoint" type="url" placeholder="${t('upl.endpoint.ph')}" />
+              <div class="upl-hint" id="upl-hint-endpoint">${t('upl.endpoint.hint')}</div>
+            </div>
+            <label for="upl-region">${t('upl.region')}</label>
+            <div class="upl-field"><input id="upl-region" type="text" placeholder="${t('upl.region.ph')}" /></div>
+            <div class="upl-section-title" id="upl-sec-access">${t('upl.section.access')}</div>
+            <label for="upl-domain">${t('upl.domain')}</label>
+            <div class="upl-field">
+              <input id="upl-domain" type="url" placeholder="${t('upl.domain.ph')}" />
+              <div class="upl-hint" id="upl-hint-domain">${t('upl.domain.hint')}</div>
+            </div>
+            <label for="upl-template">${t('upl.template')}</label>
+            <div class="upl-field">
+              <input id="upl-template" type="text" placeholder="${t('upl.template.ph')}" />
+              <div class="upl-hint" id="upl-hint-template">${t('upl.template.hint')}</div>
+            </div>
           </div>
-          <label for="upl-region">${t('upl.region')}</label>
-          <div class="upl-field"><input id="upl-region" type="text" placeholder="${t('upl.region.ph')}" /></div>
-          <div class="upl-section-title">${t('upl.section.access')}</div>
-          <label for="upl-domain">${t('upl.domain')}</label>
-          <div class="upl-field">
-            <input id="upl-domain" type="url" placeholder="${t('upl.domain.ph')}" />
-            <div class="upl-hint">${t('upl.domain.hint')}</div>
+
+          <div class="upl-group" data-upl-provider="imgla">
+            <div class="upl-section-title" id="upl-sec-imgla">${t('upl.imgla.section')}</div>
+            <label>${t('upl.imgla.home')}</label>
+            <div class="upl-field">
+              <a id="upl-imgla-open" href="https://www.imgla.net/" target="_blank" rel="noopener noreferrer">https://www.imgla.net/</a>
+            </div>
+            <label for="upl-imgla-token">${t('upl.imgla.token')}</label>
+            <div class="upl-field">
+              <input id="upl-imgla-token" type="password" placeholder="${t('upl.imgla.token.ph')}" />
+              <div class="upl-hint" id="upl-hint-imgla-token">${t('upl.imgla.token.hint')}</div>
+            </div>
+            <label for="upl-imgla-strategy">${t('upl.imgla.strategy')}</label>
+            <div class="upl-field">
+              <input id="upl-imgla-strategy" type="number" min="1" step="1" placeholder="${t('upl.imgla.strategy.ph')}" />
+              <div class="upl-hint" id="upl-hint-imgla-strategy">${t('upl.imgla.strategy.hint')}</div>
+            </div>
+            <label for="upl-imgla-album">${t('upl.imgla.album')}</label>
+            <div class="upl-field">
+              <div style="display:flex;align-items:center;gap:8px;min-width:220px;">
+                <select id="upl-imgla-album" style="flex:1;min-width:0;"></select>
+                <button type="button" id="upl-imgla-album-refresh" class="btn-secondary">${t('upl.refresh')}</button>
+              </div>
+              <div class="upl-hint" id="upl-hint-imgla-album">${t('upl.imgla.album.hint')}</div>
+            </div>
           </div>
-          <label for="upl-template">${t('upl.template')}</label>
-          <div class="upl-field">
-            <input id="upl-template" type="text" placeholder="${t('upl.template.ph')}" />
-            <div class="upl-hint">${t('upl.template.hint')}</div>
+
+          <div class="upl-section-title" id="upl-sec-advanced">${t('upl.section.advanced')}</div>
+          <div class="upl-group" data-upl-provider="s3">
+            <label for="upl-pathstyle">${t('upl.pathstyle')}</label>
+            <div class="upl-field"><input id="upl-pathstyle" type="checkbox" /></div>
+            <label for="upl-acl">${t('upl.acl')}</label>
+            <div class="upl-field"><input id="upl-acl" type="checkbox" checked /></div>
           </div>
-          <div class="upl-section-title">${t('upl.section.advanced')}</div>
-          <label for="upl-pathstyle">${t('upl.pathstyle')}</label>
-          <div class="upl-field"><input id="upl-pathstyle" type="checkbox" /></div>
-          <label for="upl-acl">${t('upl.acl')}</label>
-          <div class="upl-field"><input id="upl-acl" type="checkbox" checked /></div>
           <label for="upl-webp-enable">${t('upl.webp.enable')}</label>
           <div class="upl-field">
             <label class="switch">
@@ -5028,31 +5071,21 @@ async function setDefaultPasteDir(p: string) {
   } catch {}
 }
 
-// 读取直连 S3/R2 上传配置（最小实现）
-async function getUploaderConfig(): Promise<UploaderConfig | null> {
+// 读取图床上传配置：仅在“启用”且字段完整时返回（用于粘贴/拖拽自动上传）
+async function getUploaderConfig(): Promise<AnyUploaderConfig | null> {
   try {
     if (!store) return null
     const up = await store.get('uploader')
-    if (!up || typeof up !== 'object') return null
-    const o = up as any
-    const cfg: UploaderConfig = {
-      enabled: !!o.enabled,
-      accessKeyId: String(o.accessKeyId || ''),
-      secretAccessKey: String(o.secretAccessKey || ''),
-      bucket: String(o.bucket || ''),
-      region: typeof o.region === 'string' ? o.region : undefined,
-      endpoint: typeof o.endpoint === 'string' ? o.endpoint : undefined,
-      customDomain: typeof o.customDomain === 'string' ? o.customDomain : undefined,
-      keyTemplate: typeof o.keyTemplate === 'string' ? o.keyTemplate : '{year}/{month}{fileName}{md5}.{extName}',
-      aclPublicRead: o.aclPublicRead !== false,
-      forcePathStyle: o.forcePathStyle !== false,
-      convertToWebp: !!o.convertToWebp,
-      webpQuality: (typeof o.webpQuality === 'number' ? o.webpQuality : 0.85),
-      saveLocalAsWebp: !!o.saveLocalAsWebp,
-    }
-    if (!cfg.enabled) return null
-    if (!cfg.accessKeyId || !cfg.secretAccessKey || !cfg.bucket) return null
-    return cfg
+    return parseUploaderConfigEnabledOnly(up as any)
+  } catch { return null }
+}
+
+// 读取图床配置（不受 enabled 影响）：用于管理/相册等场景
+async function getUploaderRawConfig(): Promise<AnyUploaderConfig | null> {
+  try {
+    if (!store) return null
+    const up = await store.get('uploader')
+    return parseUploaderConfigForManagement(up as any, { enabledOnly: false })
   } catch { return null }
 }
 
@@ -5060,6 +5093,13 @@ async function getUploaderConfig(): Promise<UploaderConfig | null> {
 try {
   if (typeof window !== 'undefined') {
     ;(window as any).flymdGetUploaderConfig = getUploaderConfig
+    ;(window as any).flymdGetUploaderRawConfig = getUploaderRawConfig
+    ;(window as any).flymdGetUploaderStoreRaw = async () => {
+      try {
+        if (!store) return null
+        return await store.get('uploader')
+      } catch { return null }
+    }
     ;(window as any).flymdGetCurrentFilePath = () => currentFilePath
     ;(window as any).flymdGetDefaultPasteDir = () => getDefaultPasteDir()
     ;(window as any).flymdAlwaysSaveLocalImages = () => getAlwaysSaveLocalImages()
@@ -6843,6 +6883,7 @@ function applyI18nUi() {
         }
         setLabel('upl-enabled', t('upl.enable'))
         setLabel('upl-always-local', t('upl.alwaysLocal'))
+        setLabel('upl-provider', t('upl.provider'))
         setLabel('upl-ak', t('upl.ak'))
         setLabel('upl-sk', t('upl.sk'))
         setLabel('upl-bucket', t('upl.bucket'))
@@ -6852,10 +6893,14 @@ function applyI18nUi() {
         setLabel('upl-template', t('upl.template'))
         setLabel('upl-pathstyle', t('upl.pathstyle'))
         setLabel('upl-acl', t('upl.acl'))
+        setLabel('upl-imgla-token', t('upl.imgla.token'))
+        setLabel('upl-imgla-strategy', t('upl.imgla.strategy'))
+        setLabel('upl-imgla-album', t('upl.imgla.album'))
         setLabel('upl-webp-enable', t('upl.webp.enable'))
         setLabel('upl-webp-quality', t('upl.webp.quality'))
         setLabel('upl-webp-local', t('upl.webp.local'))
         const setPh = (id: string, ph: string) => { const inp = uplRoot.querySelector(`#${id}`) as HTMLInputElement | null; if (inp) inp.placeholder = ph }
+        const setText = (id: string, txt: string) => { const el = uplRoot.querySelector(`#${id}`) as HTMLElement | null; if (el) el.textContent = txt }
         setPh('upl-ak', t('upl.ak.ph'))
         setPh('upl-sk', t('upl.sk.ph'))
         setPh('upl-bucket', t('upl.bucket.ph'))
@@ -6863,16 +6908,29 @@ function applyI18nUi() {
         setPh('upl-region', t('upl.region.ph'))
         setPh('upl-domain', t('upl.domain.ph'))
         setPh('upl-template', t('upl.template.ph'))
-        const secs = uplRoot.querySelectorAll('.upl-section-title') as NodeListOf<HTMLDivElement>
-        if (secs[0]) secs[0].textContent = t('upl.section.basic')
-        if (secs[1]) secs[1].textContent = t('upl.section.access')
-        if (secs[2]) secs[2].textContent = t('upl.section.advanced')
-        const hints = uplRoot.querySelectorAll('.upl-hint') as NodeListOf<HTMLDivElement>
-        if (hints[0]) hints[0].textContent = t('upl.hint.alwaysLocal')
-        if (hints[1]) hints[1].textContent = t('upl.endpoint.hint')
-        if (hints[2]) hints[2].textContent = t('upl.domain.hint')
-        if (hints[3]) hints[3].textContent = t('upl.webp.quality.hint')
-        if (hints[3]) hints[3].textContent = t('upl.template.hint')
+        setPh('upl-imgla-token', t('upl.imgla.token.ph'))
+        setPh('upl-imgla-strategy', t('upl.imgla.strategy.ph'))
+
+        setText('upl-sec-provider', t('upl.section.provider'))
+        setText('upl-sec-basic', t('upl.section.basic'))
+        setText('upl-sec-access', t('upl.section.access'))
+        setText('upl-sec-imgla', t('upl.imgla.section'))
+        setText('upl-sec-advanced', t('upl.section.advanced'))
+
+        setText('upl-provider-hint', t('upl.provider.hint'))
+        setText('upl-hint-alwaysLocal', t('upl.hint.alwaysLocal'))
+        setText('upl-hint-endpoint', t('upl.endpoint.hint'))
+        setText('upl-hint-domain', t('upl.domain.hint'))
+        setText('upl-hint-template', t('upl.template.hint'))
+        setText('upl-webp-quality-hint', t('upl.webp.quality.hint'))
+        setText('upl-hint-imgla-token', t('upl.imgla.token.hint'))
+        setText('upl-hint-imgla-strategy', t('upl.imgla.strategy.hint'))
+        setText('upl-hint-imgla-album', t('upl.imgla.album.hint'))
+
+        try {
+          const btn = uplRoot.querySelector('#upl-imgla-album-refresh') as HTMLButtonElement | null
+          if (btn) btn.textContent = t('upl.refresh')
+        } catch {}
       }
     } catch {}
     // 扩展管理（若已创建）：重绘或更新文本
@@ -8497,11 +8555,11 @@ function bindEvents() {
       // 占位符 + 异步上传，不阻塞编辑（已拆分到 core/imageUpload）
       await _imageUploader.startAsyncUploadFromFile(file, fname)
       return
-      // 若开启直连上传（S3/R2），优先尝试上传，成功则直接插入外链并返回
+      // 若启用图床上传，优先尝试上传，成功则直接插入外链并返回
       try {
         const upCfg = await getUploaderConfig()
         if (upCfg) {
-          const pub = await uploadImageToS3R2(file, fname, file.type || 'application/octet-stream', upCfg)
+          const pub = await uploadImageToCloud(file, fname, file.type || 'application/octet-stream', upCfg)
           insertAtCursor(`![${fname}](${pub.publicUrl})`)
           if (mode === 'preview') await renderPreview(); else if (wysiwyg) scheduleWysiwygRender()
           else if (wysiwyg) scheduleWysiwygRender()
@@ -8621,7 +8679,7 @@ function bindEvents() {
           reader.readAsText(mdFile, 'UTF-8')
           return
         }
-        // 若启用直连上传，优先尝试上传到 S3/R2，成功则直接插入外链后返回
+        // 若启用图床上传，优先尝试上传，成功则直接插入外链后返回
         try {
           const upCfg = await getUploaderConfig()
           if (upCfg) {
@@ -8640,7 +8698,7 @@ function bindEvents() {
                       typeForUpload = r.type || 'image/webp'
                     }
                   } catch {}
-                  const pub = await uploadImageToS3R2(fileForUpload, nameForUpload, typeForUpload, upCfg)
+                  const pub = await uploadImageToCloud(fileForUpload, nameForUpload, typeForUpload, upCfg)
                   partsUpload.push(`![${nameForUpload}](${pub.publicUrl})`)
                 } catch (e) {
                   console.warn('直连上传失败，跳过此文件使用本地兜底', f.name, e)
@@ -8905,7 +8963,7 @@ function bindEvents() {
                           mime2 = r.type || 'image/webp'
                         }
                       } catch {}
-                      const pub = await uploadImageToS3R2(blob, name2, mime2, upCfg)
+                      const pub = await uploadImageToCloud(blob, name2, mime2, upCfg)
                       parts.push(`![${name2}](${pub.publicUrl})`)
                     } catch (e) {
                       console.warn('单张图片上传失败，跳过：', p, e)

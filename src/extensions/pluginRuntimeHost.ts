@@ -200,7 +200,7 @@ export function initPluginRuntime(
       onClick: () => { void deps.openWebdavSettings() },
     })
     addToPluginsMenu('builtin-uploader-s3', {
-      label: t('ext.builtin.uploaderS3.name' as any) || 'S3/R2 图床',
+      label: t('ext.builtin.uploaderS3.name' as any) || '内置图床',
       onClick: () => { void deps.openUploaderSettings() },
     })
   } catch {}

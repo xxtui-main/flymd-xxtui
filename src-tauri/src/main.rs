@@ -243,6 +243,15 @@ struct UploadedImageRecord {
   content_type: Option<String>,
   #[serde(default)]
   size: Option<u64>,
+  // 新增：图床来源（默认 None 视为 s3）
+  #[serde(default)]
+  provider: Option<String>,
+  // 新增：部分图床（如 ImgLa/Lsky）使用数值 key 删除
+  #[serde(default)]
+  remote_key: Option<u64>,
+  // 新增：相册范围（如 ImgLa/Lsky 的 album_id）
+  #[serde(default)]
+  album_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -611,6 +620,364 @@ async fn flymd_delete_uploaded_image(app: tauri::AppHandle, req: UploaderDeleteR
   Ok(())
 }
 
+// ImgLa（Lsky Pro+）图床：相册/图片列表与删除
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImgLaAuthReq {
+  base_url: String,
+  token: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImgLaListImagesReq {
+  base_url: String,
+  token: String,
+  #[serde(default)]
+  album_id: Option<u64>,
+  #[serde(default)]
+  page: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImgLaDeleteReq {
+  base_url: String,
+  token: String,
+  key: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImgLaUploadReq {
+  base_url: String,
+  token: String,
+  strategy_id: u64,
+  #[serde(default)]
+  album_id: Option<u64>,
+  file_name: String,
+  #[serde(default)]
+  content_type: Option<String>,
+  // 前端可传 Uint8Array -> Vec<u8>
+  bytes: Vec<u8>,
+}
+
+#[derive(Debug, Serialize)]
+struct ImgLaUploadResp {
+  key: u64,
+  pathname: String,
+  public_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ImgLaAlbum {
+  id: u64,
+  name: String,
+  #[serde(default)]
+  intro: Option<String>,
+  #[serde(default)]
+  image_num: Option<u64>,
+}
+
+fn imgla_join(base_url: &str, path: &str) -> String {
+  let b = base_url.trim().trim_end_matches('/');
+  let p = path.trim().trim_start_matches('/');
+  format!("{}/{}", b, p)
+}
+
+#[tauri::command]
+async fn flymd_imgla_upload(req: ImgLaUploadReq) -> Result<ImgLaUploadResp, String> {
+  use reqwest::multipart::{Form, Part};
+  use serde_json::Value;
+
+  let base = req.base_url.trim().trim_end_matches('/').to_string();
+  if base.is_empty() {
+    return Err("baseUrl 为空".into());
+  }
+  let token = req.token.trim().to_string();
+  if token.is_empty() {
+    return Err("token 为空".into());
+  }
+  if req.strategy_id == 0 {
+    return Err("strategyId 非法".into());
+  }
+  if req.bytes.is_empty() {
+    return Err("bytes 为空".into());
+  }
+
+  let url = imgla_join(&base, "/api/v1/upload");
+  let ct = req
+    .content_type
+    .unwrap_or_else(|| "application/octet-stream".to_string());
+
+  let file_part = Part::bytes(req.bytes)
+    .file_name(req.file_name.clone())
+    .mime_str(&ct)
+    .map_err(|e| format!("mime error: {e}"))?;
+
+  let mut form = Form::new()
+    .part("file", file_part)
+    .text("strategy_id", req.strategy_id.to_string())
+    .text("permission", "0");
+  if let Some(aid) = req.album_id {
+    if aid > 0 {
+      form = form.text("album_id", aid.to_string());
+    }
+  }
+
+  let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(40))
+    .build()
+    .map_err(|e| format!("client error: {e}"))?;
+
+  let resp = client
+    .post(&url)
+    .header("Accept", "application/json")
+    .bearer_auth(&token)
+    .multipart(form)
+    .send()
+    .await
+    .map_err(|e| format!("send error: {e}"))?;
+
+  let status = resp.status();
+  let text = resp.text().await.unwrap_or_default();
+  if !status.is_success() {
+    return Err(format!("HTTP {}: {}", status.as_u16(), text));
+  }
+
+  let v: Value = serde_json::from_str(&text).map_err(|e| format!("json error: {e}"))?;
+  let ok = v.get("status").and_then(|x| x.as_bool()).unwrap_or(false);
+  if !ok {
+    let msg = v.get("message").and_then(|x| x.as_str()).unwrap_or("upload failed");
+    return Err(msg.to_string());
+  }
+
+  let data = v.get("data").cloned().unwrap_or(Value::Null);
+  let key = data.get("key").and_then(|x| x.as_u64()).unwrap_or(0);
+  let pathname = data
+    .get("pathname")
+    .and_then(|x| x.as_str())
+    .unwrap_or("")
+    .to_string();
+  let public_url = data
+    .get("links")
+    .and_then(|x| x.get("url"))
+    .and_then(|x| x.as_str())
+    .unwrap_or("")
+    .to_string();
+
+  if key == 0 || public_url.is_empty() {
+    return Err("ImgLa 返回数据不完整（缺少 url/key）".into());
+  }
+
+  Ok(ImgLaUploadResp { key, pathname, public_url })
+}
+
+#[tauri::command]
+async fn flymd_imgla_list_albums(req: ImgLaAuthReq) -> Result<Vec<ImgLaAlbum>, String> {
+  use std::collections::HashSet;
+  use serde_json::Value;
+
+  let base = req.base_url.trim().trim_end_matches('/').to_string();
+  if base.is_empty() {
+    return Err("baseUrl 为空".into());
+  }
+  let token = req.token.trim().to_string();
+  if token.is_empty() {
+    return Err("token 为空".into());
+  }
+
+  let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(20))
+    .build()
+    .map_err(|e| format!("client error: {e}"))?;
+
+  let mut url = imgla_join(&base, "/api/v1/albums?page=1&order=earliest");
+  let mut out: Vec<ImgLaAlbum> = Vec::new();
+  let mut seen: HashSet<u64> = HashSet::new();
+
+  for _ in 0..50 {
+    let resp = client
+      .get(&url)
+      .header("Accept", "application/json")
+      .bearer_auth(&token)
+      .send()
+      .await
+      .map_err(|e| format!("send error: {e}"))?;
+
+    let status = resp.status();
+    let v: Value = resp.json().await.map_err(|e| format!("json error: {e}"))?;
+    if !status.is_success() {
+      return Err(format!("HTTP {}: {}", status.as_u16(), v));
+    }
+
+    let data = v.get("data").cloned().unwrap_or(Value::Null);
+    if let Some(arr) = data.get("data").and_then(|x| x.as_array()) {
+      for a in arr {
+        let id = a.get("id").and_then(|x| x.as_u64()).unwrap_or(0);
+        if id == 0 || seen.contains(&id) { continue; }
+        let name = a.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let intro = a.get("intro").and_then(|x| x.as_str()).map(|s| s.to_string());
+        let image_num = a.get("image_num").and_then(|x| x.as_u64());
+        out.push(ImgLaAlbum { id, name, intro, image_num });
+        seen.insert(id);
+      }
+    }
+
+    let next = data.get("next_page_url").and_then(|x| x.as_str()).unwrap_or("").trim();
+    if next.is_empty() || next == "null" { break; }
+    url = if next.starts_with("http://") || next.starts_with("https://") {
+      next.to_string()
+    } else {
+      imgla_join(&base, next)
+    };
+  }
+
+  Ok(out)
+}
+
+#[tauri::command]
+async fn flymd_imgla_list_images(req: ImgLaListImagesReq) -> Result<Vec<UploadedImageRecord>, String> {
+  use serde_json::Value;
+
+  let base = req.base_url.trim().trim_end_matches('/').to_string();
+  if base.is_empty() {
+    return Err("baseUrl 为空".into());
+  }
+  let token = req.token.trim().to_string();
+  if token.is_empty() {
+    return Err("token 为空".into());
+  }
+
+  let page = req.page.unwrap_or(1).max(1);
+  let mut url = imgla_join(&base, &format!("/api/v1/images?page={}", page));
+  if let Some(aid) = req.album_id {
+    url.push_str(&format!("&album_id={}", aid));
+  }
+
+  let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(25))
+    .build()
+    .map_err(|e| format!("client error: {e}"))?;
+
+  let resp = client
+    .get(&url)
+    .header("Accept", "application/json")
+    .bearer_auth(&token)
+    .send()
+    .await
+    .map_err(|e| format!("send error: {e}"))?;
+
+  let status = resp.status();
+  let v: Value = resp.json().await.map_err(|e| format!("json error: {e}"))?;
+  if !status.is_success() {
+    return Err(format!("HTTP {}: {}", status.as_u16(), v));
+  }
+
+  let mut out: Vec<UploadedImageRecord> = Vec::new();
+  let data = v.get("data").cloned().unwrap_or(Value::Null);
+  let arr = data.get("data").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+  for it in arr {
+    let remote_key = it.get("key").and_then(|x| x.as_u64()).unwrap_or(0);
+    if remote_key == 0 { continue; }
+    let name = it.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let pathname = it.get("pathname").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let uploaded_at = it.get("date").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let size = it.get("size").and_then(|x| x.as_u64());
+    let public_url = it
+      .get("links")
+      .and_then(|x| x.get("url"))
+      .and_then(|x| x.as_str())
+      .unwrap_or("")
+      .to_string();
+
+    out.push(UploadedImageRecord {
+      id: format!("imgla-{}", remote_key),
+      bucket: "imgla".to_string(),
+      key: if !pathname.is_empty() { pathname } else { remote_key.to_string() },
+      public_url,
+      uploaded_at,
+      file_name: if name.is_empty() { None } else { Some(name) },
+      content_type: it.get("mimetype").and_then(|x| x.as_str()).map(|s| s.to_string()),
+      size,
+      provider: Some("imgla".into()),
+      remote_key: Some(remote_key),
+      album_id: req.album_id,
+    });
+  }
+
+  Ok(out)
+}
+
+#[tauri::command]
+async fn flymd_imgla_delete_image(app: tauri::AppHandle, req: ImgLaDeleteReq) -> Result<(), String> {
+  use std::fs;
+
+  let base = req.base_url.trim().trim_end_matches('/').to_string();
+  if base.is_empty() {
+    return Err("baseUrl 为空".into());
+  }
+  let token = req.token.trim().to_string();
+  if token.is_empty() {
+    return Err("token 为空".into());
+  }
+  if req.key == 0 {
+    return Err("key 非法".into());
+  }
+
+  let url = imgla_join(&base, &format!("/api/v1/images/{}", req.key));
+  let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(25))
+    .build()
+    .map_err(|e| format!("client error: {e}"))?;
+
+  let resp = client
+    .delete(&url)
+    .header("Accept", "application/json")
+    .bearer_auth(&token)
+    .send()
+    .await
+    .map_err(|e| format!("send error: {e}"))?;
+
+  let status = resp.status();
+  let text = resp.text().await.unwrap_or_default();
+  if !status.is_success() {
+    return Err(format!("HTTP {}: {}", status.as_u16(), text));
+  }
+
+  // 同步从本地上传历史中移除（若存在）
+  let path = uploader_history_path(&app)?;
+  let key = req.key;
+  tauri::async_runtime::spawn_blocking(move || {
+    if !path.exists() {
+      return Ok::<(), String>(());
+    }
+    let text = fs::read_to_string(&path).map_err(|e| format!("read error: {e}"))?;
+    let mut list: Vec<UploadedImageRecord> = serde_json::from_str(&text).unwrap_or_default();
+    let before = list.len();
+    list.retain(|r| {
+      // provider 缺失的旧记录默认视为 s3，不影响
+      if r.provider.as_deref() == Some("imgla") {
+        return r.remote_key.unwrap_or(0) != key;
+      }
+      // 兼容早期写入 bucket=imgla 但未写 provider 的记录
+      if r.bucket == "imgla" {
+        return r.remote_key.unwrap_or(0) != key;
+      }
+      true
+    });
+    if list.len() != before {
+      let json = serde_json::to_string_pretty(&list).map_err(|e| format!("serialize error: {e}"))?;
+      fs::write(&path, json.as_bytes()).map_err(|e| format!("write error: {e}"))?;
+    }
+    Ok(())
+  })
+  .await
+  .map_err(|e| format!("join error: {e}"))??;
+
+  Ok(())
+}
+
 
 #[derive(Debug, Deserialize)]
 struct XmlHttpReq {
@@ -954,6 +1321,10 @@ fn main() {
         flymd_record_uploaded_image,
         flymd_list_uploaded_images,
         flymd_delete_uploaded_image,
+        flymd_imgla_list_albums,
+        flymd_imgla_list_images,
+        flymd_imgla_delete_image,
+        flymd_imgla_upload,
         move_to_trash,
         force_remove_path,
         read_text_file_any,

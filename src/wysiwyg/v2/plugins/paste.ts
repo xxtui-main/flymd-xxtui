@@ -1,7 +1,8 @@
 // 粘贴上传适配：将图片粘贴/拖拽转为文档中的 image 节点
 import type { Uploader } from '@milkdown/kit/plugin/upload'
 import type { Node as ProseNode, Schema } from '@milkdown/prose/model'
-import { uploadImageToS3R2, type UploaderConfig } from '../../../uploader/s3'
+import type { AnyUploaderConfig } from '../../../uploader/types'
+import { uploadImageToCloud } from '../../../uploader/upload'
 import { transcodeToWebpIfNeeded } from '../../../utils/image'
 // 本地保存：在未启用图床或开启“总是保存到本地”时，将粘贴/拖拽的图片写入 images/ 或默认粘贴目录
 // 文件保存交给外层（main.ts）以避免在插件侧直接依赖 Tauri 插件
@@ -63,7 +64,7 @@ export const uploader: Uploader = async (files, schema) => {
 
     // 1) 检查图床配置
     const cfgGetter = (typeof window !== 'undefined') ? (window as any).flymdGetUploaderConfig : null
-    const upCfg: UploaderConfig | null = typeof cfgGetter === 'function' ? await cfgGetter() : null
+    const upCfg: AnyUploaderConfig | null = typeof cfgGetter === 'function' ? await cfgGetter() : null
     const uploaderEnabled = upCfg && upCfg.enabled
     console.log('[Paste] uploaderEnabled:', uploaderEnabled, 'upCfg:', upCfg)
 
@@ -99,7 +100,7 @@ export const uploader: Uploader = async (files, schema) => {
             typeForUpload = r.type || 'image/webp'
           }
         } catch {}
-        const res = await uploadImageToS3R2(fileForUpload, nameForUpload, typeForUpload, upCfg)
+        const res = await uploadImageToCloud(fileForUpload, nameForUpload, typeForUpload, upCfg)
         cloudUrl = res?.publicUrl || ''
         console.log('[Paste] 图床上传结果:', cloudUrl)
       } catch (e) {

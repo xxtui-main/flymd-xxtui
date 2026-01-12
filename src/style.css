@@ -3753,12 +3753,59 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 }
 
 .upl-field { display: contents; }
+.upl-group { display: contents; }
+.upl-group.hidden { display: none; }
 
 .upl-grid label {
   color: var(--fg);
   font-size: 13px;
   font-weight: 500;
   opacity: 0.85;
+}
+
+.upl-grid select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 10px;
+  outline: none;
+  font-size: 13px;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: all var(--transition-normal);
+}
+
+.upl-grid select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+.upl-grid a {
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.upl-grid button.btn-secondary {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: rgba(127,127,127,0.08);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  white-space: nowrap;
+}
+
+.upl-grid button.btn-secondary:hover:not(:disabled) {
+  background: var(--active-bg);
+  transform: translateY(-1px);
 }
 
 .upl-grid input[type="text"],

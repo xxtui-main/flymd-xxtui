@@ -1,8 +1,8 @@
 // 粘贴/拖拽图片异步上传核心模块
 // 只关心占位符替换与本地/图床/兜底策略，不直接依赖 DOM 全局
 
-import type { UploaderConfig } from '../uploader/s3'
-import { uploadImageToS3R2 } from '../uploader/s3'
+import type { AnyUploaderConfig } from '../uploader/types'
+import { uploadImageToCloud } from '../uploader/upload'
 
 export type EditorMode = 'edit' | 'preview'
 
@@ -29,7 +29,7 @@ export interface ImageUploadDeps {
   getUserPicturesDir(): Promise<string | null>
   // 图床与转码配置
   getAlwaysSaveLocalImages(): Promise<boolean>
-  getUploaderConfig(): Promise<UploaderConfig | null>
+  getUploaderConfig(): Promise<AnyUploaderConfig | null>
   getTranscodePrefs(): Promise<{ convertToWebp: boolean; webpQuality: number; saveLocalAsWebp: boolean }>
   // 文件写入与 dataURL 工具
   writeBinaryFile(path: string, bytes: Uint8Array): Promise<void>
@@ -185,7 +185,7 @@ export function createImageUploader(deps: ImageUploadDeps) {
               }
             } catch {}
 
-            const res = await uploadImageToS3R2(blob2, name2, mime2, upCfg)
+            const res = await uploadImageToCloud(blob2, name2, mime2, upCfg)
             cloudUrl = res.publicUrl
           } catch {
             // 上传失败继续后续兜底
@@ -244,4 +244,3 @@ export function createImageUploader(deps: ImageUploadDeps) {
     startAsyncUploadFromBlob,
   }
 }
-

@@ -2,8 +2,8 @@
 // 从 main.ts 拆分，保留行为不变，通过依赖注入与宿主交互
 
 import { transcodeToWebpIfNeeded } from '../utils/image'
-import type { UploaderConfig } from '../uploader/s3'
-import { uploadImageToS3R2 } from '../uploader/s3'
+import type { AnyUploaderConfig } from '../uploader/types'
+import { getUploaderProviderFromRaw } from '../uploader/storeConfig'
 
 export type ImagePasteDeps = {
   // 文本编辑与预览
@@ -23,7 +23,7 @@ export type ImagePasteDeps = {
 
   // 偏好与配置
   getAlwaysSaveLocalImages(): Promise<boolean>
-  getUploaderConfig(): Promise<UploaderConfig | null>
+  getUploaderConfig(): Promise<AnyUploaderConfig | null>
   getTranscodePrefs(): Promise<{
     saveLocalAsWebp: boolean
     webpQuality: number
@@ -184,13 +184,18 @@ export async function toggleUploaderEnabledFromMenuCore(
     const raw = ((await store.get('uploader')) as any) || {}
     const current = !!raw.enabled
     if (!current) {
-      if (!raw.accessKeyId || !raw.secretAccessKey || !raw.bucket) {
-        deps.pluginNotice(
-          '请先在“图床设置”中填写 AccessKey / Secret / Bucket',
-          'err',
-          2600,
-        )
-        return current
+      const provider = getUploaderProviderFromRaw(raw)
+      if (provider === 'imgla') {
+        const token = String(raw.imglaToken ?? raw.token ?? '').trim()
+        if (!token) {
+          deps.pluginNotice('请先在“图床设置”中填写 ImgLa 令牌', 'err', 2600)
+          return current
+        }
+      } else {
+        if (!raw.accessKeyId || !raw.secretAccessKey || !raw.bucket) {
+          deps.pluginNotice('请先在“图床设置”中填写 AccessKey / Secret / Bucket', 'err', 2600)
+          return current
+        }
       }
     }
     raw.enabled = !current
