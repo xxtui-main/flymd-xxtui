@@ -1,0 +1,15 @@
+{
+  "id": "editor-enhancer",
+  "name": "编辑器增强",
+  "version": "0.1.0",
+  "author": "xxtui",
+  "description": "编辑器增强：在空行输入“/”启用指令，快速插入内容",
+  "i18n": {
+    "en": {
+      "name": "Editor Enhancer",
+      "description": "Editor enhancements: type “/” on an empty line to trigger commands for quick inserts."
+    }
+  },
+  "homepage": "https://github.com/flyhunterl/flymd",
+  "main": "main.js"
+}

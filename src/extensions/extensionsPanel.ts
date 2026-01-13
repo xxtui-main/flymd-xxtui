@@ -54,6 +54,11 @@ const MARKET_OFFICIAL_I18N: Record<string, { name: string; author: string; desc:
     author: 'ext.markdownTable.author',
     desc: 'ext.markdownTable.desc',
   },
+  'editor-enhancer': {
+    name: 'ext.editorEnhancer.name',
+    author: 'ext.editorEnhancer.author',
+    desc: 'ext.editorEnhancer.desc',
+  },
   'batch-pdf': {
     name: 'ext.pdf.name',
     author: 'ext.pdf.author',
