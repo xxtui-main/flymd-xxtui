@@ -114,15 +114,24 @@ const BUILTIN_ITEMS = [
         templateZh: '| 列1 | 列2 |\n| --- | --- |\n|     |     |',
         templateEn: '| Col 1 | Col 2 |\n| --- | --- |\n|     |     |',
     },
-    {
-        id: 'builtin-code',
-        category: 'blocks',
-        labelZh: '代码块',
-        labelEn: 'Code Block',
-        trigger: '/code',
-        templateZh: '```\n{{cursor}}\n```',
-        templateEn: '```\n{{cursor}}\n```',
-    },
+  {
+    id: 'builtin-code',
+    category: 'blocks',
+    labelZh: '代码块',
+    labelEn: 'Code Block',
+    trigger: '/codeblock',
+    templateZh: '```\n{{cursor}}\n```',
+    templateEn: '```\n{{cursor}}\n```',
+  },
+  {
+    id: 'builtin-fence',
+    category: 'blocks',
+    labelZh: '围栏代码块',
+    labelEn: 'Fenced Code Block',
+    trigger: '/fence',
+    templateZh: '~~~\n{{cursor}}\n~~~',
+    templateEn: '~~~\n{{cursor}}\n~~~',
+  },
     {
         id: 'builtin-h1',
         category: 'basic',
@@ -380,6 +389,13 @@ const SURROUND_BUILTIN_ITEMS = [
     labelZh: '代码块',
     labelEn: 'Code Block',
     template: '```\n{{selection}}\n```',
+  },
+  {
+    id: 'surround-fenced-code-block',
+    category: 'blocks',
+    labelZh: '围栏代码块',
+    labelEn: 'Fenced Code Block',
+    template: '~~~\n{{selection}}\n~~~',
   },
 ]
 
