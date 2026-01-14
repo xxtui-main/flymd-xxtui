@@ -915,6 +915,19 @@ async function listMarkdownFilesAny(ctx, rootAbs) {
   return []
 }
 
+async function listDirAny(ctx, absDir) {
+  // 依赖宿主命令枚举目录一层（用于备份快照兼容：latest.json 丢失时自愈）
+  if (ctx && typeof ctx.invoke === 'function') {
+    try {
+      const arr = await ctx.invoke('list_dir_any', { path: absDir })
+      return Array.isArray(arr) ? arr : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 function zhNumber(n) {
   // 只服务“章节号”，够用就行：1~999
   const x = n | 0
@@ -3080,17 +3093,70 @@ async function ain_backup_write_snapshot(ctx, cfg, inf) {
   }
 }
 
+async function ain_backup_infer_latest_from_snapshots(ctx, p) {
+  // 兼容：早期/手工同步可能漏掉 latest.json，但快照目录还在
+  // 规则：优先读 snapshot.json.created_at；读不到则用目录名（时间戳字符串）做兜底
+  const ents = await listDirAny(ctx, p.projectBackupRootAbs)
+  let bestId = ''
+  let bestTs = 0
+  let bestLex = ''
+  for (let i = 0; i < ents.length; i++) {
+    const it = ents[i] || {}
+    const isDir = !!(it.is_dir || it.isDir)
+    if (!isDir) continue
+    const name = safeFileName(String(it.name || ''), '')
+    if (!name) continue
+    const metaAbs = joinFsPath(p.projectBackupRootAbs, name, 'snapshot.json')
+    let ts = 0
+    try {
+      const rr = await ain_try_read_text(ctx, metaAbs)
+      if (rr.ok) {
+        const j = JSON.parse(rr.text || '{}')
+        const x = j && j.created_at ? Number(j.created_at) : 0
+        if (Number.isFinite(x) && x > 0) ts = x
+      }
+    } catch {}
+    if (ts > 0) {
+      if (ts > bestTs) {
+        bestTs = ts
+        bestId = name
+      }
+      continue
+    }
+    // 没有可用 created_at：退化为目录名字典序（snapId 是本地时间戳字符串，通常可比较）
+    if (!bestTs && name > bestLex) {
+      bestLex = name
+      bestId = name
+    }
+  }
+  return bestId
+}
+
 async function ain_backup_load_latest(ctx, cfg, inf) {
   const p = await ain_backup_get_paths(ctx, cfg, inf)
   let raw = ''
+  let snapId = ''
   try {
     raw = safeText(await readTextAny(ctx, p.latestPath))
   } catch {
-    throw new Error(t('未找到 latest.json：请先在任一设备创建备份，并确保 WebDAV 同步完成', 'latest.json not found; create a backup on any device and run WebDAV sync'))
+    // 兼容：latest.json 可能没被同步下来（或被手工遗漏），尝试从快照目录推断
+    snapId = await ain_backup_infer_latest_from_snapshots(ctx, p)
+    if (!snapId) throw new Error(t('未找到 latest.json：请先在任一设备创建备份，并确保 WebDAV 同步完成', 'latest.json not found; create a backup on any device and run WebDAV sync'))
   }
-  const json = JSON.parse(raw || '{}')
-  const snapId = json && json.snapId ? String(json.snapId) : ''
-  if (!snapId) throw new Error(t('未找到 latest.json：请先在任一设备创建备份，并确保 WebDAV 同步完成', 'latest.json not found; create a backup on any device and run WebDAV sync'))
+  if (!snapId) {
+    try {
+      const json = JSON.parse(raw || '{}')
+      snapId = json && json.snapId ? String(json.snapId) : ''
+    } catch {}
+  }
+  if (!snapId) {
+    snapId = await ain_backup_infer_latest_from_snapshots(ctx, p)
+    if (!snapId) throw new Error(t('未找到 latest.json：请先在任一设备创建备份，并确保 WebDAV 同步完成', 'latest.json not found; create a backup on any device and run WebDAV sync'))
+    // 尝试自愈：补写 latest.json，避免之后每次都列目录
+    try {
+      await writeTextAny(ctx, p.latestPath, JSON.stringify({ version: 1, snapId, created_at: Date.now(), inferred: true }, null, 2))
+    } catch {}
+  }
   const snapDirAbs = joinFsPath(p.projectBackupRootAbs, safeFileName(snapId, 'snap'))
   const snapshotMetaAbs = joinFsPath(snapDirAbs, 'snapshot.json')
   return { ...p, snapId, snapDirAbs, snapshotMetaAbs }
