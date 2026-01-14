@@ -42,8 +42,10 @@ function tmGetDeviceType() {
 const TM_Z_INDEX = {
   OVERLAY: 90000,        // 主对话框遮罩
   DIALOG: 90001,         // 主对话框内容
+  HEADER_MENU: 90005,    // 移动端头部菜单
   SUB_OVERLAY: 90010,    // 子对话框遮罩
   SUB_DIALOG: 90011,     // 子对话框内容
+  ACTION_SHEET: 90015,   // 移动端底部操作表
   CONTEXT_MENU: 90020,   // 右键菜单（最高层）
 }
 
@@ -329,6 +331,8 @@ let statsOverlayEl = null
 let headSelectAllCheckbox = null
 let rollbackOverlayEl = null
 let rowContextMenuEl = null
+let headerMenuEl = null        // 移动端头部菜单元素
+let cardActionSheetEl = null   // 移动端卡片操作表元素
 
 // 移动端过滤器折叠状态
 let filtersCollapsed = true // 默认折叠
@@ -359,6 +363,9 @@ function ensureStyle() {
     '.tm-typecho-btn.primary:hover{background:#1d4ed8;border-color:#1d4ed8;}',
     '.tm-typecho-btn:active{opacity:0.7;transform:scale(0.98);}',
     '.tm-typecho-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px;}',
+    '.tm-card-btn-primary{background:linear-gradient(135deg, #2563eb, #1d4ed8) !important;border-color:transparent !important;color:#fff !important;box-shadow:0 2px 6px rgba(37,99,235,.3);}',
+    '.tm-card-btn-primary:active{box-shadow:0 1px 3px rgba(37,99,235,.3);}',
+    '.tm-card-btn-secondary{background:rgba(127,127,127,.08) !important;border-color:var(--border) !important;color:var(--fg) !important;}',
     '.tm-typecho-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px 14px 10px 14px;}',
     '.tm-typecho-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}',
     '.tm-typecho-filter-group{display:flex;align-items:center;gap:4px;}',
@@ -411,15 +418,19 @@ function ensureStyle() {
     '  .tm-typecho-filters{flex-direction:column;align-items:stretch;}',
     '  .tm-typecho-filters input,.tm-typecho-filters select{width:100%;font-size:16px;}',
     '  .tm-typecho-table-head{display:none;}',
-    '  .tm-typecho-row{grid-template-columns:1fr;grid-template-rows:auto;gap:8px;padding:12px;border:1px solid rgba(0,0,0,.08);border-radius:8px;margin-bottom:8px;background:#fff;}',
+    '  .tm-typecho-row{grid-template-columns:1fr;grid-template-rows:auto;gap:12px;padding:16px;border:none;border-radius:12px;margin-bottom:12px;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.08);position:relative;overflow:hidden;transition:transform 0.1s ease, box-shadow 0.1s ease;}',
     '  .tm-typecho-row>div{width:100%;word-break:break-word;}',
-    '  .tm-typecho-row>div:nth-child(1)::before{content:"标题: ";font-weight:600;color:rgba(0,0,0,.6);}',
-    '  .tm-typecho-row>div:nth-child(2)::before{content:"分类: ";font-weight:600;color:rgba(0,0,0,.6);}',
-    '  .tm-typecho-row>div:nth-child(3)::before{content:"发布时间: ";font-weight:600;color:rgba(0,0,0,.6);}',
-    '  .tm-typecho-row>div:nth-child(4)::before{content:"状态: ";font-weight:600;color:rgba(0,0,0,.6);}',
-    '  .tm-typecho-row>div:nth-child(5)::before{content:"操作: ";font-weight:600;color:rgba(0,0,0,.6);}',
-    '  .tm-typecho-row>div:nth-child(5){display:flex;flex-direction:column;gap:6px;}',
-    '  .tm-typecho-row>div:nth-child(5) button{width:100%;min-height:44px;font-size:14px;}',
+    '  .tm-typecho-row>div:nth-child(1){font-size:16px;font-weight:600;line-height:1.4;padding-right:80px;}',
+    '  .tm-typecho-row>div:nth-child(1)::before{content:none !important;}',
+    '  .tm-typecho-row>div:nth-child(2){font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px;}',
+    '  .tm-typecho-row>div:nth-child(2)::before{content:"📁 ";font-weight:normal;}',
+    '  .tm-typecho-row>div:nth-child(3){font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px;}',
+    '  .tm-typecho-row>div:nth-child(3)::before{content:"📅 ";font-weight:normal;}',
+    '  .tm-typecho-row>div:nth-child(4){position:absolute;top:12px;right:12px;}',
+    '  .tm-typecho-row>div:nth-child(4)::before{content:none !important;}',
+    '  .tm-typecho-row>div:nth-child(5){display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px;}',
+    '  .tm-typecho-row>div:nth-child(5)::before{content:none !important;}',
+    '  .tm-typecho-row>div:nth-child(5) button{min-height:44px;font-size:15px;border-radius:8px;font-weight:500;}',
     '  .tm-typecho-footer{flex-direction:column;gap:10px;align-items:stretch;}',
     '  .tm-typecho-footer-left,.tm-typecho-footer-right{width:100%;}',
     '  .tm-typecho-footer-right{justify-content:space-between;}',
@@ -430,10 +441,26 @@ function ensureStyle() {
     '  .tm-typecho-settings-footer{padding-left:max(14px, env(safe-area-inset-left));padding-right:max(14px, env(safe-area-inset-right));padding-bottom:max(8px, env(safe-area-inset-bottom));}',
     '  .tm-filters-toggle{background:rgba(37,99,235,.06);border-color:#2563eb;color:#2563eb;font-weight:600;}',
     '  .tm-filters-toggle:active{background:rgba(37,99,235,.12);}',
-    '  .tm-typecho-row:active{background:rgba(37,99,235,.10) !important;}',
     '  .tm-typecho-btn{-webkit-tap-highlight-color:rgba(0,0,0,0);}',
     '  .tm-typecho-header-right button{-webkit-tap-highlight-color:transparent;}',
     '  input,select,textarea,button{-webkit-text-size-adjust:100%;text-size-adjust:100%;}',
+    '  .tm-typecho-row:active{transform:scale(0.98);box-shadow:0 1px 4px rgba(0,0,0,.12);}',
+    '  .tm-header-menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:' + TM_Z_INDEX.HEADER_MENU + ';display:flex;align-items:flex-end;opacity:0;transition:opacity 0.2s ease;}',
+    '  .tm-header-menu{width:100%;background:var(--bg);border-radius:16px 16px 0 0;padding:16px;padding-bottom:max(16px, env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}',
+    '  .tm-header-menu-item{padding:14px 16px;border-radius:12px;background:rgba(127,127,127,.08);border:1px solid var(--border);text-align:left;font-size:15px;cursor:pointer;color:var(--fg);}',
+    '  .tm-header-menu-item:active{background:rgba(37,99,235,.12);}',
+    '  .tm-action-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:' + TM_Z_INDEX.ACTION_SHEET + ';display:flex;align-items:flex-end;opacity:0;transition:opacity 0.2s ease;}',
+    '  .tm-action-sheet{width:100%;background:var(--bg);border-radius:16px 16px 0 0;padding:0;padding-bottom:max(16px, env(safe-area-inset-bottom));transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}',
+    '  .tm-action-sheet-title{padding:16px;font-size:13px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '  .tm-action-sheet-item{width:100%;padding:16px;background:transparent;border:none;border-bottom:1px solid rgba(127,127,127,.08);text-align:center;font-size:16px;color:#2563eb;cursor:pointer;}',
+    '  .tm-action-sheet-item:active{background:rgba(127,127,127,.08);}',
+    '  .tm-action-sheet-item.danger{color:#ef4444;}',
+    '  .tm-action-sheet-cancel{width:100%;padding:16px;margin-top:8px;background:var(--bg);border:none;font-size:16px;font-weight:600;color:var(--fg);cursor:pointer;border-top:8px solid rgba(127,127,127,.04);}',
+    '  .tm-filters-summary{padding:8px 12px;margin-bottom:8px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:8px;font-size:12px;color:#2563eb;text-align:center;}',
+    '  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}',
+    '  button, .tm-typecho-title, .tm-typecho-row-menu-item{touch-action:manipulation;user-select:none;}',
+    '  input[type="checkbox"], input[type="radio"]{width:20px;height:20px;cursor:pointer;}',
+    '  .tm-typecho-table-body, .tm-typecho-settings-body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}',
     '}'
   ].join('\n')
   const style = document.createElement('style')
@@ -513,11 +540,25 @@ function buildManagerDialog() {
   btnClose.textContent = tmText('关闭', 'Close')
   btnClose.addEventListener('click', () => { closeOverlay() })
 
-  headerRight.appendChild(btnRefresh)
-  headerRight.appendChild(btnRelated)
-  headerRight.appendChild(btnStats)
-  headerRight.appendChild(btnSettings)
-  headerRight.appendChild(btnClose)
+  // 移动端：简化按钮布局，使用菜单
+  if (tmIsMobile()) {
+    headerRight.appendChild(btnRefresh)
+
+    const btnMenu = document.createElement('button')
+    btnMenu.className = 'tm-typecho-btn'
+    btnMenu.textContent = '☰ ' + tmText('菜单', 'Menu')
+    btnMenu.addEventListener('click', () => { openHeaderMenu(globalContextRef) })
+    headerRight.appendChild(btnMenu)
+
+    headerRight.appendChild(btnClose)
+  } else {
+    // 桌面端：保持原有布局
+    headerRight.appendChild(btnRefresh)
+    headerRight.appendChild(btnRelated)
+    headerRight.appendChild(btnStats)
+    headerRight.appendChild(btnSettings)
+    headerRight.appendChild(btnClose)
+  }
 
   header.appendChild(headerLeft)
   header.appendChild(headerRight)
@@ -640,12 +681,32 @@ function buildManagerDialog() {
     toggleBtn.style.width = '100%'
     toggleBtn.style.minHeight = '44px'
     toggleBtn.style.marginBottom = '8px'
-    toggleBtn.style.justifyContent = 'center'
-    toggleBtn.textContent = filtersCollapsed
-      ? ('▼ ' + tmText('展开筛选', 'Expand filters'))
-      : ('▲ ' + tmText('收起筛选', 'Collapse filters'))
+    toggleBtn.style.display = 'flex'
+    toggleBtn.style.justifyContent = 'space-between'
+    toggleBtn.style.alignItems = 'center'
+    toggleBtn.style.padding = '10px 16px'
+
+    const leftSpan = document.createElement('span')
+    leftSpan.textContent = tmText('筛选条件', 'Filters')
+
+    const rightSpan = document.createElement('span')
+    rightSpan.id = 'tm-filters-toggle-icon'
+    rightSpan.textContent = filtersCollapsed ? '▼' : '▲'
+    rightSpan.style.fontSize = '12px'
+
+    toggleBtn.appendChild(leftSpan)
+    toggleBtn.appendChild(rightSpan)
     toggleBtn.addEventListener('click', toggleFiltersOnMobile)
     body.appendChild(toggleBtn)
+
+    // 添加筛选摘要（折叠时显示）
+    if (filtersCollapsed) {
+      const summary = document.createElement('div')
+      summary.id = 'tm-filters-summary'
+      summary.className = 'tm-filters-summary'
+      summary.textContent = getFilterSummary()
+      body.appendChild(summary)
+    }
   }
 
   // 移动端：根据折叠状态设置初始显示
@@ -949,6 +1010,65 @@ function closeRowContextMenu() {
   }
 }
 
+// 移动端头部菜单功能
+function openHeaderMenu(context) {
+  closeHeaderMenu()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'tm-header-menu-overlay'
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeHeaderMenu()
+  })
+
+  const menu = document.createElement('div')
+  menu.className = 'tm-header-menu'
+
+  const addMenuItem = (text, onClick) => {
+    const item = document.createElement('button')
+    item.className = 'tm-header-menu-item'
+    item.textContent = text
+    item.addEventListener('click', () => {
+      closeHeaderMenu()
+      onClick && onClick()
+    })
+    menu.appendChild(item)
+  }
+
+  addMenuItem(tmText('相关文章', 'Related posts'), () => {
+    void openRelatedPostsDialog(context)
+  })
+
+  addMenuItem(tmText('统计 / 健康', 'Stats / health'), () => {
+    void openStatsDialog(context)
+  })
+
+  addMenuItem(tmText('连接 / 下载设置', 'Connection / download settings'), () => {
+    void openSettingsDialog(context)
+  })
+
+  overlay.appendChild(menu)
+  document.body.appendChild(overlay)
+  headerMenuEl = overlay
+
+  // 添加滑入动画
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1'
+    menu.style.transform = 'translateY(0)'
+  })
+}
+
+function closeHeaderMenu() {
+  if (headerMenuEl) {
+    headerMenuEl.style.opacity = '0'
+    const menu = headerMenuEl.querySelector('.tm-header-menu')
+    if (menu) menu.style.transform = 'translateY(100%)'
+    setTimeout(() => {
+      headerMenuEl?.remove()
+      headerMenuEl = null
+    }, 200)
+  }
+}
+
 function toggleFiltersOnMobile() {
   if (!tmIsMobile()) return
   filtersCollapsed = !filtersCollapsed
@@ -960,20 +1080,63 @@ function toggleFiltersOnMobile() {
   updateFiltersPanelVisibility()
 }
 
+// 获取筛选条件摘要
+function getFilterSummary() {
+  const parts = []
+  if (sessionState.filterMode === 'date' && (sessionState.dateFrom || sessionState.dateTo)) {
+    parts.push(`${tmText('时间', 'Time')}: ${sessionState.dateFrom || tmText('始', 'Start')} ~ ${sessionState.dateTo || tmText('今', 'Now')}`)
+  }
+  if (sessionState.filterMode === 'category' && sessionState.filterCategory) {
+    parts.push(`${tmText('分类', 'Category')}: ${sessionState.filterCategory}`)
+  }
+  if (sessionState.searchText) {
+    parts.push(`${tmText('关键字', 'Keyword')}: ${sessionState.searchText}`)
+  }
+  return parts.length ? parts.join(' · ') : tmText('暂无筛选', 'No filters')
+}
+
 function updateFiltersPanelVisibility() {
   if (!tmIsMobile()) return
 
   const filtersEl = document.querySelector('.tm-typecho-filters')
   const toggleBtn = document.getElementById('tm-filters-toggle-btn')
+  const toggleIcon = document.getElementById('tm-filters-toggle-icon')
+  const summary = document.getElementById('tm-filters-summary')
 
   if (!filtersEl || !toggleBtn) return
 
   if (filtersCollapsed) {
-    filtersEl.style.display = 'none'
-    toggleBtn.textContent = '▼ ' + tmText('展开筛选', 'Expand filters')
+    // 折叠：隐藏筛选条，显示摘要
+    filtersEl.style.maxHeight = '0'
+    filtersEl.style.overflow = 'hidden'
+    filtersEl.style.opacity = '0'
+    filtersEl.style.transition = 'max-height 0.3s ease, opacity 0.2s ease'
+    filtersEl.style.display = 'flex'  // 保持 flex 以便动画
+
+    if (toggleIcon) toggleIcon.textContent = '▼'
+
+    // 显示或更新摘要
+    if (!summary) {
+      const s = document.createElement('div')
+      s.id = 'tm-filters-summary'
+      s.className = 'tm-filters-summary'
+      s.textContent = getFilterSummary()
+      toggleBtn.after(s)
+    } else {
+      summary.textContent = getFilterSummary()
+      summary.style.display = 'block'
+    }
   } else {
+    // 展开：显示筛选条，隐藏摘要
+    filtersEl.style.maxHeight = '1000px'
+    filtersEl.style.overflow = 'visible'
+    filtersEl.style.opacity = '1'
     filtersEl.style.display = 'flex'
-    toggleBtn.textContent = '▲ ' + tmText('收起筛选', 'Collapse filters')
+
+    if (toggleIcon) toggleIcon.textContent = '▲'
+
+    // 隐藏摘要
+    if (summary) summary.style.display = 'none'
   }
 }
 
@@ -1051,6 +1214,78 @@ async function openRowContextMenu(context, post, x, y) {
     document.addEventListener('mousedown', handler, { once: true, capture: true })
     document.addEventListener('touchstart', handler, { once: true, capture: true }) // 新增触摸支持
   }, 0)
+}
+
+// 移动端底部操作表功能
+async function openCardActionSheet(context, post) {
+  if (!context || !post) return
+  closeCardActionSheet()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'tm-action-sheet-overlay'
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeCardActionSheet()
+  })
+
+  const sheet = document.createElement('div')
+  sheet.className = 'tm-action-sheet'
+
+  const addAction = (icon, label, fn, danger = false) => {
+    const btn = document.createElement('button')
+    btn.className = 'tm-action-sheet-item'
+    if (danger) btn.classList.add('danger')
+    btn.textContent = `${icon} ${label}`
+    btn.addEventListener('click', () => {
+      closeCardActionSheet()
+      fn && fn()
+    })
+    sheet.appendChild(btn)
+  }
+
+  const title = document.createElement('div')
+  title.className = 'tm-action-sheet-title'
+  title.textContent = String(post.title || '').trim() || tmText('操作', 'Actions')
+  sheet.appendChild(title)
+
+  addAction('⬇', tmText('下载到本地', 'Download to local'), () => {
+    void downloadSinglePost(context, post)
+  })
+
+  addAction('↑', tmText('用当前文档更新', 'Update from current'), () => {
+    void publishCurrentForPost(context, post)
+  })
+
+  addAction('⟲', tmText('回滚到备份', 'Rollback'), () => {
+    void openRollbackDialog(context, post)
+  }, true)
+
+  const btnCancel = document.createElement('button')
+  btnCancel.className = 'tm-action-sheet-cancel'
+  btnCancel.textContent = tmText('取消', 'Cancel')
+  btnCancel.addEventListener('click', closeCardActionSheet)
+  sheet.appendChild(btnCancel)
+
+  overlay.appendChild(sheet)
+  document.body.appendChild(overlay)
+  cardActionSheetEl = overlay
+
+  // 添加滑入动画
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1'
+    sheet.style.transform = 'translateY(0)'
+  })
+}
+
+function closeCardActionSheet() {
+  if (cardActionSheetEl) {
+    cardActionSheetEl.style.opacity = '0'
+    const sheet = cardActionSheetEl.querySelector('.tm-action-sheet')
+    if (sheet) sheet.style.transform = 'translateY(100%)'
+    setTimeout(() => {
+      cardActionSheetEl?.remove()
+      cardActionSheetEl = null
+    }, 200)
+  }
 }
 
 // 拉取与渲染文章列表（逻辑部分）
@@ -1811,43 +2046,48 @@ async function renderPostTable() {
       const cellActions = document.createElement('div')
       cellActions.className = 'tm-typecho-td'
 
-      // 移动端：添加"更多操作"按钮
+      // 移动端：简化按钮布局，只显示主要操作 + 更多菜单
       if (tmIsMobile()) {
+        const btnDl = document.createElement('button')
+        btnDl.className = 'tm-typecho-btn tm-card-btn-primary'
+        btnDl.textContent = '⬇ 下载到本地'
+        btnDl.addEventListener('click', (e) => {
+          e.stopPropagation()
+          void downloadSinglePost(globalContextRef, p)
+        })
+        cellActions.appendChild(btnDl)
+
         const btnMore = document.createElement('button')
-        btnMore.className = 'tm-typecho-btn'
-        btnMore.textContent = '⋯ 更多操作'
-        btnMore.style.background = 'rgba(37,99,235,.06)'
-        btnMore.style.borderColor = '#2563eb'
-        btnMore.style.color = '#2563eb'
+        btnMore.className = 'tm-typecho-btn tm-card-btn-secondary'
+        btnMore.textContent = '⋯ 更多'
         btnMore.addEventListener('click', (e) => {
           e.preventDefault()
           e.stopPropagation()
-          // 在按钮下方弹出菜单
-          const rect = btnMore.getBoundingClientRect()
-          void openRowContextMenu(globalContextRef, p, rect.left, rect.bottom + 4)
+          void openCardActionSheet(globalContextRef, p)
         })
         cellActions.appendChild(btnMore)
+      } else {
+        // 桌面端：保持原有按钮布局
+        const btnDl = document.createElement('button')
+        btnDl.className = 'tm-typecho-btn'
+        btnDl.textContent = '下载到本地'
+        btnDl.addEventListener('click', () => { void downloadSinglePost(globalContextRef, p) })
+        cellActions.appendChild(btnDl)
+
+        const btnUpdate = document.createElement('button')
+        btnUpdate.className = 'tm-typecho-btn'
+        btnUpdate.textContent = '用当前文档更新'
+        btnUpdate.style.marginLeft = '6px'
+        btnUpdate.addEventListener('click', () => { void publishCurrentForPost(globalContextRef, p) })
+        cellActions.appendChild(btnUpdate)
+
+        const btnRollback = document.createElement('button')
+        btnRollback.className = 'tm-typecho-btn'
+        btnRollback.textContent = '回滚'
+        btnRollback.style.marginLeft = '6px'
+        btnRollback.addEventListener('click', () => { void openRollbackDialog(globalContextRef, p) })
+        cellActions.appendChild(btnRollback)
       }
-
-      const btnDl = document.createElement('button')
-      btnDl.className = 'tm-typecho-btn'
-      btnDl.textContent = '下载到本地'
-      btnDl.addEventListener('click', () => { void downloadSinglePost(globalContextRef, p) })
-      cellActions.appendChild(btnDl)
-
-      const btnUpdate = document.createElement('button')
-      btnUpdate.className = 'tm-typecho-btn'
-      btnUpdate.textContent = '用当前文档更新'
-      btnUpdate.style.marginLeft = tmIsMobile() ? '0' : '6px'
-      btnUpdate.addEventListener('click', () => { void publishCurrentForPost(globalContextRef, p) })
-      cellActions.appendChild(btnUpdate)
-
-      const btnRollback = document.createElement('button')
-      btnRollback.className = 'tm-typecho-btn'
-      btnRollback.textContent = '回滚'
-      btnRollback.style.marginLeft = tmIsMobile() ? '0' : '6px'
-      btnRollback.addEventListener('click', () => { void openRollbackDialog(globalContextRef, p) })
-      cellActions.appendChild(btnRollback)
       row.appendChild(cellActions)
 
       listBodyEl.appendChild(row)
