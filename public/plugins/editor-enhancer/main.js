@@ -178,60 +178,6 @@ const BUILTIN_ITEMS = [
         templateEn: '---\n{{cursor}}',
     },
     {
-        id: 'builtin-image',
-        category: 'content',
-        labelZh: '图片',
-        labelEn: 'Image',
-        trigger: '/image',
-        templateZh: '![alt]({{cursor}})',
-        templateEn: '![alt]({{cursor}})',
-    },
-    {
-        id: 'builtin-link',
-        category: 'content',
-        labelZh: '链接',
-        labelEn: 'Link',
-        trigger: '/link',
-        templateZh: '[link]({{cursor}})',
-        templateEn: '[link]({{cursor}})',
-    },
-    {
-        id: 'builtin-inline-code',
-        category: 'content',
-        labelZh: '行内代码',
-        labelEn: 'Inline Code',
-        trigger: '/inline-code',
-        templateZh: '`{{cursor}}`',
-        templateEn: '`{{cursor}}`',
-    },
-    {
-        id: 'builtin-bold',
-        category: 'content',
-        labelZh: '加粗',
-        labelEn: 'Bold',
-        trigger: '/bold',
-        templateZh: '**{{cursor}}**',
-        templateEn: '**{{cursor}}**',
-    },
-    {
-        id: 'builtin-italic',
-        category: 'content',
-        labelZh: '斜体',
-        labelEn: 'Italic',
-        trigger: '/italic',
-        templateZh: '*{{cursor}}*',
-        templateEn: '*{{cursor}}*',
-    },
-    {
-        id: 'builtin-strike',
-        category: 'content',
-        labelZh: '删除线',
-        labelEn: 'Strikethrough',
-        trigger: '/strike',
-        templateZh: '~~{{cursor}}~~',
-        templateEn: '~~{{cursor}}~~',
-    },
-    {
         id: 'builtin-ul',
         category: 'lists',
         labelZh: '无序列表',
@@ -418,7 +364,20 @@ const DEFAULT_CFG = {
   slash: {
     enabled: true,
     modeSource: true,
-    customItems: [],
+    customItems: [
+      {
+        id: 'diary-template',
+        label: '日记模板',
+        trigger: '/diary',
+        template: '# {{date}}\n\n## 心情\n\n\n## 今日事件\n\n\n## 感悟\n\n\n## 明日计划\n\n',
+      },
+      {
+        id: 'meeting-notes-template',
+        label: '会议记录',
+        trigger: '/meeting',
+        template: '# {{date}} {{time}} 会议记录\n\n## 参会人员\n\n\n## 议题\n\n\n## 决定事项\n\n\n## 待办任务\n\n',
+      }
+    ],
   },
   surround: {
     enabled: true,
@@ -568,6 +527,18 @@ function normalizeConfig(raw) {
   base.slash.customItems = normalizeCustomItems(slash.customItems)
   base.surround.enabled = surround.enabled !== false
   base.surround.customItems = normalizeSurroundItems(surround.customItems)
+
+  // Add new default custom items to existing custom items if they don't already exist
+  // and weren't explicitly removed by the user
+  const existingSlashIds = new Set(base.slash.customItems.map(item => item.id));
+  const userRemovedDefaultIds = new Set(slash.userRemovedDefaultIds || []);
+
+  for (const defaultItem of DEFAULT_CFG.slash.customItems) {
+    if (!existingSlashIds.has(defaultItem.id) && !userRemovedDefaultIds.has(defaultItem.id)) {
+      base.slash.customItems.push({...defaultItem});
+    }
+  }
+
   return base
 }
 
@@ -643,7 +614,7 @@ function getAllSurroundItems(cfg) {
 
 function ensureStyle() {
     const css = [
-        `#${MENU_ID}{position:fixed;z-index:90020;min-width:220px;width:310px;max-width:310px;height:340px;max-height:340px;background:var(--bg,#fff);color:var(--fg,#111);border:1px solid var(--border,#e5e7eb);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px 0;display:none;overflow:hidden;box-sizing:border-box;flex-direction:column;}`,
+        `#${MENU_ID}{position:fixed;z-index:90020;min-width:220px;width:310px;max-width:310px;min-height:120px;max-height:40vh;height:auto;background:var(--bg,#fff);color:var(--fg,#111);border:1px solid var(--border,#e5e7eb);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px 0;display:none;overflow:hidden;box-sizing:border-box;flex-direction:column;}`,
         `#${MENU_ID}.show{display:flex;}`,
         `#${MENU_ID} .ee-slash-empty{padding:8px 12px;color:var(--muted,#6b7280);font-size:12px;}`,
         `#${MENU_ID} .ee-slash-item{padding:6px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;}`,
@@ -896,6 +867,14 @@ function renderMenu() {
         row.appendChild(title)
         row.appendChild(detail)
         list.appendChild(row)
+    }
+
+    // Scroll the selected item into view
+    if (state.selected >= 0) {
+        const selectedItem = list.querySelector(`.ee-slash-item[data-index="${state.selected}"]`)
+        if (selectedItem) {
+            selectedItem.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+        }
     }
 }
 
@@ -1827,7 +1806,23 @@ export async function openSettings(context) {
                         cancelText: eeText('取消', 'Cancel'),
                     })
                     if (!ok) return
+
+                    // Check if this is a default item that was added by the system
+                    const isDefaultItem = DEFAULT_CFG.slash.customItems.some(defaultItem => defaultItem.id === item.id);
+
+                    // Remove from customItems
                     draft.slash.customItems = draft.slash.customItems.filter((it) => it.id !== item.id)
+
+                    // If it was a default item, record that the user removed it so it won't be re-added
+                    if (isDefaultItem) {
+                      if (!draft.slash.userRemovedDefaultIds) {
+                        draft.slash.userRemovedDefaultIds = [];
+                      }
+                      if (!draft.slash.userRemovedDefaultIds.includes(item.id)) {
+                        draft.slash.userRemovedDefaultIds.push(item.id);
+                      }
+                    }
+
                     renderItems()
                 })()
             })
