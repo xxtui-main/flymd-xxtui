@@ -171,6 +171,7 @@ function ensureXxtuiCss() {
             // 移动端适配
             '@media (max-width:600px){',
             '  #xtui-set-dialog{width:100vw;height:100vh;max-width:100vw;max-height:100vh;border-radius:0;}',
+            '  #xtui-set-head{padding-top:calc(10px + env(safe-area-inset-top, 0px));}',
             '  #xtui-set-body{flex-direction:column;}',
             '  #xtui-set-nav{width:100%;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid #e5e7eb;padding:6px;gap:4px;}',
             '  .xtui-nav-btn{white-space:nowrap;padding:6px 10px;font-size:12px;}',
