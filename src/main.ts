@@ -39,6 +39,13 @@ import { openUploaderDialog as openUploaderDialogInternal, testUploaderConnectiv
 import { uploadImageFromContextMenu } from './uploader/manualImageUpload'
 import { transcodeToWebpIfNeeded } from './utils/image'
 import { protectExcelDollarRefs } from './utils/excelFormula'
+import {
+  copySelectionAsRichHtmlWithEmbeddedImages,
+  hasSelectionInside,
+  copyImageFromDom,
+  copyTextToClipboard,
+  getImageLinkForCopy,
+} from './utils/richClipboard'
 import { saveImageToLocalAndGetPathCore, toggleUploaderEnabledFromMenuCore } from './core/imagePaste'
 // 方案A：多库管理（统一 libraries/activeLibraryId）
 import { getLibraries, getActiveLibraryId, getActiveLibraryRoot, setActiveLibraryId as setActiveLibId, upsertLibrary, removeLibrary as removeLib, renameLibrary as renameLib } from './utils/library'
@@ -951,6 +958,32 @@ async function buildBuiltinContextMenuItems(ctx: ContextMenuContext): Promise<Co
     onClick: async () => { await printCurrentDoc() },
   })
   items.push({
+    label: t('ctx.copyRichEmbed') || '复制为富文本（内嵌图片）',
+    icon: '📄',
+    tooltip: '将当前选区复制为 HTML 富文本，并尽量把图片内嵌为 data: URL（可能受 CORS/鉴权影响）',
+    condition: (c) => {
+      if (c.mode !== 'preview') return false
+      const root = document.querySelector('.preview') as HTMLElement | null
+      if (!root) return false
+      return hasSelectionInside(root)
+    },
+    onClick: async () => {
+      try {
+        const root = document.querySelector('.preview') as HTMLElement | null
+        if (!root) return
+        const r = await copySelectionAsRichHtmlWithEmbeddedImages(root)
+        if (!r.ok) {
+          pluginNotice('复制失败：无法写入剪贴板（可能是权限/格式不支持）', 'err', 2600)
+          return
+        }
+        const tip = r.totalImages > 0 ? `（图片内嵌 ${r.embeddedImages}/${r.totalImages}）` : ''
+        pluginNotice('已复制为富文本' + tip, 'ok', 2000)
+      } catch {
+        pluginNotice('复制失败', 'err', 2200)
+      }
+    },
+  })
+  items.push({
     label: t('sync.now') || '立即同步',
     icon: '🔁',
     tooltip: syncTooltip || undefined,
@@ -974,6 +1007,30 @@ async function buildBuiltinContextMenuItems(ctx: ContextMenuContext): Promise<Co
     const target = ctx.targetElement as HTMLElement | undefined | null
     const img = target?.closest('img') as HTMLImageElement | null
     if (img && (ctx.mode === 'preview' || ctx.mode === 'wysiwyg')) {
+      items.push({
+        label: t('ctx.copyImage') || '复制图片',
+        icon: '🖼️',
+        tooltip: '复制图片本体到剪贴板（部分远程图片可能因 CORS/鉴权失败）',
+        onClick: async (c) => {
+          const el = c.targetElement as HTMLElement | null
+          const im = el?.closest('img') as HTMLImageElement | null
+          if (!im) return
+          const ok = await copyImageFromDom(im)
+          pluginNotice(ok ? '图片已复制' : '复制图片失败', ok ? 'ok' : 'err', 2200)
+        },
+      })
+      items.push({
+        label: t('ctx.copyImageLink') || '复制图片链接',
+        icon: '🔗',
+        onClick: async (c) => {
+          const el = c.targetElement as HTMLElement | null
+          const im = el?.closest('img') as HTMLImageElement | null
+          if (!im) return
+          const link = getImageLinkForCopy(im)
+          const ok = await copyTextToClipboard(link)
+          pluginNotice(ok ? '图片链接已复制' : '复制失败', ok ? 'ok' : 'err', 2200)
+        },
+      })
       items.push({
         label: '上传此图片到图床',
         icon: '☁️',
