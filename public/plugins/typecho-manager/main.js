@@ -312,6 +312,9 @@ const sessionState = {
   selectedIds: new Set()
 }
 
+// 上传结果缓存：避免同一 URL 重复上传浪费流量
+const tmUploadCache = new Map()
+
 // 管理窗口 DOM 引用
 let overlayEl = null
 let dialogEl = null
@@ -333,6 +336,10 @@ let rollbackOverlayEl = null
 let rowContextMenuEl = null
 let headerMenuEl = null        // 移动端头部菜单元素
 let cardActionSheetEl = null   // 移动端卡片操作表元素
+let migrateOverlayEl = null    // 迁移状态窗口
+let migrateLogEl = null
+let migrateProgressEl = null
+let migrateStyleReady = false
 
 // 移动端过滤器折叠状态
 let filtersCollapsed = true // 默认折叠
@@ -363,6 +370,11 @@ function ensureStyle() {
     '.tm-typecho-btn.primary:hover{background:#1d4ed8;border-color:#1d4ed8;}',
     '.tm-typecho-btn:active{opacity:0.7;transform:scale(0.98);}',
     '.tm-typecho-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px;}',
+    '.tm-typecho-migrate-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:' + (TM_Z_INDEX.OVERLAY + 1) + ';}',
+    '.tm-typecho-migrate-dialog{width:520px;max-width:90vw;background:var(--bg);color:var(--fg);border-radius:10px;border:1px solid var(--border);box-shadow:0 14px 36px rgba(0,0,0,.35);padding:16px;display:flex;flex-direction:column;gap:10px;font-size:13px;}',
+    '.tm-typecho-migrate-title{font-weight:600;font-size:14px;}',
+    '.tm-typecho-migrate-log{min-height:140px;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:rgba(0,0,0,.02);font-family:monospace;font-size:12px;white-space:pre-wrap;}',
+    '.tm-typecho-migrate-progress{font-size:12px;color:var(--muted);}',
     '.tm-card-btn-primary{background:linear-gradient(135deg, #2563eb, #1d4ed8) !important;border-color:transparent !important;color:#fff !important;box-shadow:0 2px 6px rgba(37,99,235,.3);}',
     '.tm-card-btn-primary:active{box-shadow:0 1px 3px rgba(37,99,235,.3);}',
     '.tm-card-btn-secondary{background:rgba(127,127,127,.08) !important;border-color:var(--border) !important;color:var(--fg) !important;}',
@@ -869,6 +881,11 @@ function buildManagerDialog() {
   btnBatchDownload.textContent = tmText('批量下载选中', 'Download selected')
   btnBatchDownload.addEventListener('click', () => { void batchDownloadSelected(globalContextRef) })
 
+  const btnMigrateImages = document.createElement('button')
+  btnMigrateImages.className = 'tm-typecho-btn'
+  btnMigrateImages.textContent = tmText('迁移图床', 'Migrate images')
+  btnMigrateImages.addEventListener('click', () => { void batchMigrateImages(globalContextRef) })
+
   prevPageBtn = document.createElement('button')
   prevPageBtn.className = 'tm-typecho-btn tm-typecho-btn-page'
   prevPageBtn.textContent = tmText('上一页', 'Prev page')
@@ -898,6 +915,7 @@ function buildManagerDialog() {
   })
 
   footerRight.appendChild(pageInfoEl)
+  footerRight.appendChild(btnMigrateImages)
   footerRight.appendChild(btnBatchDownload)
   footerRight.appendChild(prevPageBtn)
   footerRight.appendChild(nextPageBtn)
@@ -1682,6 +1700,619 @@ async function batchDownloadSelected(context) {
       await downloadSinglePost(context, p)
     } catch {}
   }
+}
+
+// ---- 图床迁移：行内/引用式 Markdown 图片 + cover/thumbnail/thumb ----
+
+function tmEscapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function tmNormalizeImgRefId(id) {
+  return String(id || '').trim().toLowerCase()
+}
+
+function tmIsHttpUrl(u) {
+  const s = String(u || '').trim().toLowerCase()
+  return s.startsWith('http://') || s.startsWith('https://') || s.startsWith('//')
+}
+
+function tmResolveUrl(raw, baseUrl) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  if (s.startsWith('data:') || s.startsWith('file:') || s.startsWith('about:')) return ''
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('//')) return 'https:' + s
+  if (!baseUrl) return s
+  try {
+    const u = new URL(s, baseUrl)
+    return u.toString()
+  } catch {
+    return s
+  }
+}
+
+function tmPickFileNameFromUrl(u, fallbackPrefix) {
+  try {
+    const urlObj = new URL(u)
+    const parts = urlObj.pathname.split('/')
+    const last = parts.pop() || ''
+    const safe = last.replace(/[\\/:*?"<>|]/g, '').replace(/^\s+|\s+$/g, '')
+    if (safe) return safe
+  } catch {}
+  return `${fallbackPrefix || 'image'}-${Date.now()}.png`
+}
+
+function tmGuessExtFromTypeOrName(contentType, name) {
+  const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/)
+  if (m) return m[1]
+  const t = String(contentType || '').toLowerCase()
+  if (/jpeg/.test(t)) return 'jpg'
+  if (/png/.test(t)) return 'png'
+  if (/gif/.test(t)) return 'gif'
+  if (/webp/.test(t)) return 'webp'
+  if (/bmp/.test(t)) return 'bmp'
+  if (/avif/.test(t)) return 'avif'
+  if (/svg/.test(t)) return 'svg'
+  return 'png'
+}
+
+function tmBaseNameNoExt(name) {
+  const n = String(name || '').split(/[\\/]+/).pop() || String(name || '')
+  return n.replace(/\.[^.]+$/, '')
+}
+
+function tmMd5Hex(input) {
+  const x = input instanceof Uint8Array ? input : new Uint8Array(input || new ArrayBuffer(0))
+  const len = x.length
+  const words = new Uint32Array(((len + 8 >>> 6) + 1) << 4)
+  for (let i = 0; i < len; i++) words[i >> 2] |= x[i] << ((i % 4) << 3)
+  const bitLen = len * 8
+  words[bitLen >> 5] |= 0x80 << (bitLen % 32)
+  words[((bitLen + 64 >>> 9) << 4) + 14] = bitLen
+  let a = 1732584193; let b = -271733879; let c = -1732584194; let d = 271733878
+  const ff = (aa, bb, cc, dd, x0, s, t) => (((aa + ((bb & cc) | (~bb & dd)) + x0 + t) << s | (aa + ((bb & cc) | (~bb & dd)) + x0 + t) >>> (32 - s)) + bb) | 0
+  const gg = (aa, bb, cc, dd, x0, s, t) => (((aa + ((bb & dd) | (cc & ~dd)) + x0 + t) << s | (aa + ((bb & dd) | (cc & ~dd)) + x0 + t) >>> (32 - s)) + bb) | 0
+  const hh = (aa, bb, cc, dd, x0, s, t) => (((aa + (bb ^ cc ^ dd) + x0 + t) << s | (aa + (bb ^ cc ^ dd) + x0 + t) >>> (32 - s)) + bb) | 0
+  const ii = (aa, bb, cc, dd, x0, s, t) => (((aa + (cc ^ (bb | ~dd)) + x0 + t) << s | (aa + (cc ^ (bb | ~dd)) + x0 + t) >>> (32 - s)) + bb) | 0
+  for (let i = 0; i < words.length; i += 16) {
+    const oa = a; const ob = b; const oc = c; const od = d
+    a = ff(a, b, c, d, words[i + 0], 7, -680876936)
+    d = ff(d, a, b, c, words[i + 1], 12, -389564586)
+    c = ff(c, d, a, b, words[i + 2], 17, 606105819)
+    b = ff(b, c, d, a, words[i + 3], 22, -1044525330)
+    a = ff(a, b, c, d, words[i + 4], 7, -176418897)
+    d = ff(d, a, b, c, words[i + 5], 12, 1200080426)
+    c = ff(c, d, a, b, words[i + 6], 17, -1473231341)
+    b = ff(b, c, d, a, words[i + 7], 22, -45705983)
+    a = ff(a, b, c, d, words[i + 8], 7, 1770035416)
+    d = ff(d, a, b, c, words[i + 9], 12, -1958414417)
+    c = ff(c, d, a, b, words[i + 10], 17, -42063)
+    b = ff(b, c, d, a, words[i + 11], 22, -1990404162)
+    a = ff(a, b, c, d, words[i + 12], 7, 1804603682)
+    d = ff(d, a, b, c, words[i + 13], 12, -40341101)
+    c = ff(c, d, a, b, words[i + 14], 17, -1502002290)
+    b = ff(b, c, d, a, words[i + 15], 22, 1236535329)
+    a = gg(a, b, c, d, words[i + 1], 5, -165796510)
+    d = gg(d, a, b, c, words[i + 6], 9, -1069501632)
+    c = gg(c, d, a, b, words[i + 11], 14, 643717713)
+    b = gg(b, c, d, a, words[i + 0], 20, -373897302)
+    a = gg(a, b, c, d, words[i + 5], 5, -701558691)
+    d = gg(d, a, b, c, words[i + 10], 9, 38016083)
+    c = gg(c, d, a, b, words[i + 15], 14, -660478335)
+    b = gg(b, c, d, a, words[i + 4], 20, -405537848)
+    a = gg(a, b, c, d, words[i + 9], 5, 568446438)
+    d = gg(d, a, b, c, words[i + 14], 9, -1019803690)
+    c = gg(c, d, a, b, words[i + 3], 14, -187363961)
+    b = gg(b, c, d, a, words[i + 8], 20, 1163531501)
+    a = gg(a, b, c, d, words[i + 13], 5, -1444681467)
+    d = gg(d, a, b, c, words[i + 2], 9, -51403784)
+    c = gg(c, d, a, b, words[i + 7], 14, 1735328473)
+    b = gg(b, c, d, a, words[i + 12], 20, -1926607734)
+    a = hh(a, b, c, d, words[i + 5], 4, -378558)
+    d = hh(d, a, b, c, words[i + 8], 11, -2022574463)
+    c = hh(c, d, a, b, words[i + 11], 16, 1839030562)
+    b = hh(b, c, d, a, words[i + 14], 23, -35309556)
+    a = hh(a, b, c, d, words[i + 1], 4, -1530992060)
+    d = hh(d, a, b, c, words[i + 4], 11, 1272893353)
+    c = hh(c, d, a, b, words[i + 7], 16, -155497632)
+    b = hh(b, c, d, a, words[i + 10], 23, -1094730640)
+    a = hh(a, b, c, d, words[i + 13], 4, 681279174)
+    d = hh(d, a, b, c, words[i + 0], 11, -358537222)
+    c = hh(c, d, a, b, words[i + 3], 16, -722521979)
+    b = hh(b, c, d, a, words[i + 6], 23, 76029189)
+    a = hh(a, b, c, d, words[i + 9], 4, -640364487)
+    d = hh(d, a, b, c, words[i + 12], 11, -421815835)
+    c = hh(c, d, a, b, words[i + 15], 16, 530742520)
+    b = hh(b, c, d, a, words[i + 2], 23, -995338651)
+    a = ii(a, b, c, d, words[i + 0], 6, -198630844)
+    d = ii(d, a, b, c, words[i + 7], 10, 1126891415)
+    c = ii(c, d, a, b, words[i + 14], 15, -1416354905)
+    b = ii(b, c, d, a, words[i + 5], 21, -57434055)
+    a = ii(a, b, c, d, words[i + 12], 6, 1700485571)
+    d = ii(d, a, b, c, words[i + 3], 10, -1894986606)
+    c = ii(c, d, a, b, words[i + 10], 15, -1051523)
+    b = ii(b, c, d, a, words[i + 1], 21, -2054922799)
+    a = ii(a, b, c, d, words[i + 8], 6, 1873313359)
+    d = ii(d, a, b, c, words[i + 15], 10, -30611744)
+    c = ii(c, d, a, b, words[i + 6], 15, -1560198380)
+    b = ii(b, c, d, a, words[i + 13], 21, 1309151649)
+    a = (a + oa) | 0
+    b = (b + ob) | 0
+    c = (c + oc) | 0
+    d = (d + od) | 0
+  }
+  const r = new DataView(new ArrayBuffer(16))
+  r.setUint32(0, a, true)
+  r.setUint32(4, b, true)
+  r.setUint32(8, c, true)
+  r.setUint32(12, d, true)
+  const out = []
+  const b8 = new Uint8Array(r.buffer)
+  for (let i = 0; i < b8.length; i++) out.push(b8[i].toString(16).padStart(2, '0'))
+  return out.join('')
+}
+
+async function tmMakeKeyFromTemplate(template, fileName, contentType, bytesInput) {
+  const u8 = bytesInput instanceof Uint8Array ? bytesInput : new Uint8Array(bytesInput || new ArrayBuffer(0))
+  const now = new Date()
+  const year = String(now.getFullYear())
+  const month = pad2(now.getMonth() + 1)
+  const day = pad2(now.getDate())
+  const hour = pad2(now.getHours())
+  const minute = pad2(now.getMinutes())
+  const second = pad2(now.getSeconds())
+  const extName = tmGuessExtFromTypeOrName(contentType, fileName)
+  const fileBase = tmBaseNameNoExt(fileName)
+  let key = template || '{year}/{month}{fileName}{md5}.{extName}'
+  let md5 = ''
+  try {
+    const buf = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
+    md5 = tmMd5Hex(buf)
+  } catch { md5 = '' }
+  key = key
+    .replace(/\{year\}/g, year)
+    .replace(/\{month\}/g, month)
+    .replace(/\{day\}/g, day)
+    .replace(/\{hour\}/g, hour)
+    .replace(/\{minute\}/g, minute)
+    .replace(/\{second\}/g, second)
+    .replace(/\{fileName\}/g, fileBase)
+    .replace(/\{md5\}/g, md5)
+    .replace(/\{extName\}/g, extName)
+  return key.replace(/^\/+/, '')
+}
+
+function tmParseMarkdownImages(body) {
+  const lines = String(body || '').split(/\r?\n/)
+  const inlineMatches = []
+  const refDefs = new Map()
+  const refUses = new Set()
+  let inFence = false
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    let m
+    const inlineRe = /!\[[^\]]*]\((\s*<?)([^)\s]+)(>?)([^)]*)\)/g
+    while ((m = inlineRe.exec(line))) {
+      const url = String(m[2] || '').trim()
+      if (url) inlineMatches.push({ url, lineIndex: i })
+    }
+
+    const refUseRe = /!\[[^\]]*]\[([^\]]+)\]/g
+    while ((m = refUseRe.exec(line))) {
+      const id = tmNormalizeImgRefId(m[1])
+      if (id) refUses.add(id)
+    }
+
+    const defMatch = line.match(/^\s*\[([^\]]+)\]:\s*(\S+)(.*)$/)
+    if (defMatch) {
+      const idRaw = defMatch[1]
+      const id = tmNormalizeImgRefId(idRaw)
+      if (!id) continue
+      const url = String(defMatch[2] || '').trim()
+      const tail = defMatch[3] || ''
+      // 同名定义取最后一个，符合 Markdown 覆盖语义
+      refDefs.set(id, { idRaw, url, tail, lineIndex: i })
+    }
+  }
+  return { lines, inlineMatches, refDefs, refUses }
+}
+
+function tmApplyImageReplacements(parsed, urlMap) {
+  const lines = parsed.lines.slice()
+  if (!urlMap || !urlMap.size) return lines.join('\n')
+
+  const inlineRe = /!\[([^\]]*)]\((\s*<?)([^)\s]+)(>?)([^)]*)\)/g
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i]
+    line = line.replace(inlineRe, (full, alt, p1, url, p3, tail) => {
+      const key = String(url || '').trim()
+      const nu = urlMap.get(key)
+      if (!nu) return full
+      return `![${alt}](${p1 || ''}${nu}${p3 || ''}${tail || ''})`
+    })
+    lines[i] = line
+  }
+
+  for (const [id, def] of parsed.refDefs.entries()) {
+    if (parsed.refUses.size && !parsed.refUses.has(id)) continue
+    const nu = urlMap.get(String(def.url || '').trim())
+    if (!nu) continue
+    const safeId = tmEscapeRegExp(def.idRaw || '')
+    const reg = new RegExp(`^(\\s*\\[${safeId}\\]:\\s*)(\\S+)(.*)$`)
+    lines[def.lineIndex] = (lines[def.lineIndex] || '').replace(reg, (_, pfx, _oldUrl, tail) => `${pfx}${nu}${tail || ''}`)
+  }
+
+  return lines.join('\n')
+}
+
+function tmOpenMigrateOverlay() {
+  try { tmCloseMigrateOverlay() } catch {}
+  if (!migrateStyleReady) {
+    const id = 'tm-typecho-migrate-style'
+    if (!document.getElementById(id)) {
+      const style = document.createElement('style')
+      style.id = id
+      style.textContent = [
+        '.tm-typecho-migrate-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:' + (TM_Z_INDEX.OVERLAY + 1) + ';}',
+        '.tm-typecho-migrate-dialog{width:520px;max-width:90vw;background:var(--bg);color:var(--fg);border-radius:10px;border:1px solid var(--border);box-shadow:0 14px 36px rgba(0,0,0,.35);padding:16px;display:flex;flex-direction:column;gap:10px;font-size:13px;}',
+        '.tm-typecho-migrate-title{font-weight:600;font-size:14px;}',
+        '.tm-typecho-migrate-log{min-height:140px;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:rgba(0,0,0,.02);font-family:monospace;font-size:12px;white-space:pre-wrap;}',
+        '.tm-typecho-migrate-progress{font-size:12px;color:var(--muted);}',
+      ].join('')
+      document.head.appendChild(style)
+    }
+    migrateStyleReady = true
+  }
+  const overlay = document.createElement('div')
+  overlay.className = 'tm-typecho-migrate-overlay'
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) tmCloseMigrateOverlay() })
+  const dlg = document.createElement('div')
+  dlg.className = 'tm-typecho-migrate-dialog'
+  const title = document.createElement('div')
+  title.className = 'tm-typecho-migrate-title'
+  title.textContent = '正在迁移图片到当前图床'
+  const log = document.createElement('div')
+  log.className = 'tm-typecho-migrate-log'
+  const progress = document.createElement('div')
+  progress.className = 'tm-typecho-migrate-progress'
+  progress.textContent = ''
+  dlg.appendChild(title)
+  dlg.appendChild(log)
+  dlg.appendChild(progress)
+  overlay.appendChild(dlg)
+  document.body.appendChild(overlay)
+  migrateOverlayEl = overlay
+  migrateLogEl = log
+  migrateProgressEl = progress
+}
+
+function tmAppendMigrateLog(msg, level) {
+  if (!migrateLogEl) return
+  const line = document.createElement('div')
+  line.textContent = msg
+  if (level === 'err') line.style.color = '#dc2626'
+  else if (level === 'ok') line.style.color = '#16a34a'
+  migrateLogEl.appendChild(line)
+  try { migrateLogEl.scrollTop = migrateLogEl.scrollHeight } catch {}
+}
+
+function tmUpdateMigrateProgress(text) {
+  if (migrateProgressEl) migrateProgressEl.textContent = text || ''
+}
+
+function tmCloseMigrateOverlay() {
+  try {
+    migrateOverlayEl?.remove()
+  } catch {}
+  migrateOverlayEl = null
+  migrateLogEl = null
+  migrateProgressEl = null
+}
+
+async function tmDownloadImage(context, url) {
+  if (!context || !context.http || !context.http.fetch) throw new Error('HTTP 客户端不可用')
+  const http = context.http
+  const tryFetch = async (target) => {
+    const resp = await http.fetch(target, { method: 'GET', responseType: http.ResponseType?.Binary })
+    const ok = resp?.ok === true || (typeof resp?.status === 'number' && resp.status >= 200 && resp.status < 300)
+    if (!ok) return { ok: false, status: resp?.status || 0 }
+    const buf = (typeof resp.arrayBuffer === 'function') ? await resp.arrayBuffer() : resp.data
+    if (buf instanceof ArrayBuffer) return { ok: true, data: new Uint8Array(buf) }
+    if (buf instanceof Uint8Array) return { ok: true, data: buf }
+    if (Array.isArray(buf)) return { ok: true, data: new Uint8Array(buf) }
+    return { ok: false, status: resp?.status || 0 }
+  }
+  const first = await tryFetch(url)
+  if (first.ok) return first.data
+  // 兜底：若 URL 含转义的 / 或空格，尝试解码一次再请求
+  if (/%2[fF]/.test(url) || /%20/.test(url)) {
+    try {
+      const decoded = decodeURIComponent(url)
+      if (decoded && decoded !== url) {
+        const second = await tryFetch(decoded)
+        if (second.ok) return second.data
+      }
+    } catch {}
+  }
+  throw new Error(`HTTP ${first.status || 0}`)
+}
+
+async function tmGetActiveUploaderConfig() {
+  try {
+    const fn = typeof window !== 'undefined' ? window.flymdGetUploaderConfig : null
+    if (fn && typeof fn === 'function') return await fn()
+  } catch {}
+  return null
+}
+
+async function tmUploadViaImgLa(context, cfg, bytes, fileName, contentType) {
+  const payload = {
+    baseUrl: cfg.baseUrl || cfg.imglaBaseUrl,
+    token: cfg.token || cfg.imglaToken,
+    strategyId: cfg.strategyId || cfg.imglaStrategyId || 1,
+    albumId: cfg.albumId || cfg.imglaAlbumId || null,
+    bytes: Array.from(bytes),
+    fileName: fileName,
+    contentType: contentType || 'application/octet-stream'
+  }
+  const res = await context.invoke('flymd_imgla_upload', { req: payload })
+  if (!res || !res.public_url) throw new Error('ImgLa 上传失败：返回数据缺少 public_url')
+  return res.public_url
+}
+
+async function tmUploadViaS3(context, cfg, bytes, fileName, contentType) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || new ArrayBuffer(0))
+  const key = await tmMakeKeyFromTemplate(cfg.keyTemplate || '{year}/{month}{fileName}{md5}.{extName}', fileName, contentType, u8)
+  const req = {
+    accessKeyId: cfg.accessKeyId,
+    secretAccessKey: cfg.secretAccessKey,
+    bucket: cfg.bucket,
+    region: cfg.region || 'us-east-1',
+    endpoint: cfg.endpoint || undefined,
+    forcePathStyle: cfg.forcePathStyle !== false,
+    customDomain: cfg.customDomain || undefined,
+    aclPublicRead: cfg.aclPublicRead !== false,
+    key,
+    contentType: contentType || 'application/octet-stream',
+    bytes: Array.from(u8)
+  }
+  const res = await context.invoke('upload_to_s3', { req })
+  if (!res || !res.public_url) throw new Error('S3 上传失败：返回数据缺少 public_url')
+  return res.public_url
+}
+
+async function tmUploadToActiveHost(context, cfg, url, bytes, contentType) {
+  if (!cfg || !cfg.enabled) throw new Error('未启用图床')
+  const fileName = tmPickFileNameFromUrl(url, 'image')
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  let ct = contentType || ''
+  if (!ct) {
+    const ext = tmGuessExtFromTypeOrName('', fileName)
+    if (ext === 'jpg' || ext === 'jpeg') ct = 'image/jpeg'
+    else if (ext === 'png') ct = 'image/png'
+    else if (ext === 'gif') ct = 'image/gif'
+    else if (ext === 'webp') ct = 'image/webp'
+    else if (ext === 'bmp') ct = 'image/bmp'
+    else if (ext === 'svg') ct = 'image/svg+xml'
+  }
+  const finalCt = ct || 'application/octet-stream'
+  if (cfg.provider === 'imgla') {
+    return await tmUploadViaImgLa(context, cfg, u8, fileName, finalCt)
+  }
+  return await tmUploadViaS3(context, cfg, u8, fileName, finalCt)
+}
+
+async function migrateImagesForPost(context, post, uploaderCfg) {
+  const cid = post.postid || post.postId || post.cid || post.id
+  if (!cid && cid !== 0) throw new Error('文章缺少 ID')
+  const s = sessionState.settings
+  if (!s.endpoint || !s.username || !s.password) throw new Error('XML-RPC 未配置')
+
+  const detail = await xmlRpcCall(context, s, 'metaWeblog.getPost', [
+    String(cid),
+    s.username,
+    s.password
+  ])
+
+  const body = String(detail?.description || detail?.content || '')
+  const baseUrl = s.baseUrl || ''
+  const parsed = tmParseMarkdownImages(body)
+  const urlMap = new Map()
+  const downloadKeys = new Set()
+
+  for (const it of parsed.inlineMatches) {
+    const abs = tmResolveUrl(it.url, baseUrl)
+    if (!tmIsHttpUrl(abs)) continue
+    urlMap.set(it.url.trim(), abs)
+    downloadKeys.add(abs)
+  }
+  for (const [id, def] of parsed.refDefs.entries()) {
+    if (parsed.refUses.size && !parsed.refUses.has(id)) continue
+    const abs = tmResolveUrl(def.url, baseUrl)
+    if (!tmIsHttpUrl(abs)) continue
+    urlMap.set(def.url.trim(), abs)
+    downloadKeys.add(abs)
+  }
+
+  let coverUrlRaw = ''
+  const customFieldsRaw = Array.isArray(detail?.custom_fields) ? detail.custom_fields : (Array.isArray(detail?.customFields) ? detail.customFields : [])
+  const updatedCustomFields = []
+  for (const field of customFieldsRaw) {
+    if (!field || typeof field !== 'object') continue
+    const k = String(field.key || field.name || '').trim()
+    const v = String(field.value || '').trim()
+    if (!k) continue
+    if (k === 'thumbnail' || k === 'thumb') {
+      if (v) {
+        const abs = tmResolveUrl(v, baseUrl)
+        if (tmIsHttpUrl(abs)) {
+          urlMap.set(v, abs)
+          downloadKeys.add(abs)
+          coverUrlRaw = coverUrlRaw || v
+        }
+      }
+    }
+    updatedCustomFields.push({ key: k, value: v })
+  }
+  const topThumb = String(detail?.thumb || detail?.thumbnail || detail?.cover || '').trim()
+  if (topThumb) {
+    const abs = tmResolveUrl(topThumb, baseUrl)
+    if (tmIsHttpUrl(abs)) {
+      urlMap.set(topThumb, abs)
+      downloadKeys.add(abs)
+      if (!coverUrlRaw) coverUrlRaw = topThumb
+    }
+  }
+
+  if (!downloadKeys.size) return { changed: false }
+
+  const rawToNew = new Map()
+  for (const [raw, abs] of urlMap.entries()) {
+    const cached = tmUploadCache.get(abs)
+    if (cached) {
+      rawToNew.set(raw, cached)
+      continue
+    }
+    const bytes = await tmDownloadImage(context, abs)
+    const contentType = ''
+    const newUrl = await tmUploadToActiveHost(context, uploaderCfg, abs, bytes, contentType || 'application/octet-stream')
+    tmUploadCache.set(abs, newUrl)
+    rawToNew.set(raw, newUrl)
+  }
+
+  const newBody = tmApplyImageReplacements(parsed, rawToNew)
+
+  let newThumb = ''
+  if (coverUrlRaw) {
+    const nu = rawToNew.get(coverUrlRaw)
+    if (nu) newThumb = nu
+  }
+  const newCustomFields = []
+  for (const cf of updatedCustomFields) {
+    if (cf.key === 'thumbnail' || cf.key === 'thumb') {
+      const nu = rawToNew.get(cf.value)
+      newCustomFields.push({ key: cf.key, value: nu || cf.value })
+    } else {
+      newCustomFields.push(cf)
+    }
+  }
+
+  const title = String(detail?.title || '').trim() || `(未命名 #${cid})`
+  const cats = detail?.categories || detail?.category || post.categories || []
+  const tagsRaw = detail?.mt_keywords || detail?.tags || ''
+  const tags = tagsRaw
+    ? String(tagsRaw).split(',').map((x) => x.trim()).filter(Boolean)
+    : []
+  const status = String(detail?.post_status || detail?.postStatus || detail?.status || '').toLowerCase() || 'publish'
+  const slug = String(detail?.wp_slug || detail?.slug || cid || '').trim()
+  const excerptRaw = detail?.mt_excerpt || detail?.excerpt || ''
+  const excerpt = String(excerptRaw || '').trim()
+  const publishFlag = status !== 'draft'
+  let dateCreated = detail?.dateCreated || detail?.date_created || detail?.pubDate || detail?.date
+  try { dateCreated = dateCreated ? new Date(dateCreated) : new Date() } catch { dateCreated = new Date() }
+
+  const postStruct = {
+    title,
+    description: newBody,
+    mt_keywords: tags.join(','),
+    categories: Array.isArray(cats) ? cats : (cats ? [cats] : []),
+    post_type: 'post',
+    wp_slug: slug,
+    mt_allow_comments: detail?.mt_allow_comments ?? 1,
+    dateCreated,
+    post_status: status || 'publish'
+  }
+  if (excerpt) postStruct.mt_excerpt = excerpt
+  if (newCustomFields.length) postStruct.custom_fields = newCustomFields
+  if (newThumb) {
+    postStruct.thumb = newThumb
+    if (!postStruct.custom_fields) postStruct.custom_fields = []
+    let hasThumb = false
+    let hasThumbnail = false
+    for (const cf of postStruct.custom_fields) {
+      if (cf.key === 'thumb') hasThumb = true
+      if (cf.key === 'thumbnail') hasThumbnail = true
+    }
+    if (!hasThumb) postStruct.custom_fields.push({ key: 'thumb', value: newThumb })
+    if (!hasThumbnail) postStruct.custom_fields.push({ key: 'thumbnail', value: newThumb })
+  }
+
+  // 备份远端
+  try {
+    const backups = s.backups && typeof s.backups === 'object' ? s.backups : {}
+    const key = String(cid)
+    const list = Array.isArray(backups[key]) ? backups[key] : []
+    list.push({ ts: new Date().toISOString(), post: detail })
+    while (list.length > 5) list.shift()
+    backups[key] = list
+    s.backups = backups
+    sessionState.settings = await saveSettings(context, s)
+  } catch {}
+
+  await xmlRpcCall(context, s, 'metaWeblog.editPost', [
+    String(cid),
+    s.username,
+    s.password,
+    postStruct,
+    publishFlag
+  ])
+
+  const prevChoice = sessionState.conflictChoice
+  sessionState.conflictChoice = 'overwrite'
+  try {
+    await downloadSinglePost(context, post)
+  } finally {
+    sessionState.conflictChoice = prevChoice
+  }
+
+  return { changed: true, total: rawToNew.size }
+}
+
+async function batchMigrateImages(context) {
+  if (!context) return
+  const list = getSelectedPosts()
+  if (!list.length) {
+    try { context.ui.notice('请先勾选要迁移的文章', 'err', 2200) } catch {}
+    return
+  }
+  const uploaderCfg = await tmGetActiveUploaderConfig()
+  if (!uploaderCfg || !uploaderCfg.enabled) {
+    try { context.ui.notice('未启用图床：请在宿主先配置并开启图床', 'err', 2600) } catch {}
+    return
+  }
+  tmOpenMigrateOverlay()
+  tmAppendMigrateLog(`开始迁移 ${list.length} 篇文章的图片...`)
+  let ok = 0
+  const failed = []
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i]
+    const cid = p.postid || p.postId || p.cid || p.id
+    try {
+      tmUpdateMigrateProgress(`正在迁移：${i + 1}/${list.length}（ID=${cid}）`)
+      const res = await migrateImagesForPost(context, p, uploaderCfg)
+      if (res && res.changed) ok++
+      tmAppendMigrateLog(`ID=${cid} 迁移完成，替换 ${res && res.total ? res.total : 0} 条`, 'ok')
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e || '未知错误')
+      failed.push({ cid, msg })
+      tmAppendMigrateLog(`ID=${cid} 迁移失败：${msg}`, 'err')
+    }
+  }
+  tmUpdateMigrateProgress(`完成：成功 ${ok}/${list.length}，失败 ${failed.length}`)
+  if (failed.length) {
+    const errMsg = failed.map((x) => `ID=${x.cid}: ${x.msg}`).join('; ')
+    try { context.ui.notice(`迁移完成：成功 ${ok}/${list.length}，失败 ${failed.length}；失败详情：${errMsg}`, 'err', 4600) } catch {}
+  } else {
+    try { context.ui.notice(`迁移完成：成功 ${ok}/${list.length}`, 'ok', 2600) } catch {}
+  }
+  setTimeout(() => { tmCloseMigrateOverlay() }, failed.length ? 5000 : 2000)
 }
 
 async function openRollbackDialog(context, post) {
