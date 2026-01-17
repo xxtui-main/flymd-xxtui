@@ -93,7 +93,7 @@ function isLikelyTokenOrQuotaError(err) {
   if (msg.startsWith('网络请求失败') || lower.startsWith('network request failed')) return false
   if (msg.includes('解析响应 JSON 失败') || lower.includes('failed to parse json response')) return false
 
-  // 只在“确定未触发 Doc2X 解析”的情况下自动换密钥
+  // 只在“确定未触发上游解析”的情况下自动换密钥
   // - 401/403：无效/停用 token
   // - 402 且提示“剩余页数额度不足”：服务端在解析前拦截（remain<=0）
   if (status === 401 || status === 403) return true
