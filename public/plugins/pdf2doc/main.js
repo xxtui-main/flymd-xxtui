@@ -1875,7 +1875,7 @@ export async function activate(context) {
 
             if (context.ui.showNotification) {
               loadingId = context.ui.showNotification(
-                pdf2docText('正在解析当前 PDF 为 Markdown...', 'Parsing current PDF to Markdown...'),
+                pdf2docText('正在解析为MD，中间可能闪烁，完成前请勿关闭程序！', 'Parsing to Markdown. The sidebar may flicker; please do not close the app until it finishes.'),
                 {
                   type: 'info',
                   duration: 0
@@ -1883,7 +1883,7 @@ export async function activate(context) {
               )
             } else {
               context.ui.notice(
-                pdf2docText('正在解析当前 PDF 为 Markdown...', 'Parsing current PDF to Markdown...'),
+                pdf2docText('正在解析为MD，中间可能闪烁，完成前请勿关闭程序！', 'Parsing to Markdown. The sidebar may flicker; please do not close the app until it finishes.'),
                 'ok',
                 3000
               )
