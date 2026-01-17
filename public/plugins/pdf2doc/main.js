@@ -275,7 +275,19 @@ async function confirmQuotaRiskBeforeParse(context, cfg, pdfBytes, pdfPagesHint)
 
     let pdfPages = typeof pdfPagesHint === 'number' ? pdfPagesHint : 0
     if (!pdfPages) {
-      const n = await context.getPdfPageCount(pdfBytes)
+      // 注意：宿主实现可能会通过 IPC 传输 ArrayBuffer，导致原 buffer 被“转移/分离”变成 0 字节。
+      // 这里用副本去取页数，避免影响后续真正上传解析的 bytes。
+      let bytesForCount = pdfBytes
+      try {
+        if (pdfBytes instanceof ArrayBuffer) {
+          bytesForCount = pdfBytes.slice(0)
+        } else if (pdfBytes instanceof Uint8Array) {
+          bytesForCount = pdfBytes.slice(0)
+        }
+      } catch {
+        bytesForCount = pdfBytes
+      }
+      const n = await context.getPdfPageCount(bytesForCount)
       pdfPages = typeof n === 'number' ? n : parseInt(String(n || '0'), 10) || 0
     }
     if (!pdfPages) return true
