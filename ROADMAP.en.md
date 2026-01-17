@@ -2,6 +2,12 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v1.2.1
+- Added: Built-in “High-Accuracy PDF & Image Parsing (pdf2doc)” plugin — parse PDF/images into Markdown/Docx with translation (handwriting/layout/formulas/tables supported)
+- Improved: Reading mode KaTeX rendering now uses time-slicing/idle rendering to avoid UI freezes on formula-heavy documents
+- Improved: WYSIWYG KaTeX rendering now renders near-viewport math only, with small-formula caching for better performance on large documents
+- Fixed: In reading mode, when the Outline is detached to the right, the preview scrollbar could be covered and become invisible
+
 ## Update v1.2.0
 - Added: In PDF preview, `Ctrl+Shift+P` opens Command Palette (desktop native shortcut capture + forward)
 - Improved: Library sidebar items show full filename/path on hover (including extension), avoiding ellipsis ambiguity
