@@ -321,7 +321,7 @@ function showQuotaRiskDialog(context, pdfPages, remainPages, opt) {
       const tip = document.createElement('div')
       tip.style.cssText = 'margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid #f59e0b;background:rgba(245,158,11,.08);color:var(--fg,#333);font-size:12px;line-height:1.6;'
       tip.innerHTML = pdf2docText(
-        '当前 PDF 过大，需分割。分割文档会新建文件名文件夹，可通过“解析该文件夹内所有PDF”进行解析，解析完成后可通过“合并分割片段”进行合并。',
+        '当前 PDF 过大，需分割。分割文档会新建文件名文件夹，可通过“📁 同文件夹批量解析”进行解析，解析完成后可通过“🧩 分段解析结果合并”进行合并。',
         'This PDF is too large and must be split. A folder will be created; use “Parse all PDFs in this folder”, then use “Merge split parts”.'
       )
       body.appendChild(tip)
@@ -438,7 +438,7 @@ function showExtractRangeDialog(fileName, pagesHint) {
     const header = document.createElement('div')
     header.style.cssText =
       'padding:12px 16px;border-bottom:1px solid var(--border,#e5e7eb);font-weight:600;font-size:14px;background:rgba(127,127,127,.06);'
-    header.textContent = pdf2docText('截取PDF页范围', 'Extract PDF page range')
+    header.textContent = pdf2docText('分离指定页面范围', 'Extract PDF page range')
 
     const body = document.createElement('div')
     body.style.cssText = 'padding:12px 16px;font-size:13px;line-height:1.6;'
@@ -3112,7 +3112,8 @@ export async function activate(context) {
     // 定义菜单项数组（用于下拉菜单和 Ribbon 按钮复用）
     const pdf2docMenuChildren = [
         {
-          label: pdf2docText('余额充值/查询', 'Balance / Top-up'),
+          label: pdf2docText('💳 余额/充值', '💳 Balance / Top-up'),
+          order: 80,
           onClick: async () => {
             try {
               await openSettings(context)
@@ -3120,7 +3121,8 @@ export async function activate(context) {
           }
         },
         {
-          label: pdf2docText('选择图片 (To MD)', 'Choose image (To MD)'),
+          label: pdf2docText('🖼️ IMG→MD', '🖼️ IMG→MD'),
+          order: 40,
           onClick: async () => {
             let loadingId = null
             try {
@@ -3195,7 +3197,8 @@ export async function activate(context) {
           }
         },
         {
-          label: pdf2docText('截取PDF页范围', 'Extract PDF page range'),
+          label: pdf2docText('✂️ 分离指定页面范围', '✂️ Extract page range'),
+          order: 50,
           title: pdf2docText(
             '截取当前 PDF 的指定页范围并保存为新 PDF（不计费）',
             'Extract a page range from the current PDF and save as a new PDF (free).'
@@ -3227,7 +3230,7 @@ export async function activate(context) {
                 return
               }
 
-              // 刻意保持与 “To MD” 一致：只处理“当前打开的 PDF”。
+              // 刻意保持与“📝 PDF→MD”一致：只处理“当前打开的 PDF”。
               const path = context.getCurrentFilePath()
               // 这里必须匹配“.pdf”扩展名；别用 /\\.pdf/，那是匹配“\\pdf”这种鬼东西。
               if (!path || !/\.pdf$/i.test(String(path))) {
@@ -3324,7 +3327,8 @@ export async function activate(context) {
           }
         },
         {
-        label: pdf2docText('To MD', 'To MD'),
+        label: pdf2docText('📝 PDF→MD', '📝 PDF→MD'),
+        order: 10,
         onClick: async () => {
           let loadingId = null
           let parseOverlay = null
@@ -3505,7 +3509,8 @@ export async function activate(context) {
         }
       },
       {
-        label: pdf2docText('解析该文件夹内所有PDF', 'Parse all PDFs in this folder'),
+        label: pdf2docText('📁 同文件夹批量解析', '📁 Batch parse (folder)'),
+        order: 60,
         onClick: async () => {
           let loadingId = null
           let parseOverlay = null
@@ -3717,7 +3722,10 @@ export async function activate(context) {
               parseOverlay = null
             }
             context.ui.notice(
-              pdf2docText('批量解析完成，可通过菜单“合并分割片段”生成合并结果', 'Batch parsing finished. Use “Merge split parts”.'),
+              pdf2docText(
+                '批量解析完成，可通过菜单“🧩 分段解析结果合并”生成合并结果',
+                'Batch parsing finished. Use “🧩 Merge segmented results”.'
+              ),
               'ok',
               4000
             )
@@ -3757,7 +3765,8 @@ export async function activate(context) {
         }
       },
       {
-        label: pdf2docText('合并分割片段', 'Merge split parts'),
+        label: pdf2docText('🧩 分段解析结果合并', '🧩 Merge segmented results'),
+        order: 70,
         onClick: async () => {
           let loadingId = null
           try {
@@ -3841,7 +3850,7 @@ export async function activate(context) {
 
             if (context.ui.showNotification) {
               loadingId = context.ui.showNotification(
-                pdf2docText('正在合并分割片段...', 'Merging split parts...'),
+                pdf2docText('正在合并分段解析结果...', 'Merging segmented results...'),
                 { type: 'info', duration: 0 }
               )
             }
@@ -3886,7 +3895,8 @@ export async function activate(context) {
         }
       },
       {
-        label: pdf2docText('To Docx', 'To Docx'),
+        label: pdf2docText('📄 PDF→DOCX', '📄 PDF→DOCX'),
+        order: 20,
         onClick: async () => {
           let loadingId = null
           let parseOverlay = null
@@ -4053,7 +4063,8 @@ export async function activate(context) {
         }
       },
         {
-        label: pdf2docText('翻译 PDF', 'Translate PDF'),
+        label: pdf2docText('🌐 PDF→翻译', '🌐 PDF→Translate'),
+        order: 30,
         onClick: async () => {
           let loadingId = null
           const loadingRef = { id: null }
@@ -4548,6 +4559,17 @@ export async function activate(context) {
         }
       }
     ]
+
+    // 菜单顺序：按 order 升序（无 order 的放最后）
+    try {
+      pdf2docMenuChildren.sort((a, b) => {
+        const ao = a && typeof a === 'object' ? a.order : null
+        const bo = b && typeof b === 'object' ? b.order : null
+        const av = typeof ao === 'number' ? ao : Number.POSITIVE_INFINITY
+        const bv = typeof bo === 'number' ? bo : Number.POSITIVE_INFINITY
+        return av - bv
+      })
+    } catch {}
 
     // 注册菜单项
     context.addMenuItem({
