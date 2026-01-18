@@ -1,19 +1,13 @@
-<h1 align="center">Fly Markdown (FlyMD)</h1>
-
-<p align="center">
-  <strong>Just 7MB - A Free & Powerful Markdown Editor / PDF Reader</strong>
-</p>
-
-<p align="center">
-  <a href="README.md">简体中文</a> | <a href="README.en.md">English</a>
-</p>
-
 <p align="center">
   <a href="https://github.com/flyhunterl/flymd/releases/latest"><img src="https://img.shields.io/github/v/release/flyhunterl/flymd" alt="GitHub Release" /></a>
   <a href="https://github.com/flyhunterl/flymd/releases/latest"><img src="https://img.shields.io/github/release-date/flyhunterl/flymd" alt="Release Date" /></a>
   <a href="https://github.com/flyhunterl/flymd/actions/workflows/build.yml"><img src="https://github.com/flyhunterl/flymd/actions/workflows/build.yml/badge.svg" alt="Build Status" /></a>
   <a href="https://github.com/flyhunterl/flymd/stargazers"><img src="https://img.shields.io/github/stars/flyhunterl/flymd" alt="GitHub Stars" /></a>
   <img src="https://img.shields.io/github/downloads/flyhunterl/flymd/total" alt="GitHub Downloads" />
+</p>
+
+<p align="center">
+  <a href="README.md">简体中文</a> | <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
@@ -25,31 +19,57 @@
 
 ---
 
-## Feature Demonstrations
-
-### Date-Based Todo Summary
-
-**Generate todos from meeting notes / travel plans / personal notes, push reminders by time and assignee (WeChat/SMS/DingTalk/Feishu, etc.), and summarize todos by day/week/month with built-in templates for diaries and meeting minutes.**
-
-<img width="1065" height="726" alt="Date-based todo summary and reminders" src="https://github.com/user-attachments/assets/dd82577d-eebf-415b-bcd3-96dc3e23ac7e" />
-
-### High-Precision PDF Parsing + Translation
-
-**Example of the High-Precision Parsing plugin; a MinerU-based parsing plugin is also available depending on your needs.**
-
-<img src="https://github.com/user-attachments/assets/5e711375-4c58-4432-9acd-27de92cef81a" alt="PDF High-Precision Parsing and Translation" width="800">
-
-### AI Dialogue Integration + Desktop Sticky Notes
-
-**Ten Color Options · Customizable Transparency · Interactive Visual Controls**
-
-<img src="https://github.com/user-attachments/assets/016617fa-1971-4711-8c5e-1398a1b0aa52" alt="AI Dialogue Integration and Sticky Notes" width="800">
-
----
-
 ## Introduction
 
 FlyMD is a lightweight, high-performance local Markdown editor supporting high-precision PDF parsing, AI-assisted writing, and intelligent todo reminders. Local-first, secure data control, ready to use out of the box.
+
+<img width="1920" height="1080" alt="hero" src="https://github.com/user-attachments/assets/acf758c1-6c8e-4b4f-a313-d4ce2190394b" />
+
+## Table of Contents
+
+- [Android Version (Beta)](#android-version-beta)
+- [New Feature: AI Novel Engine (Plugin)](#new-feature-ai-novel-engine-plugin)
+- [Core Features](#core-features)
+- [Feature Demonstrations](#feature-demonstrations)
+- [Getting Started](#getting-started)
+- [Extension Development](#extension-development)
+- [Performance & Technology](#performance--technology)
+- [Community & Support](#community--support)
+- [Other Information](#other-information)
+
+---
+
+## Android Version (Beta)
+
+**Adapted Plugins**
+- WebDAV Sync
+- RAG Knowledge Base
+- Todo Push
+- Todo Diary (Diary/Todo)
+- Typecho Management
+- AI Assistant
+
+### Voice-to-Text / Voice Input
+
+<img src="https://github.com/user-attachments/assets/815d5bc2-d367-451a-bfa5-f54f5cc91c5a" alt="Voice-to-text demo" width="400">
+
+---
+
+## New Feature: AI Novel Engine (Plugin)
+
+✅ Auto-generate at least 3 plot directions
+
+✅ Smart foreshadowing callback + automatic audit
+
+✅ Automatic progress updates, multi-level concurrent retrieval
+
+✅ Character state management, chapter word count, draft review, clear structure
+
+✅ Support for multi-model collaboration & compatible with Git version control plugin
+
+✅ Unique backend Agent tool for segmented management, rigorous logic
+
+<img width="970" height="710" alt="AI Novel Engine" src="https://github.com/user-attachments/assets/005545ee-6377-4f5a-9ae8-e21f7f3330d9" />
 
 ---
 
@@ -81,7 +101,7 @@ FlyMD is a lightweight, high-performance local Markdown editor supporting high-p
 ### Platform & Format
 
 - **Cross-Platform** - Windows / Linux / macOS
-- **Multi-Format Export** - PDF / DOCX
+- **Multi-Format Export** - PDF / DOCX (PDF export optimized for pagination line breaks; "Print" can be used as a fallback in extreme cases)
 - **Portable Mode** - All config in app root directory, ideal for USB drives
 
 > [!WARNING]
@@ -95,9 +115,31 @@ FlyMD is a lightweight, high-performance local Markdown editor supporting high-p
 ### Data Security
 
 - **Local-First** - Zero background network, secure and controllable data
-- **Image Hosting** - S3/R2 one-click upload, auto-insert image links, supports right-click upload for specific images
+- **Image Hosting** - S3/R2/Lsky Cloud/Third-party hosting (via plugins) one-click upload, auto-insert image links, supports right-click upload for specific images
 - **WebDAV Sync** - Multi-device, multi-library sync with end-to-end encryption and HTTP host whitelist
 - **Extension System** - Custom extensions, unlimited possibilities
+
+---
+
+## Feature Demonstrations
+
+### Date-Based Todo Summary
+
+**Generate todos from meeting notes / travel plans / personal notes, push reminders by time and assignee (WeChat/SMS/DingTalk/Feishu, etc.), and summarize todos by day/week/month with built-in templates for diaries and meeting minutes.**
+
+<img width="1065" height="726" alt="Date-based todo summary and reminders" src="https://github.com/user-attachments/assets/dd82577d-eebf-415b-bcd3-96dc3e23ac7e" />
+
+### High-Precision PDF Parsing + Translation
+
+**Example of the High-Precision Parsing plugin; a MinerU-based parsing plugin is also available depending on your needs.**
+
+<img src="https://github.com/user-attachments/assets/2a512b4b-7083-41d9-9b84-f9b411b849f1" alt="PDF High-Precision Parsing and Translation" width="800">
+
+### AI Dialogue Integration + Desktop Sticky Notes
+
+**Ten Color Options · Customizable Transparency · Interactive Visual Controls**
+
+<img src="https://github.com/user-attachments/assets/016617fa-1971-4711-8c5e-1398a1b0aa52" alt="AI Dialogue Integration and Sticky Notes" width="800">
 
 ---
 
@@ -261,13 +303,57 @@ Stay connected for the latest updates, preview builds, and tips:
 
 ### Community Developers
 
-| Developer | Contribution |
-|-----------|-------------|
-| <a href="https://github.com/xf959211192"><img src="https://github.com/xf959211192.png" width="32" alt="xf959211192 avatar" /></a> [xf959211192](https://github.com/xf959211192) | Telegraph-Image image hosting uploader |
-| <a href="https://github.com/Vita0519"><img src="https://github.com/Vita0519.png" width="32" alt="Vita0519 avatar" /></a> [Vita0519](https://github.com/Vita0519) | Xiaohongshu copywriting generator AI extension |
-| <a href="https://github.com/Integral-Tech"><img src="https://github.com/Integral-Tech.png" width="32" alt="Integral-Tech avatar" /></a> [Integral-Tech](https://github.com/Integral-Tech) | Arch Linux AUR package maintainer |
-| <a href="https://github.com/qqxt"><img src="https://github.com/qqxt.png" width="32" alt="qqxt avatar" /></a> [qqxt](https://github.com/qqxt) | Web image uploader |
-| <a href="https://github.com/gerrampard"><img src="https://github.com/gerrampard.png" width="32" alt="gerrampard avatar" /></a> [gerrampard](https://github.com/gerrampard) | Dinox Sync (dinox-sync) |
+<table>
+  <tr>
+    <th>Developer</th>
+    <th>Contribution</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/xf959211192">
+        <img src="https://github.com/xf959211192.png" width="40" alt="xf959211192 avatar" /><br />
+        <sub><b>xf959211192</b></sub>
+      </a>
+    </td>
+    <td>Telegraph-Image image hosting uploader</td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Vita0519">
+        <img src="https://github.com/Vita0519.png" width="40" alt="Vita0519 avatar" /><br />
+        <sub><b>Vita0519</b></sub>
+      </a>
+    </td>
+    <td>Xiaohongshu copywriting generator AI extension</td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Integral-Tech">
+        <img src="https://github.com/Integral-Tech.png" width="40" alt="Integral-Tech avatar" /><br />
+        <sub><b>Integral-Tech</b></sub>
+      </a>
+    </td>
+    <td>Arch Linux AUR package maintainer</td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/qqxt">
+        <img src="https://github.com/qqxt.png" width="40" alt="qqxt avatar" /><br />
+        <sub><b>qqxt</b></sub>
+      </a>
+    </td>
+    <td>Web image uploader</td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/gerrampard">
+        <img src="https://github.com/gerrampard.png" width="40" alt="gerrampard avatar" /><br />
+        <sub><b>gerrampard</b></sub>
+      </a>
+    </td>
+    <td>Dinox Sync (dinox-sync)</td>
+  </tr>
+</table>
 
 ### Contributing
 
@@ -302,13 +388,6 @@ Full License: [LICENSE](LICENSE) | Third-Party Components: [THIRD-PARTY-NOTICES.
 <summary><strong>macOS says the app is "damaged" and won't open?</strong></summary>
 
 Run: `sudo xattr -r -d com.apple.quarantine /Applications/flymd.app`, or hold Control and click the app then select "Open".
-
-</details>
-
-<details>
-<summary><strong>Arch Linux blank screen?</strong></summary>
-
-See [Solution for Arch Linux blank screen](arch.md).
 
 </details>
 

@@ -28,6 +28,18 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 
 <img width="1920" height="1080" alt="hero" src="https://github.com/user-attachments/assets/acf758c1-6c8e-4b4f-a313-d4ce2190394b" />
 
+## 目录
+
+- [安卓版（Beta）](#安卓版beta)
+- [新功能：AI小说引擎（插件）](#新功能ai小说引擎插件)
+- [核心特性](#核心特性)
+- [功能演示](#功能演示)
+- [快速开始](#快速开始)
+- [扩展开发](#扩展开发)
+- [性能与技术](#性能与技术)
+- [社区与支持](#社区与支持)
+- [其他信息](#其他信息)
+
 ---
 
 ## 安卓版（Beta）
@@ -42,27 +54,27 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 
 ### 录音转文字/语音输入
 
-
-
 <img src="https://github.com/user-attachments/assets/815d5bc2-d367-451a-bfa5-f54f5cc91c5a" alt="录音转文字演示" width="400">
 
+---
 
 ## 新功能：AI小说引擎（插件）
 
-✅ 自动生成至少3个剧情走向  
+✅ 自动生成至少3个剧情走向
 
-✅ 智能伏笔回收+自动审计  
+✅ 智能伏笔回收+自动审计
 
-✅ 进度脉络自动更新，多级并发召回  
+✅ 进度脉络自动更新，多级并发召回
 
-✅ 人物状态管理、章节字数统计，草稿审定，结构清晰  
+✅ 人物状态管理、章节字数统计，草稿审定，结构清晰
 
-✅ 支持多模型协作 & 可配合Git版本控制插件  
+✅ 支持多模型协作 & 可配合Git版本控制插件
 
 ✅ 独有后端Agent工具 分段管理，逻辑严密
 
-<img width="970" height="710" alt="e70dc0ff088e225df7343ca524ab50a2" src="https://github.com/user-attachments/assets/005545ee-6377-4f5a-9ae8-e21f7f3330d9" />
+<img width="970" height="710" alt="AI Novel Engine" src="https://github.com/user-attachments/assets/005545ee-6377-4f5a-9ae8-e21f7f3330d9" />
 
+---
 
 ## 核心特性
 
@@ -114,6 +126,7 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 - **扩展插件系统** - 支持自定义扩展,功能无限可能
 
 ---
+
 ## 功能演示
 
 ### 按日期汇总待办事项
@@ -121,7 +134,6 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 **一份会议纪要或/旅行计划/个人笔记  AI拟定待办  按时间/人推送提醒（微信/短信/钉钉/飞书等）  按日/周/月 汇总待办事项   提供日记 会议纪要 等模板**
 
 <img width="1065" height="726" alt="2123769743dff2e78a75b3bc3544fa9e" src="https://github.com/user-attachments/assets/dd82577d-eebf-415b-bcd3-96dc3e23ac7e" />
-
 
 ### PDF 高精度解析 + 翻译
 
