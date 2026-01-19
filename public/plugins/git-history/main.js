@@ -23,6 +23,16 @@ function gitText(zh, en) {
   return gitHistGetLocale() === 'en' ? en : zh
 }
 
+function gitHistIsWindows() {
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : null
+    const ua = (nav && nav.userAgent) || ''
+    const platform = (nav && nav.platform) || ''
+    return /windows/i.test(String(ua)) || /^win/i.test(String(platform))
+  } catch {}
+  return false
+}
+
 const PANEL_ID = 'flymd-git-history-panel'
 const PANEL_WIDTH = 400
 
@@ -1008,8 +1018,12 @@ export async function activate(context) {
 
   // 激活时预热一次状态，但不强制打开
   try {
-    await resolveRepoSummary(context)
-    await refreshStatusBar(context)
+    // Windows 上旧版宿主会在每次执行 git 时弹出一闪而过的 cmd/PowerShell 窗口，安装/启用插件时预热会严重影响体验。
+    // 这里跳过预热：不改变功能，只是把第一次 git 调用推迟到用户真正打开面板时。
+    if (!gitHistIsWindows()) {
+      await resolveRepoSummary(context)
+      await refreshStatusBar(context)
+    }
   } catch {}
 }
 

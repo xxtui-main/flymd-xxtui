@@ -2151,11 +2151,26 @@ struct GitCommitEntry {
   date: String,
 }
 
+fn git_command() -> std::process::Command {
+  let mut cmd = std::process::Command::new("git");
+
+  // Windows 下从 GUI 进程拉起 console 子进程时，可能会弹出一闪而过的 cmd/PowerShell 窗口。
+  // 这不是“Git 插件”的业务逻辑问题，是进程创建的默认行为问题。
+  // 这里统一加无窗口标志，不改变输出/行为，只消掉闪烁。
+  #[cfg(windows)]
+  {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+  }
+
+  cmd
+}
+
 #[tauri::command]
 async fn git_status_summary(repo_path: String) -> Result<GitStatusSummary, String> {
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::path::Path;
-    use std::process::Command;
 
     let path = Path::new(&repo_path);
     if !path.exists() {
@@ -2167,7 +2182,7 @@ async fn git_status_summary(repo_path: String) -> Result<GitStatusSummary, Strin
       });
     }
 
-    let output = Command::new("git")
+    let output = git_command()
       .args(["rev-parse", "--show-toplevel"])
       .current_dir(path)
       .output()
@@ -2195,7 +2210,7 @@ async fn git_status_summary(repo_path: String) -> Result<GitStatusSummary, Strin
     let mut branch: Option<String> = None;
     let mut head: Option<String> = None;
 
-    let out_branch = Command::new("git")
+    let out_branch = git_command()
       .args(["rev-parse", "--abbrev-ref", "HEAD"])
       .current_dir(&root)
       .output()
@@ -2207,7 +2222,7 @@ async fn git_status_summary(repo_path: String) -> Result<GitStatusSummary, Strin
       }
     }
 
-    let out_head = Command::new("git")
+    let out_head = git_command()
       .args(["rev-parse", "HEAD"])
       .current_dir(&root)
       .output()
@@ -2241,7 +2256,6 @@ async fn git_restore_file_version(
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::fs;
     use std::path::PathBuf;
-    use std::process::Command;
 
     let root = PathBuf::from(&repo_path);
     if !root.exists() {
@@ -2256,7 +2270,7 @@ async fn git_restore_file_version(
     let rel = file.strip_prefix(&root).unwrap_or(&file);
     let rel_str = rel.to_string_lossy().replace('\\', "/");
 
-    let output = Command::new("git")
+    let output = git_command()
       .arg("show")
       .arg(format!("{commit}:{rel_str}"))
       .current_dir(&root)
@@ -2284,7 +2298,6 @@ async fn git_file_history(
 ) -> Result<Vec<GitCommitEntry>, String> {
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::path::PathBuf;
-    use std::process::Command;
 
     let root = PathBuf::from(&repo_path);
     if !root.exists() {
@@ -2295,7 +2308,7 @@ async fn git_file_history(
 
     let max = max_count.unwrap_or(50).max(1);
 
-    let mut cmd = Command::new("git");
+    let mut cmd = git_command();
     cmd.arg("log");
     cmd.arg(format!("--max-count={}", max));
     cmd.args([
@@ -2362,7 +2375,6 @@ async fn git_file_diff(
 
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::path::PathBuf;
-    use std::process::Command;
 
     let root = PathBuf::from(&repo_path);
     if !root.exists() {
@@ -2373,7 +2385,7 @@ async fn git_file_diff(
 
     let ctx_lines = if ctx == 0 { 1 } else { ctx };
 
-    let mut cmd = Command::new("git");
+    let mut cmd = git_command();
     if let Some(cmt) = commit_arg {
       cmd.arg("show");
       cmd.arg(format!("--unified={}", ctx_lines));
@@ -2407,14 +2419,13 @@ async fn git_file_diff(
 async fn git_init_repo(repo_path: String) -> Result<(), String> {
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::path::PathBuf;
-    use std::process::Command;
 
     let root = PathBuf::from(&repo_path);
     if !root.exists() {
       return Err("路径不存在".into());
     }
 
-    let output = Command::new("git")
+    let output = git_command()
       .arg("init")
       .current_dir(&root)
       .output()
@@ -2440,7 +2451,6 @@ async fn git_commit_snapshot(
 ) -> Result<(), String> {
   let res = tauri::async_runtime::spawn_blocking(move || {
     use std::path::PathBuf;
-    use std::process::Command;
 
     let root = PathBuf::from(&repo_path);
     if !root.exists() {
@@ -2449,7 +2459,7 @@ async fn git_commit_snapshot(
 
     let scope_all = all.unwrap_or(false) || file_path.is_none();
 
-    let mut add_cmd = Command::new("git");
+    let mut add_cmd = git_command();
     add_cmd.arg("add");
     if scope_all {
       add_cmd.arg("--all");
@@ -2467,7 +2477,7 @@ async fn git_commit_snapshot(
       return Err(if msg.is_empty() { "git add failed".into() } else { msg });
     }
 
-    let mut commit_cmd = Command::new("git");
+    let mut commit_cmd = git_command();
     commit_cmd.arg("commit").arg("-m").arg(message);
     let commit_out = commit_cmd
       .current_dir(&root)
