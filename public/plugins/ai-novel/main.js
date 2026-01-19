@@ -9383,10 +9383,49 @@ function _ainCleanChapterTitleText(s) {
   // 去掉可能的引号/序号/标题符号，避免变成 “# # 第X章 …”
   let t0 = raw.replace(/^#+\s*/, '').trim()
   t0 = t0.replace(/^(第\s*\d+\s*章|第\s*[一二三四五六七八九十百千零]+\s*章)\s*/u, '').trim()
+  // 常见“壳”：【结论】/【标题】/【建议标题】等；直接剥掉整段，否则会被清理成“结论】xxx”
+  t0 = t0.replace(/^【[^】]{1,16}】\s*/u, '').trim()
+  t0 = t0.replace(/^(?:章节标题|本章标题|建议标题|标题)\s*[:：]\s*/u, '').trim()
   t0 = t0.replace(/^["'“‘《【（(]+/, '').replace(/["'”’》】）)]+$/, '').trim()
   // 极限兜底：不要太长
   if (t0.length > 40) t0 = t0.slice(0, 40).trim()
   return t0
+}
+
+function _ainPickChapterTitleFromModelReply(text) {
+  const raw = safeText(text).trim()
+  if (!raw) return ''
+
+  const bad = new Set([
+    '结论',
+    '总结',
+    '建议',
+    '诊断',
+    '标题',
+    '章节标题',
+    '本章标题',
+    'OK',
+    'Ok',
+    'ok',
+  ])
+
+  const lines = raw.split(/\r?\n/).map((x) => safeText(x).trim()).filter(Boolean)
+  for (let i = 0; i < lines.length; i++) {
+    let s0 = lines[i].replace(/^(?:[>#*\-+]\s*|\d+\s*[.、]\s*)/u, '').trim()
+    if (!s0) continue
+    const m1 = /《([^》]{1,64})》/u.exec(s0)
+    if (m1 && m1[1]) s0 = m1[1]
+    const m2 = /[“”"]([^“”"]{1,64})[“”"]/u.exec(s0)
+    if (m2 && m2[1]) s0 = m2[1]
+    const t0 = _ainCleanChapterTitleText(s0)
+    if (!t0) continue
+    if (bad.has(t0)) continue
+    return t0
+  }
+
+  const t1 = _ainCleanChapterTitleText(lines[0] || raw)
+  if (!t1 || bad.has(t1)) return ''
+  return t1
 }
 
 async function _ainGenerateChapterTitle(ctx, cfg, chapterText, opt) {
@@ -9410,22 +9449,31 @@ async function _ainGenerateChapterTitle(ctx, cfg, chapterText, opt) {
       snippet
     ].join('\n')
 
-    const r = await apiFetchConsultWithJob(ctx, cfg, {
-      upstream: {
-        baseUrl: cfg.upstream.baseUrl,
-        apiKey: cfg.upstream.apiKey,
-        model: cfg.upstream.model
-      },
-      input: { question: q }
-    }, {
-      timeoutMs: 90000,
-      onTick: onTick ? ({ waitMs }) => { try { onTick({ waitMs }) } catch {} } : null
-    })
+    let reply = ''
+    try {
+      // 标题生成不需要“写作顾问”那套系统提示；直接用最小化提示，避免产出“【结论】/建议”一类壳。
+      const resp = await _ainUpstreamChatOnce(ctx, cfg.upstream, [
+        { role: 'system', content: '你是严格的章节标题生成器。只输出标题本身：不要编号/引号/括号/解释/换行/小标题。' },
+        { role: 'user', content: q }
+      ], { timeoutMs: 90000, temperature: 0.7 })
+      reply = safeText(resp && resp.text).trim()
+    } catch (e) {
+      // 兼容旧行为：直连失败且已登录时，回退到后端 consult（可能受后端提示词影响，因此下方要更强健的解析）。
+      const r = await apiFetchConsultWithJob(ctx, cfg, {
+        upstream: {
+          baseUrl: cfg.upstream.baseUrl,
+          apiKey: cfg.upstream.apiKey,
+          model: cfg.upstream.model
+        },
+        input: { question: q }
+      }, {
+        timeoutMs: 90000,
+        onTick: onTick ? ({ waitMs }) => { try { onTick({ waitMs }) } catch {} } : null
+      })
+      reply = safeText((r && r.text) ? r.text : '').trim()
+    }
 
-    const text = safeText((r && r.text) ? r.text : '').trim()
-    if (!text) return ''
-    const first = text.split(/\r?\n/).map((x) => safeText(x).trim()).filter(Boolean)[0] || ''
-    return _ainCleanChapterTitleText(first)
+    return _ainPickChapterTitleFromModelReply(reply)
   } catch {
     return ''
   }
