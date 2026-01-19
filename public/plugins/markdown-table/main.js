@@ -632,12 +632,6 @@ export function activate(context) {
       openTablePicker(context);
     }
   });
-
-  context.ui.notice(
-    mtText('Markdown 表格助手已激活', 'Markdown Table Helper activated'),
-    'ok',
-    1600,
-  );
 }
 
 export function deactivate() {
