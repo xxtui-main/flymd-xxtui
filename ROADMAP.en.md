@@ -2,6 +2,15 @@
 
 [简体中文](ROADMAP.md) | [English](ROADMAP.en.md)
 
+## Update v1.2.3
+- Added: Built-in WebDAV sync log viewer (highlights the latest sync session; one-click clear; configurable retention days with auto-pruning)
+- Improved: Built-in “Git History” v0.1.4 (Ribbon shortcut; reduced Windows console flicker when spawning `git` via `CREATE_NO_WINDOW`)
+- Updated: Built-in “High-Accuracy PDF & Image Parsing (pdf2doc)” v0.2.6 (menu cleanup; optional auto-merge for split results after batch parsing; retry page-count fetch)
+- Updated: Built-in “Image Gallery” v0.1.7 (Ribbon shortcut)
+- Updated: Built-in “Journals & Tasks” v0.1.1 (Ribbon shortcut to open tasks & calendar panel)
+- Updated: Built-in “Markdown Table Helper” v0.1.6 (removed startup “activated” toast)
+- Improved: Plugin Menu Manager UI styling (clearer layout)
+
 ## Update v1.2.2
 - Added: Plugin Ribbon (vertical toolbar) supports plugin buttons; Plugin Menu Manager now supports Ribbon visibility / position (Top/Bottom) / reorder
 - Added: Plugin APIs `context.addRibbonButton` / `context.showDropdownMenu`, plus plugin dev docs in `plugin.md`
