@@ -42,7 +42,7 @@ function ensureOverlay(): HTMLDivElement | null {
     ov.id = OVERLAY_ID
     ov.className = 'link-overlay hidden'
     ov.innerHTML = `
-      <div class="link-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-menu-manager-title">
+      <div class="link-dialog plugin-menu-manager-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-menu-manager-title">
         <div class="link-header">
           <div id="plugin-menu-manager-title">${t('plugins.menuManager.title') || '菜单管理'}</div>
           <button id="${CLOSE_BTN_ID}" class="about-close" title="${t('about.close')}">×</button>
@@ -267,16 +267,16 @@ export async function openPluginMenuManager(host: PluginMenuManagerHost): Promis
     const tipDown = t('plugins.menuManager.ribbonOrder.down') || '下移'
 
     let html = ''
-    html += `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${tip}</div>`
-    html += `<div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:4px;">`
-    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">`
+    html += `<div class="pmm-tip">${tip}</div>`
+    html += `<div class="pmm-table-wrap">`
+    html += `<table class="pmm-table">`
     html += `<thead><tr>`
-    html += `<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">${headerPlugin}</th>`
-    html += `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);">${headerCtx}</th>`
-    html += `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);">${headerDropdown}</th>`
-    html += `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);">${headerRibbon}</th>`
-    html += `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);">${headerRibbonPos}</th>`
-    html += `<th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);">${headerRibbonOrder}</th>`
+    html += `<th>${headerPlugin}</th>`
+    html += `<th>${headerCtx}</th>`
+    html += `<th>${headerDropdown}</th>`
+    html += `<th>${headerRibbon}</th>`
+    html += `<th>${headerRibbonPos}</th>`
+    html += `<th>${headerRibbonOrder}</th>`
     html += `</tr></thead><tbody>`
 
     for (const row of rows) {
@@ -299,25 +299,17 @@ export async function openPluginMenuManager(host: PluginMenuManagerHost): Promis
       const ribbonAttrDisabled = ribbonDisabled ? ' disabled' : ''
 
       html += `<tr>`
-      html += `<td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${row.pluginId}">${row.name || row.pluginId}</td>`
-      html += `<td style="padding:4px 8px;text-align:center;border-bottom:1px solid var(--border);">`
-      html += `<input type="checkbox" class="plugin-menu-manager-ctx" data-plugin-id="${row.pluginId}"${ctxChecked ? ' checked' : ''}${ctxAttrDisabled}>`
-      html += `</td>`
-      html += `<td style="padding:4px 8px;text-align:center;border-bottom:1px solid var(--border);">`
-      html += `<input type="checkbox" class="plugin-menu-manager-dropdown" data-plugin-id="${row.pluginId}"${ddChecked ? ' checked' : ''}${ddAttrDisabled}>`
-      html += `</td>`
-      html += `<td style="padding:4px 8px;text-align:center;border-bottom:1px solid var(--border);">`
-      html += `<input type="checkbox" class="plugin-menu-manager-ribbon" data-plugin-id="${row.pluginId}"${ribbonChecked ? ' checked' : ''}${ribbonAttrDisabled}>`
-      html += `</td>`
-      html += `<td style="padding:4px 8px;text-align:center;border-bottom:1px solid var(--border);">`
-      html += `<select class="plugin-menu-manager-ribbon-pos" data-plugin-id="${row.pluginId}" style="font-size:12px;"${ribbonAttrDisabled}>`
+      html += `<td><span class="pmm-plugin-name" title="${row.pluginId}">${row.name || row.pluginId}</span></td>`
+      html += `<td><input type="checkbox" class="plugin-menu-manager-ctx" data-plugin-id="${row.pluginId}"${ctxChecked ? ' checked' : ''}${ctxAttrDisabled}></td>`
+      html += `<td><input type="checkbox" class="plugin-menu-manager-dropdown" data-plugin-id="${row.pluginId}"${ddChecked ? ' checked' : ''}${ddAttrDisabled}></td>`
+      html += `<td><input type="checkbox" class="plugin-menu-manager-ribbon" data-plugin-id="${row.pluginId}"${ribbonChecked ? ' checked' : ''}${ribbonAttrDisabled}></td>`
+      html += `<td><select class="plugin-menu-manager-ribbon-pos" data-plugin-id="${row.pluginId}"${ribbonAttrDisabled}>`
       html += `<option value="top"${ribbonPos === 'top' ? ' selected' : ''}>${optTop}</option>`
       html += `<option value="bottom"${ribbonPos === 'bottom' ? ' selected' : ''}>${optBottom}</option>`
-      html += `</select>`
-      html += `</td>`
-      html += `<td style="padding:4px 8px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">`
-      html += `<button class="plugin-menu-manager-ribbon-up" data-plugin-id="${row.pluginId}" title="${tipUp}" style="font-size:12px;padding:0 6px;height:22px;"${canUp ? '' : ' disabled'}>↑</button>`
-      html += `<button class="plugin-menu-manager-ribbon-down" data-plugin-id="${row.pluginId}" title="${tipDown}" style="font-size:12px;padding:0 6px;height:22px;margin-left:4px;"${canDown ? '' : ' disabled'}>↓</button>`
+      html += `</select></td>`
+      html += `<td style="white-space:nowrap;">`
+      html += `<button class="pmm-order-btn plugin-menu-manager-ribbon-up" data-plugin-id="${row.pluginId}" title="${tipUp}"${canUp ? '' : ' disabled'}>↑</button>`
+      html += `<button class="pmm-order-btn plugin-menu-manager-ribbon-down" data-plugin-id="${row.pluginId}" title="${tipDown}"${canDown ? '' : ' disabled'}>↓</button>`
       html += `</td>`
       html += `</tr>`
     }

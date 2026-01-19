@@ -3700,6 +3700,177 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .link-actions button { -webkit-app-region: no-drag; cursor: pointer; border: 1px solid var(--border); background: rgba(127,127,127,0.08); color: var(--fg); border-radius: var(--radius-lg); padding: 6px 12px; font-size: 13px; }
 .link-actions button:hover { background: var(--active-bg); }
 
+/* ========== 扩展菜单管理器 ========== */
+.plugin-menu-manager-dialog {
+  width: 620px;
+  max-width: calc(100% - 40px);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.plugin-menu-manager-dialog .link-header {
+  padding: 14px 18px;
+  font-size: 15px;
+  background: rgba(127,127,127,0.03);
+  border-radius: 12px 12px 0 0;
+}
+
+.plugin-menu-manager-dialog .link-body {
+  padding: 16px 18px 18px;
+}
+
+.plugin-menu-manager-dialog .link-actions {
+  padding: 0 18px 16px;
+  margin-top: 0;
+}
+
+/* 提示文字 */
+.pmm-tip {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(127,127,127,0.05);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}
+
+/* 表格容器 */
+.pmm-table-wrap {
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+/* 表格 */
+.pmm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pmm-table th {
+  text-align: center;
+  padding: 10px 8px;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(127,127,127,0.05);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.pmm-table th:first-child {
+  text-align: left;
+  padding-left: 14px;
+}
+
+.pmm-table td {
+  padding: 10px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(127,127,127,0.1);
+  vertical-align: middle;
+}
+
+.pmm-table td:first-child {
+  text-align: left;
+  padding-left: 14px;
+  font-weight: 500;
+}
+
+.pmm-table tbody tr:hover {
+  background: rgba(127,127,127,0.05);
+}
+
+.pmm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 扩展名列 */
+.pmm-plugin-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 复选框美化 */
+.pmm-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.pmm-table input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 位置下拉框 */
+.pmm-table select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+}
+
+.pmm-table select:focus {
+  border-color: var(--accent);
+}
+
+.pmm-table select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 顺序按钮 */
+.pmm-order-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(127,127,127,0.06);
+  color: var(--fg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pmm-order-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.pmm-order-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pmm-order-btn + .pmm-order-btn {
+  margin-left: 4px;
+}
+
+/* 空态 */
+.pmm-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* 图床设置 对话框 */
 /* 图床和同步设置弹窗 */
 .upl-overlay {
