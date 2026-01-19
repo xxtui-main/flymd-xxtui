@@ -5533,7 +5533,7 @@ body::-webkit-scrollbar:horizontal,
 .sync-log-dialog {
   width: min(1120px, 96vw);
   max-width: 1120px;
-  height: min(860px, 92vh);
+  max-height: min(860px, 92vh);
   display: flex;
   flex-direction: column;
 }
@@ -5553,25 +5553,61 @@ body::-webkit-scrollbar:horizontal,
 }
 
 .sync-log-toolbar-bottom {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(127,127,127,0.12);
   justify-content: flex-end;
 }
 
+/* 日志查看器按钮美化 */
+.sync-log-toolbar-bottom button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sync-log-toolbar-bottom .btn-secondary {
+  background: rgba(127,127,127,0.08);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.sync-log-toolbar-bottom .btn-secondary:hover {
+  background: rgba(127,127,127,0.15);
+}
+
+.sync-log-toolbar-bottom .btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+}
+
+.sync-log-toolbar-bottom .btn-primary:hover {
+  filter: brightness(1.1);
+}
+
 .sync-log-retention-hint {
-  margin-top: 8px;
   font-size: 12px;
-  opacity: 0.75;
+  color: var(--muted);
+  padding: 6px 10px;
+  background: rgba(127,127,127,0.05);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
 }
 
 .sync-log-body {
-  margin-top: 10px;
+  margin-top: 12px;
   flex: 1;
-  min-height: 0;
+  min-height: 200px;
+  max-height: 600px;
   overflow: auto;
-  background: rgba(127,127,127,0.05);
-  border: 1px solid rgba(127,127,127,0.18);
+  background: rgba(127,127,127,0.03);
+  border: 1px solid rgba(127,127,127,0.15);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
 }
 
 .sync-log-pre {
@@ -5580,7 +5616,7 @@ body::-webkit-scrollbar:horizontal,
   word-break: break-word;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.6;
 }
 
 .sync-log-line {
@@ -5589,8 +5625,9 @@ body::-webkit-scrollbar:horizontal,
 
 .sync-log-empty {
   font-size: 13px;
-  opacity: 0.75;
-  padding: 12px 8px;
+  color: var(--muted);
+  padding: 40px 16px;
+  text-align: center;
 }
 
 .sync-log-session {
