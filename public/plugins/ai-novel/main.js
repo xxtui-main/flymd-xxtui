@@ -5123,6 +5123,21 @@ async function openNextOptionsDialog(ctx) {
   )
   sec.appendChild(extra.wrap)
 
+  const cbAutoTitleLine = document.createElement('label')
+  cbAutoTitleLine.style.display = 'flex'
+  cbAutoTitleLine.style.gap = '8px'
+  cbAutoTitleLine.style.alignItems = 'center'
+  cbAutoTitleLine.style.marginTop = '6px'
+  const cbAutoTitle = document.createElement('input')
+  cbAutoTitle.type = 'checkbox'
+  cbAutoTitle.checked = cfg.autoChapterTitle !== false
+  cbAutoTitle.onchange = async () => {
+    try { cfg = await saveCfg(ctx, { autoChapterTitle: !!cbAutoTitle.checked }) } catch {}
+  }
+  cbAutoTitleLine.appendChild(cbAutoTitle)
+  cbAutoTitleLine.appendChild(document.createTextNode(t('自动生成章节标题（写入到本章文件第一行）', 'Auto-generate chapter title (write into the first line)')))
+  sec.appendChild(cbAutoTitleLine)
+
   const row = mkBtnRow()
   const btnGen = document.createElement('button')
   btnGen.className = 'ain-btn'
@@ -5208,6 +5223,7 @@ async function openNextOptionsDialog(ctx) {
   let lastArr = null
   let selectedIdx = 0
   let lastText = ''
+  let lastTitleHint = ''
   let lastDraftId = ''
 
   function renderOptions() {
@@ -5248,7 +5264,15 @@ async function openNextOptionsDialog(ctx) {
 
   async function doGen() {
     cfg = await loadCfg(ctx)
-    const instruction = safeText(inp.ta.value).trim()
+    let instruction = safeText(inp.ta.value).trim()
+    if (!/同一章|不要输出.*第.*章/u.test(instruction)) {
+      instruction = instruction
+        ? (instruction + '\n\n' + t(
+          '注意：候选是“同一章”的不同走向（不是多章），不要把候选写成“第1章/第2章…”，只给走向标题与一句话概括。',
+          'Note: options are alternative arcs for the SAME chapter (not multiple chapters). Do not label options as Chapter 1/2/etc.'
+        ))
+        : ''
+    }
     const localConstraints = safeText(extra.ta.value).trim()
 
     setBusy(btnGen, true)
@@ -5262,9 +5286,11 @@ async function openNextOptionsDialog(ctx) {
     lastArr = null
     selectedIdx = 0
     lastText = ''
+    lastTitleHint = ''
 
     try {
-      const r = await callNovel(ctx, 'options', instruction || t('给出走向候选', 'Give options'), localConstraints)
+      const inst = instruction || t('给出走向候选', 'Give options')
+      const r = await callNovel(ctx, 'options', inst, localConstraints)
       if (!r) {
         out.textContent = t('已取消。', 'Cancelled.')
         return
@@ -5309,6 +5335,7 @@ async function openNextOptionsDialog(ctx) {
     if (!list.length) return
     const chosen = list[selectedIdx] || null
     if (!chosen) return
+    lastTitleHint = safeText(chosen && chosen.title ? chosen.title : '').trim()
 
     cfg = await loadCfg(ctx)
     const instruction = safeText(inp.ta.value).trim()
@@ -5393,20 +5420,63 @@ async function openNextOptionsDialog(ctx) {
       ctx.ui.notice(t('插入失败：', 'Insert failed: ') + (e && e.message ? e.message : String(e)), 'err', 2400)
     }
   }
-  btnAppend.onclick = () => {
+  btnAppend.onclick = async () => {
+    if (!lastText) return
+    setBusy(btnAppend, true)
     try {
-      if (!lastText) return
+      cfg = await loadCfg(ctx)
+      if (cbAutoTitle && cbAutoTitle.checked && cfg && cfg.autoChapterTitle !== false) {
+        try { await _ainMaybeEnsureChapterHeaderInCurrentFile(ctx) } catch {}
+        const hint = _ainCleanChapterTitleText(lastTitleHint)
+        const title0 = hint || await _ainGenerateChapterTitle(ctx, cfg, lastText, {
+          onTick: ({ waitMs }) => {
+            try {
+              const s = Math.max(0, Math.round(Number(waitMs || 0) / 1000))
+              out.textContent = t('生成章节标题中… 已等待 ', 'Generating chapter title... waited ') + s + 's'
+            } catch {}
+          }
+        })
+        if (title0) {
+          const ok = await _ainMaybeAppendTitleToCurrentChapterFirstLine(ctx, title0)
+          if (ok) {
+            try { ctx.ui.notice(t('已写入章节标题：', 'Chapter title written: ') + title0, 'ok', 1800) } catch {}
+          }
+        }
+      }
       appendToDoc(ctx, lastText)
       ctx.ui.notice(t('已追加到文末', 'Appended'), 'ok', 1600)
     } catch (e) {
       ctx.ui.notice(t('追加失败：', 'Append failed: ') + (e && e.message ? e.message : String(e)), 'err', 2400)
+    } finally {
+      setBusy(btnAppend, false)
+      try { out.textContent = lastText } catch {}
     }
   }
 
   btnAppendDraft.onclick = async () => {
+    if (!lastText) return
+    setBusy(btnAppendDraft, true)
     try {
-      if (!lastText) return
       cfg = await loadCfg(ctx)
+      if (cbAutoTitle && cbAutoTitle.checked && cfg && cfg.autoChapterTitle !== false) {
+        try { await _ainMaybeEnsureChapterHeaderInCurrentFile(ctx) } catch {}
+        const hint = _ainCleanChapterTitleText(lastTitleHint)
+        const title0 = hint || await _ainGenerateChapterTitle(ctx, cfg, lastText, {
+          onTick: ({ waitMs }) => {
+            try {
+              const s = Math.max(0, Math.round(Number(waitMs || 0) / 1000))
+              out.textContent = t('生成章节标题中… 已等待 ', 'Generating chapter title... waited ') + s + 's'
+            } catch {}
+          }
+        })
+        if (title0) {
+          const ok = await _ainMaybeAppendTitleToCurrentChapterFirstLine(ctx, title0)
+          if (ok) {
+            try { ctx.ui.notice(t('已写入章节标题：', 'Chapter title written: ') + title0, 'ok', 1800) } catch {}
+          }
+        }
+      }
+
       const bid = genDraftBlockId()
       const block = wrapDraftBlock(lastText, bid)
       appendToDoc(ctx, block)
@@ -5414,11 +5484,12 @@ async function openNextOptionsDialog(ctx) {
       try { await saveLastDraftInfo(ctx, cfg, bid) } catch {}
       btnReview.disabled = false
       ctx.ui.notice(t('已追加草稿块（不会自动更新进度）', 'Draft appended (no auto progress update)'), 'ok', 2000)
-      try {
-        await openDraftReviewDialog(ctx, { blockId: bid, text: lastText })
-      } catch {}
+      try { await openDraftReviewDialog(ctx, { blockId: bid, text: lastText }) } catch {}
     } catch (e) {
       ctx.ui.notice(t('追加失败：', 'Append failed: ') + (e && e.message ? e.message : String(e)), 'err', 2600)
+    } finally {
+      setBusy(btnAppendDraft, false)
+      try { out.textContent = lastText } catch {}
     }
   }
 
@@ -6934,6 +7005,7 @@ async function openWriteWithChoiceDialog(ctx) {
   let lastArr = null
   let selectedIdx = 0
   let lastText = ''
+  let lastTitleHint = ''
   let lastDraftId = ''
   let agentControl = null
 
@@ -7067,7 +7139,13 @@ async function openWriteWithChoiceDialog(ctx) {
 
   async function doOptions() {
     cfg = await loadCfg(ctx)
-    const instruction = ensureInstruction(getInstructionText(), t('基于当前上下文给出走向候选', 'Give options based on current context'))
+    let instruction = ensureInstruction(getInstructionText(), t('基于当前上下文给出走向候选', 'Give options based on current context'))
+    if (!/同一章|不要输出.*第.*章/u.test(instruction)) {
+      instruction = instruction + '\n\n' + t(
+        '注意：候选是“同一章”的不同走向（不是多章），不要把候选写成“第1章/第2章…”，只给走向标题与一句话概括。',
+        'Note: options are alternative arcs for the SAME chapter (not multiple chapters). Do not label options as Chapter 1/2/etc.'
+      )
+    }
     const localConstraints = getLocalConstraintsText()
 
     setBusy(btnOptions, true)
@@ -7082,6 +7160,7 @@ async function openWriteWithChoiceDialog(ctx) {
     lastArr = null
     selectedIdx = 0
     lastText = ''
+    lastTitleHint = ''
 
     try {
       const opt = await callNovel(ctx, 'options', instruction, localConstraints)
@@ -7130,6 +7209,7 @@ async function openWriteWithChoiceDialog(ctx) {
     if (!list.length) return
     const chosen = list[selectedIdx] || null
     if (!chosen) return
+    lastTitleHint = safeText(chosen && chosen.title ? chosen.title : '').trim()
 
     cfg = await loadCfg(ctx)
     const instruction = ensureInstruction(getInstructionText(), t('按选中走向续写本章', 'Write with the selected option'))
@@ -7162,6 +7242,8 @@ async function openWriteWithChoiceDialog(ctx) {
             try { selAgentTarget.value = String(targetChars) } catch {}
           ctx.ui.notice(t('已按思考模式收紧字数目标：', 'Target adjusted by mode: ') + String(targetChars), 'ok', 1800)
           }
+          const lenHint = t('长度要求：正文尽量控制在 ', 'Length: keep the prose within ~') + String(targetChars) + t(' 字以内。', ' chars.')
+          const instruction2 = instruction + '\n\n' + lenHint
           const chunkCount = _ainAgentDeriveChunkCount(targetChars)
         const wantAudit = !!cbAudit.checked
         // 记住用户选择（但不强行改动“是否默认启用 Agent”）
@@ -7190,7 +7272,7 @@ async function openWriteWithChoiceDialog(ctx) {
         out.textContent = t('Agent 执行中…（多轮）', 'Agent running... (multi-round)')
         try {
           const b0 = _ainCtxApplyBudget(cfg, {
-            instruction,
+            instruction: instruction2,
             progress,
             bible,
             prev,
@@ -7201,7 +7283,7 @@ async function openWriteWithChoiceDialog(ctx) {
           updateCtxUsage(b0 && b0.usage ? b0.usage : null)
         } catch {}
         const res = await agentRunPlan(ctx, cfg, {
-          instruction,
+          instruction: instruction2,
           choice: chosen,
           constraints: constraints || '',
           prev,
@@ -7238,8 +7320,10 @@ async function openWriteWithChoiceDialog(ctx) {
         return
       }
 
+      const targetChars = _clampInt(selAgentTarget && selAgentTarget.value ? selAgentTarget.value : 3000, 500, 8000)
+      const lenHint = t('长度要求：正文尽量控制在 ', 'Length: keep the prose within ~') + String(targetChars) + t(' 字以内。', ' chars.')
       const input0 = {
-        instruction: instruction + '\n\n' + t('长度要求：正文尽量控制在 3000 字以内。', 'Length: keep the prose within ~3000 chars.'),
+        instruction: instruction + '\n\n' + lenHint,
         progress,
         bible,
         prev,
@@ -7287,6 +7371,7 @@ async function openWriteWithChoiceDialog(ctx) {
   async function doWriteDirect() {
     cfg = await loadCfg(ctx)
     const instruction = getInstructionText()
+    lastTitleHint = ''
     const localConstraints = getLocalConstraintsText()
     const constraints = _ainAppendWritingStyleHintToConstraints(await mergeConstraintsWithCharState(ctx, cfg, localConstraints))
     if (!instruction) {
@@ -7321,6 +7406,8 @@ async function openWriteWithChoiceDialog(ctx) {
             try { selAgentTarget.value = String(targetChars) } catch {}
           ctx.ui.notice(t('已按思考模式收紧字数目标：', 'Target adjusted by mode: ') + String(targetChars), 'ok', 1800)
           }
+          const lenHint = t('长度要求：正文尽量控制在 ', 'Length: keep the prose within ~') + String(targetChars) + t(' 字以内。', ' chars.')
+          const instruction2 = instruction + '\n\n' + lenHint
           const chunkCount = _ainAgentDeriveChunkCount(targetChars)
         const wantAudit = !!cbAudit.checked
         // 记住用户选择（但不强行改动“是否默认启用 Agent”）
@@ -7349,7 +7436,7 @@ async function openWriteWithChoiceDialog(ctx) {
         out.textContent = t('Agent 执行中…（多轮，不走候选）', 'Agent running... (multi-round, no options)')
         try {
           const b0 = _ainCtxApplyBudget(cfg, {
-            instruction,
+            instruction: instruction2,
             progress,
             bible,
             prev,
@@ -7360,7 +7447,7 @@ async function openWriteWithChoiceDialog(ctx) {
           updateCtxUsage(b0 && b0.usage ? b0.usage : null)
         } catch {}
         const res = await agentRunPlan(ctx, cfg, {
-          instruction,
+          instruction: instruction2,
           choice: makeDirectChoice(instruction),
           constraints: constraints || '',
           prev,
@@ -7397,8 +7484,10 @@ async function openWriteWithChoiceDialog(ctx) {
         return
       }
 
+      const targetChars = _clampInt(selAgentTarget && selAgentTarget.value ? selAgentTarget.value : 3000, 500, 8000)
+      const lenHint = t('长度要求：正文尽量控制在 ', 'Length: keep the prose within ~') + String(targetChars) + t(' 字以内。', ' chars.')
       const input0 = {
-        instruction: instruction + '\n\n' + t('长度要求：正文尽量控制在 3000 字以内。', 'Length: keep the prose within ~3000 chars.'),
+        instruction: instruction + '\n\n' + lenHint,
         progress,
         bible,
         prev,
@@ -7468,7 +7557,9 @@ async function openWriteWithChoiceDialog(ctx) {
     try {
       cfg = await loadCfg(ctx)
       if (cbAutoTitle && cbAutoTitle.checked && cfg && cfg.autoChapterTitle !== false) {
-        const title0 = await _ainGenerateChapterTitle(ctx, cfg, lastText, {
+        try { await _ainMaybeEnsureChapterHeaderInCurrentFile(ctx) } catch {}
+        const hint = _ainCleanChapterTitleText(lastTitleHint)
+        const title0 = hint || await _ainGenerateChapterTitle(ctx, cfg, lastText, {
           onTick: ({ waitMs }) => {
             try {
               const s = Math.max(0, Math.round(Number(waitMs || 0) / 1000))
@@ -7494,9 +7585,29 @@ async function openWriteWithChoiceDialog(ctx) {
   }
 
   btnAppendDraft.onclick = async () => {
+    if (!lastText) return
+    setBusy(btnAppendDraft, true)
     try {
-      if (!lastText) return
       cfg = await loadCfg(ctx)
+      if (cbAutoTitle && cbAutoTitle.checked && cfg && cfg.autoChapterTitle !== false) {
+        try { await _ainMaybeEnsureChapterHeaderInCurrentFile(ctx) } catch {}
+        const hint = _ainCleanChapterTitleText(lastTitleHint)
+        const title0 = hint || await _ainGenerateChapterTitle(ctx, cfg, lastText, {
+          onTick: ({ waitMs }) => {
+            try {
+              const s = Math.max(0, Math.round(Number(waitMs || 0) / 1000))
+              out.textContent = t('生成章节标题中… 已等待 ', 'Generating chapter title... waited ') + s + 's'
+            } catch {}
+          }
+        })
+        if (title0) {
+          const ok = await _ainMaybeAppendTitleToCurrentChapterFirstLine(ctx, title0)
+          if (ok) {
+            try { ctx.ui.notice(t('已写入章节标题：', 'Chapter title written: ') + title0, 'ok', 1800) } catch {}
+          }
+        }
+      }
+
       const bid = genDraftBlockId()
       appendToDoc(ctx, wrapDraftBlock(lastText, bid))
       lastDraftId = bid
@@ -7506,6 +7617,9 @@ async function openWriteWithChoiceDialog(ctx) {
       try { await openDraftReviewDialog(ctx, { blockId: bid, text: lastText }) } catch {}
     } catch (e) {
       ctx.ui.notice(t('追加失败：', 'Append failed: ') + (e && e.message ? e.message : String(e)), 'err', 2600)
+    } finally {
+      setBusy(btnAppendDraft, false)
+      try { out.textContent = lastText } catch {}
     }
   }
 
@@ -9312,6 +9426,48 @@ async function _ainGenerateChapterTitle(ctx, cfg, chapterText, opt) {
     if (!text) return ''
     const first = text.split(/\r?\n/).map((x) => safeText(x).trim()).filter(Boolean)[0] || ''
     return _ainCleanChapterTitleText(first)
+  } catch {
+    return ''
+  }
+}
+
+async function _ainMaybeEnsureChapterHeaderInCurrentFile(ctx) {
+  try {
+    if (!ctx || typeof ctx.getCurrentFilePath !== 'function') return ''
+    const p = String(await ctx.getCurrentFilePath() || '').trim()
+    if (!p) return ''
+
+    const bn = fsBaseName(p)
+    const m = /^(\d{3,})_第(.+?)章\.md$/u.exec(bn)
+    if (!m) return ''
+    const chapZh = safeText(m[2]).trim()
+    if (!chapZh) return ''
+
+    const baseLine = `# 第${chapZh}章`
+
+    const doc = safeText(ctx.getEditorValue ? (ctx.getEditorValue() || '') : '')
+    const raw = doc.trimEnd()
+    if (!raw) {
+      const next0 = baseLine + '\n\n'
+      if (ctx && typeof ctx.setEditorValue === 'function') {
+        try { ctx.setEditorValue(next0) } catch {}
+      }
+      await writeTextAny(ctx, p, next0)
+      return baseLine
+    }
+
+    const first = raw.split(/\r?\n/)[0] || ''
+    const firstTrim = safeText(first).trim()
+    // 已经有 H1/H2，就别强插，避免破坏用户文档
+    if (/^#{1,6}\s+/.test(firstTrim)) return baseLine
+
+    // 常见情况：用户在空文件里先插了草稿块，导致第一行变成注释；这里补上章标题
+    const next = (baseLine + '\n\n' + raw).trimEnd() + '\n'
+    if (ctx && typeof ctx.setEditorValue === 'function') {
+      try { ctx.setEditorValue(next) } catch {}
+    }
+    await writeTextAny(ctx, p, next)
+    return baseLine
   } catch {
     return ''
   }
