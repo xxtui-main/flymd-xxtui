@@ -1045,6 +1045,40 @@ function pickLastChapterPathInDir(filesAll, dirAbs, excludeBase) {
   return best
 }
 
+function _ainParseChapterNoFromFileBaseName(fileBaseName) {
+  const bn = safeText(fileBaseName).trim()
+  if (!bn) return 0
+  const m = /^(\d{3,})_/.exec(bn)
+  if (!m || !m[1]) return 0
+  const n = parseInt(m[1], 10)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function _ainParseVolumeNoFromChapterPath(chapPathAbs) {
+  const p = normFsPath(String(chapPathAbs || '').trim())
+  if (!p) return 0
+  const parts = p.split('/').filter(Boolean)
+  let idx = -1
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (parts[i] === '03_章节') { idx = i; break }
+  }
+  if (idx < 0) return 0
+  const next = parts[idx + 1] || ''
+  return parseVolumeNoFromDirName(next)
+}
+
+function _ainBuildLastAppearTextFromChapterPath(chapPathAbs) {
+  const p = normFsPath(String(chapPathAbs || '').trim())
+  if (!p) return ''
+  const chapNo = _ainParseChapterNoFromFileBaseName(fsBaseName(p))
+  if (chapNo <= 0) return ''
+
+  const volNo = _ainParseVolumeNoFromChapterPath(p)
+  if (volNo > 0) return `第${volNo}卷 第${chapNo}章`
+  // 无分卷：按用户要求只写第X章
+  return `第${chapNo}章`
+}
+
 function findVolumeDirByNo(filesAll, chapRoot, volNo) {
   const root = normFsPath(chapRoot).replace(/\/+$/, '')
   const want = volNo | 0
@@ -1443,6 +1477,136 @@ function _ainGlobalHardConstraintsDocTemplate() {
     '# 全局硬约束\n\n- （可选：语气、节奏、视角、禁写项、变更单……每章都生效）\n',
     '# Global hard constraints\n\n- (Optional: tone/pacing/POV/no-go/change log... Applies to every chapter)\n'
   )
+}
+
+function _ainStripLastAppearMark(s) {
+  // 移除形如：最后出场：第12章 / 最后出场：第2卷 第12章（避免重复累加）
+  const t0 = safeText(s || '')
+  if (!t0) return ''
+  return t0
+    .replace(/\s*最后出场：\s*第\d+\s*卷\s*第\d+\s*章\s*/gu, ' ')
+    .replace(/\s*最后出场：\s*第\d+\s*章\s*/gu, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+function _ainExtractLastAppearText(s) {
+  const t0 = safeText(s || '')
+  if (!t0) return ''
+  let m = /最后出场：\s*(第\d+\s*卷\s*第\d+\s*章)/u.exec(t0)
+  if (m && m[1]) return safeText(m[1]).replace(/\s+/g, ' ').trim()
+  m = /最后出场：\s*(第\d+\s*章)/u.exec(t0)
+  if (m && m[1]) return safeText(m[1]).replace(/\s+/g, ' ').trim()
+  return ''
+}
+
+function _ainCharStateParseLastAppearMap(blockText) {
+  try {
+    const items = _ainCharStateParseItemsFromBlock(blockText)
+    if (!items || !items.length) return {}
+    const map = {}
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i] && typeof items[i] === 'object' ? items[i] : null
+      const name = safeText(it && it.name).trim()
+      if (!name) continue
+      const last = _ainExtractLastAppearText(it && it.status ? it.status : '')
+      if (!last) continue
+      map[name] = last
+    }
+    return map
+  } catch {
+    return {}
+  }
+}
+
+function _ainTryParseAppearListFromText(text) {
+  let t0 = safeText(text).trim()
+  if (!t0) return null
+
+  const m = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(t0)
+  if (m && m[1]) t0 = safeText(m[1]).trim()
+  t0 = t0.replace(/^\uFEFF/, '').trim()
+
+  try {
+    const v = JSON.parse(t0)
+    if (Array.isArray(v)) return v
+  } catch {}
+
+  const a = t0.indexOf('[')
+  const b = t0.lastIndexOf(']')
+  if (a >= 0 && b > a) {
+    try {
+      const v = JSON.parse(t0.slice(a, b + 1))
+      if (Array.isArray(v)) return v
+    } catch {}
+  }
+
+  return null
+}
+
+async function _ainJudgeActualAppearByModel(ctx, cfg, chapterText, names, opt) {
+  try {
+    const arr0 = Array.isArray(names) ? names : []
+    const uniq = []
+    const seen = new Set()
+    for (let i = 0; i < arr0.length; i++) {
+      const nm = safeText(arr0[i]).trim()
+      if (!nm) continue
+      if (seen.has(nm)) continue
+      seen.add(nm)
+      uniq.push(nm)
+      if (uniq.length >= 80) break
+    }
+    if (!uniq.length) return null
+
+    const txt0 = safeText(chapterText).trim()
+    if (!txt0) return null
+
+    const snippet = sliceHeadTail(txt0, 14000, 0.55).trim()
+    const hint = safeText(opt && opt.chapterHint ? opt.chapterHint : '').trim()
+
+    const q = [
+      hint ? ('章节信息：' + hint) : '',
+      '任务：判定下列人物是否“本章实际出场”。',
+      '出场定义（严格）：人物必须在本章正文叙事中真实出现并参与事件（行动/对话/被描写/被当场目击均可）。',
+      '不算出场：仅被他人提及、回忆、转述、传闻、总结性复盘；仅出现在“设定/注释/总结/大纲/状态列表”。',
+      '输出要求：只输出 JSON 数组，不要解释，不要 markdown，不要多余文本。',
+      '格式：[{\"name\":\"张三\",\"appears\":true}]',
+      '',
+      '人物名单：',
+      ...uniq.map((x) => '- ' + x),
+      '',
+      '本章正文（节选）：',
+      snippet
+    ].filter(Boolean).join('\n')
+
+    const resp = await _ainUpstreamChatOnce(ctx, cfg.upstream, [
+      { role: 'system', content: '你是严格的“人物出场判定器”。只输出 JSON 数组：每项包含 name 与 appears(boolean)。' },
+      { role: 'user', content: q }
+    ], { timeoutMs: 90000, temperature: 0 })
+
+    const raw = safeText(resp && resp.text).trim()
+    const parsed = _ainTryParseAppearListFromText(raw)
+    if (!parsed || !Array.isArray(parsed) || !parsed.length) return null
+
+    const out = {}
+    for (let i = 0; i < parsed.length; i++) {
+      const it = parsed[i] && typeof parsed[i] === 'object' ? parsed[i] : null
+      const name = safeText(it && (it.name != null ? it.name : it.character)).trim()
+      if (!name) continue
+      let appears = it && it.appears
+      if (typeof appears === 'string') {
+        const s = appears.trim().toLowerCase()
+        if (s === 'true' || s === 'yes' || s === 'y' || s === '1') appears = true
+        else if (s === 'false' || s === 'no' || s === 'n' || s === '0') appears = false
+      }
+      if (typeof appears !== 'boolean') continue
+      out[name] = appears
+    }
+    return Object.keys(out).length ? out : null
+  } catch {
+    return null
+  }
 }
 
 function _ainStripDocHeading(mdText) {
@@ -6808,7 +6972,16 @@ async function openWriteWithChoiceDialog(ctx) {
       const title = (res.ok ? '快照 ' : '解析失败 ') + ts + '（上一章提取）'
 
       if (res.ok) {
-        const md = char_state_format_snapshot_md(res.data)
+        const lastMap = _ainCharStateParseLastAppearMap(_charStateLastBlockFull)
+        const curLast = _ainBuildLastAppearTextFromChapterPath(prev.path)
+        let appearMap = null
+        try {
+          const names = (res.data || []).map((x) => safeText(x && (x.name != null ? x.name : x.character)).trim()).filter(Boolean)
+          appearMap = await _ainJudgeActualAppearByModel(ctx, cfg, safeText(prev.text), names, {
+            chapterHint: curLast ? (t('上一章', 'Prev chapter') + ' ' + curLast) : t('上一章', 'Prev chapter')
+          })
+        } catch { appearMap = null }
+        const md = char_state_format_snapshot_md(res.data, { lastAppearMap: lastMap, currentLastAppear: curLast, appearMap })
         await char_state_append_block(ctx, cfg, md, title)
         castStatus.textContent = t('已更新人物状态：', 'States updated: ') + String((res.data && res.data.length) ? res.data.length : 0)
         ctx.ui.notice(t('已更新人物状态', 'States updated'), 'ok', 1600)
@@ -10704,7 +10877,12 @@ async function progress_try_update_from_prev_chapter(ctx, cfg, prev, reason) {
   }
 }
 
-function char_state_format_snapshot_md(data) {
+function char_state_format_snapshot_md(data, opt) {
+  const o = opt && typeof opt === 'object' ? opt : {}
+  const lastMap = (o.lastAppearMap && typeof o.lastAppearMap === 'object') ? o.lastAppearMap : {}
+  const curLast = safeText(o.currentLastAppear).replace(/\s+/g, ' ').trim()
+  const appearMap = (o.appearMap && typeof o.appearMap === 'object') ? o.appearMap : null
+
   const arr = Array.isArray(data) ? data : []
   const seen = new Set()
   const lines = []
@@ -10715,12 +10893,29 @@ function char_state_format_snapshot_md(data) {
     if (!name) continue
     if (seen.has(name)) continue
     seen.add(name)
-    const status = safeText(it.status != null ? it.status : (it.state != null ? it.state : '')).trim()
-    const note = safeText(it.note != null ? it.note : '').trim()
+    const status0 = safeText(it.status != null ? it.status : (it.state != null ? it.state : '')).trim()
+    const note0 = safeText(it.note != null ? it.note : '').trim()
+
+    const status = _ainStripLastAppearMark(status0)
+    const note = _ainStripLastAppearMark(note0)
     const s = status || note
     if (!s) continue
+
+    // 是否实际出场：优先模型判定；否则用“是否包含未出场”作降级（不阻断写入）。
+    let appears = null
+    if (appearMap && Object.prototype.hasOwnProperty.call(appearMap, name)) {
+      appears = !!appearMap[name]
+    } else {
+      appears = !/本章未出场/u.test(s)
+    }
+
+    // 只在“未出场”时追加最后出场；实际出场则更新最后出场（但不输出，避免一行太长）。
+    const prevLast = safeText(lastMap[name] || _ainExtractLastAppearText(status0) || _ainExtractLastAppearText(note0)).replace(/\s+/g, ' ').trim()
+    const nextLast = appears ? (curLast || prevLast) : prevLast
+    const lastSuffix = (!appears && nextLast) ? (' 最后出场：' + nextLast) : ''
     let line = '- ' + name + '：' + s
     if (status && note && note !== status) line += '（' + note + '）'
+    line += lastSuffix
     lines.push(line)
     if (lines.length >= 60) break
   }
@@ -11038,7 +11233,16 @@ async function char_state_try_update_from_prev_chapter(ctx, cfg, reason, opt) {
     const title = (res.ok ? '快照 ' : '解析失败 ') + ts + (reason ? ('（' + String(reason) + '）') : '') + (prev.path ? (' - ' + fsBaseName(prev.path)) : '')
 
     if (res.ok) {
-      const md = char_state_format_snapshot_md(res.data)
+      const lastMap = _ainCharStateParseLastAppearMap(existing)
+      const curLast = _ainBuildLastAppearTextFromChapterPath(prev.path)
+      let appearMap = null
+      try {
+        const names = (res.data || []).map((x) => safeText(x && (x.name != null ? x.name : x.character)).trim()).filter(Boolean)
+        appearMap = await _ainJudgeActualAppearByModel(ctx, cfg, safeText(prev.text), names, {
+          chapterHint: curLast ? (t('上一章', 'Prev chapter') + ' ' + curLast) : t('上一章', 'Prev chapter')
+        })
+      } catch { appearMap = null }
+      const md = char_state_format_snapshot_md(res.data, { lastAppearMap: lastMap, currentLastAppear: curLast, appearMap })
       await char_state_append_block(ctx, cfg, md, title)
       return { ok: true, updated: true, parseOk: true, error: '' }
     }
