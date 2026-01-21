@@ -177,7 +177,7 @@ body.platform-windows #app {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  /* 不用 space-between，ribbon-bottom 用 margin-top: auto 固定底部 */
   background: var(--chrome-bg, var(--bg));
   border-right: 1px solid var(--border);
   -webkit-app-region: drag;
@@ -191,6 +191,10 @@ body.platform-windows #app {
   align-items: center;
   padding: 6px 0;
   gap: 2px;
+}
+
+.ribbon-bottom {
+  margin-top: auto;
 }
 
 .ribbon-top {
@@ -258,6 +262,67 @@ body.platform-windows #app {
   border-radius: 50%;
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ========== Ribbon 库切换区 ========== */
+.ribbon-libs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0 0 0;
+  gap: 2px;
+}
+
+.ribbon-libs.hidden {
+  display: none;
+}
+
+/* 库按钮：简洁风格，与 ribbon-btn 一致 */
+.ribbon-lib-btn {
+  -webkit-app-region: no-drag;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.ribbon-lib-btn:hover {
+  color: var(--fg);
+  background: var(--hover-bg);
+}
+
+.ribbon-lib-btn:active {
+  background: var(--active-bg);
+  transform: scale(0.95);
+}
+
+/* 激活状态：与 ribbon-btn.active 一致 */
+.ribbon-lib-btn.active {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* Ribbon 分隔线 */
+.ribbon-divider {
+  width: 20px;
+  height: 1px;
+  background: var(--border);
+  margin: 2px auto;
+}
+
+.ribbon-divider.hidden {
+  display: none;
 }
 
 /* 主内容区 */
@@ -1554,7 +1619,7 @@ body > .block-menu { display: none !important; }
 .library .lib-search-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
 .library .lib-search-btn svg { width: 16px; height: 16px; }
 
-/* 库侧栏：库列表（多库快速切换） */
+/* 库侧栏：库列表（多库快速切换）- 可通过设置切换显示位置 */
 /* 库图标栏 */
 .library .lib-vault-list { display: flex; flex-direction: row; gap: 4px; padding: 2px 8px; }
 .library .lib-vault-list.hidden { display: none; }
@@ -6338,7 +6403,7 @@ body.dark-mode .ribbon {
   border-right-color: var(--border) !important;
 }
 
-/* ribbon-btn 使用CSS变量自动适配深色模式，无需额外规则 */
+/* ribbon-lib-btn 使用CSS变量自动适配深色模式，无需额外规则 */
 
 /* 夜间模式 - 库侧栏 vault 选择器 */
 body.dark-mode .lib-vault-btn {

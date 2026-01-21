@@ -247,3 +247,23 @@ export async function removeLibrary(id: string): Promise<void> {
   await store.save()
 }
 
+// 库切换位置设置：'sidebar'（侧栏内，原方案）| 'ribbon'（垂直标题栏）
+export type LibSwitcherPosition = 'sidebar' | 'ribbon'
+
+export async function getLibSwitcherPosition(): Promise<LibSwitcherPosition> {
+  try {
+    const store = await getStore()
+    const v = await store.get('libSwitcherPosition')
+    if (v === 'sidebar' || v === 'ribbon') return v
+  } catch {}
+  return 'ribbon' // 默认使用新方案
+}
+
+export async function setLibSwitcherPosition(pos: LibSwitcherPosition): Promise<void> {
+  try {
+    const store = await getStore()
+    await store.set('libSwitcherPosition', pos)
+    await store.save()
+  } catch {}
+}
+

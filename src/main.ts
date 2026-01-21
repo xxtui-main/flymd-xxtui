@@ -50,7 +50,8 @@ import {
 } from './utils/richClipboard'
 import { saveImageToLocalAndGetPathCore, toggleUploaderEnabledFromMenuCore } from './core/imagePaste'
 // 方案A：多库管理（统一 libraries/activeLibraryId）
-import { getLibraries, getActiveLibraryId, getActiveLibraryRoot, setActiveLibraryId as setActiveLibId, upsertLibrary, removeLibrary as removeLib, renameLibrary as renameLib } from './utils/library'
+import { getLibraries, getActiveLibraryId, getActiveLibraryRoot, setActiveLibraryId as setActiveLibId, upsertLibrary, removeLibrary as removeLib, renameLibrary as renameLib, getLibSwitcherPosition } from './utils/library'
+import { initRibbonLibraryList, type RibbonLibraryListApi } from './ui/ribbonLibraryList'
 import appIconUrl from '../Flymdnew.png?url'
 import { decorateCodeBlocks } from './decorate'
 import { ribbonIcons } from './icons'
@@ -641,6 +642,7 @@ try {
 // 应用状态
 let fileTreeReady = false
 let _libraryVaultListUi: { refresh(): Promise<void> } | null = null
+let _ribbonLibsUi: RibbonLibraryListApi | null = null
 let mode: Mode = 'edit'
 // 所见即所得开关（Overlay 模式）
 let wysiwyg = false
@@ -1505,6 +1507,8 @@ function guard<T extends (...args: any[]) => any>(fn: T) {
 const app = document.getElementById('app')!
 app.innerHTML = `
   <aside class="ribbon" id="ribbon">
+    <div class="ribbon-libs" id="ribbon-libs"></div>
+    <div class="ribbon-divider"></div>
     <div class="ribbon-top">
       <button class="ribbon-btn" id="btn-filetree" title="${t('lib.toggle')}">${ribbonIcons.folder}</button>
       <button class="ribbon-btn" id="btn-open" title="${t('menu.file')}">${ribbonIcons.fileText}</button>
@@ -7213,8 +7217,30 @@ async function refreshLibraryUiAndTree(refreshTree = true) {
     // 更新库侧栏顶部的库名显示
     const elPath = document.getElementById('lib-path') as HTMLSpanElement | null
     if (elPath) elPath.textContent = libName || t('lib.menu')
-    // 同步刷新库侧栏“库列表”
-    try { if (_libraryVaultListUi) await _libraryVaultListUi.refresh() } catch {}
+    // 根据 switcher 位置设置决定刷新哪个组件
+    const switcherPos = await getLibSwitcherPosition()
+    const ribbonLibs = document.getElementById('ribbon-libs')
+    const ribbonDivider = document.querySelector('.ribbon-divider')
+    const libVaultList = document.getElementById('lib-vault-list')
+    if (switcherPos === 'ribbon') {
+      // ribbon 模式：初始化/刷新 ribbon 库列表，隐藏侧栏库列表
+      if (!_ribbonLibsUi && ribbonLibs) {
+        _ribbonLibsUi = initRibbonLibraryList(ribbonLibs, {
+          getLibraries,
+          getActiveLibraryId,
+          setActiveLibraryId: async (id: string) => { await setActiveLibId(id) },
+          onAfterSwitch: async () => { await refreshLibraryUiAndTree(true) },
+        })
+      } else if (_ribbonLibsUi) {
+        await _ribbonLibsUi.render()
+      }
+      libVaultList?.classList.add('hidden')
+    } else {
+      // sidebar 模式：刷新侧栏库列表，隐藏 ribbon 库列表
+      if (_libraryVaultListUi) await _libraryVaultListUi.refresh()
+      ribbonLibs?.classList.add('hidden')
+      ribbonDivider?.classList.add('hidden')
+    }
   } catch {}
 
   if (!refreshTree) return
@@ -8885,6 +8911,37 @@ function bindEvents() {
       await fileTree.refresh()
     }
   }
+
+  // Ribbon 库切换区初始化（根据设置决定显示方案）
+  ;(async () => {
+    try {
+      const switcherPos = await getLibSwitcherPosition()
+      const ribbonLibs = document.getElementById('ribbon-libs')
+      const ribbonDivider = document.querySelector('.ribbon-divider')
+      const libVaultList = document.getElementById('lib-vault-list')
+
+      if (switcherPos === 'ribbon') {
+        // 方案2：垂直标题栏
+        if (ribbonLibs) {
+          _ribbonLibsUi = initRibbonLibraryList(ribbonLibs, {
+            getLibraries,
+            getActiveLibraryId,
+            setActiveLibraryId: async (id: string) => { await setActiveLibId(id) },
+            onAfterSwitch: async () => { await refreshLibraryUiAndTree(true) },
+          })
+        }
+        // 隐藏侧栏内的库列表
+        libVaultList?.classList.add('hidden')
+      } else {
+        // 方案1：侧栏内（隐藏 ribbon 库切换区，显示侧栏库列表）
+        ribbonLibs?.classList.add('hidden')
+        ribbonDivider?.classList.add('hidden')
+        libVaultList?.classList.remove('hidden')
+      }
+    } catch (e) {
+      console.error('[RibbonLibraryList] 初始化失败:', e)
+    }
+  })()
 
   // Ribbon 文件树切换按钮
   const btnFiletree = document.getElementById('btn-filetree')
