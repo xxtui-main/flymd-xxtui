@@ -28,6 +28,12 @@ FlyMD 是一款轻量级、高性能的本地 Markdown 编辑器,支持 PDF 高�
 
 <img width="1920" height="1080" alt="hero" src="https://github.com/user-attachments/assets/acf758c1-6c8e-4b4f-a313-d4ce2190394b" />
 
+<p align="center">
+  <a href="https://github.com/flyhunterl/flymd/releases/latest">下载桌面版（Windows / macOS / Linux）</a>
+  ·
+  <a href="https://github.com/flyhunterl/flymd/releases?q=android&expanded=true">下载安卓版（Beta）</a>
+</p>
+
 ## 目录
 
 - [核心特性](#核心特性)

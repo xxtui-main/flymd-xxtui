@@ -25,6 +25,12 @@ FlyMD is a lightweight, high-performance local Markdown editor supporting high-p
 
 <img width="1920" height="1080" alt="hero" src="https://github.com/user-attachments/assets/acf758c1-6c8e-4b4f-a313-d4ce2190394b" />
 
+<p align="center">
+  <a href="https://github.com/flyhunterl/flymd/releases/latest">Download Desktop (Windows / macOS / Linux)</a>
+  ·
+  <a href="https://github.com/flyhunterl/flymd/releases?q=android&expanded=true">Download Android (Beta)</a>
+</p>
+
 ## Table of Contents
 
 - [Core Features](#core-features)
