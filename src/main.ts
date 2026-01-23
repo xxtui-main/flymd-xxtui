@@ -1557,6 +1557,8 @@ performance.mark('flymd-dom-ready')
 initPlatformIntegration().catch((e) => console.error('[Platform] Initialization failed:', e))
 // 初始化平台类（用于 CSS 平台适配，Windows 显示窗口控制按钮）
 try { initPlatformClass() } catch {}
+// Windows 透明窗口拖动残影/白条兜底
+try { initWindowsCompositorPoke() } catch {}
 // 应用已保存主题并挂载主题 UI
 try { applySavedTheme() } catch {}
 try { initThemeUI() } catch {}
@@ -6204,6 +6206,75 @@ function initPlatformClass() {
   } else if (platform.includes('linux')) {
     document.body.classList.add('platform-linux')
   }
+}
+
+// Windows：透明无边框窗口在拖动后偶发出现“顶部白条/残影”的兜底。
+// 原因本质是 WebView2/DWM 合成在某些 move 序列里没有及时刷新透明 surface。
+// 这里用“轻微改变 body 背景一帧”强制触发一次合成更新；不改窗口大小、不闪烁标题栏。
+function initWindowsCompositorPoke() {
+  const platform = (navigator.platform || '').toLowerCase()
+  if (!platform.includes('win')) return
+  if (!isTauriRuntime()) return
+
+  let settleTimer: any = null
+  let settling = false
+  let lastPokeAt = 0
+
+  const pokeCssOnce = () => {
+    try {
+      document.body.classList.add('win-compositor-poke')
+      // 多给一帧：有些机器上 1 帧不足以让 DWM 重新合成
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { document.body.classList.remove('win-compositor-poke') } catch {}
+        })
+      })
+    } catch {}
+  }
+
+  const settle = async () => {
+    if (settling) return
+    settling = true
+    try {
+      // 再 poke 一次，覆盖“拖动结束后一帧才漏出来”的情况
+      pokeCssOnce()
+      const win = getCurrentWindow()
+      // decorations 本应始终为 false；这里重复设置当作“强制刷新窗口样式”
+      try { await win.setDecorations(false) } catch {}
+      // 某些机器上需要触发一次 WM_SIZE 才会把透明 surface 刷干净：同尺寸 setSize 当作无损 poke
+      try {
+        const s = await win.innerSize()
+        await win.setSize({ type: 'Physical', width: s.width, height: s.height })
+      } catch {}
+    } catch {}
+    // 避免 setDecorations/setSize 触发的 window 事件反复回调导致抖动
+    setTimeout(() => { settling = false }, 200)
+  }
+
+  const schedule = () => {
+    if (settling) return
+    // 1) 拖动过程中节流 poke，尽量不影响拖动手感
+    const now = Date.now()
+    if (now - lastPokeAt > 80) {
+      lastPokeAt = now
+      pokeCssOnce()
+    }
+
+    // 2) 拖动结束后做一次更强的 settle（包含 setDecorations(false)）
+    try { if (settleTimer) clearTimeout(settleTimer) } catch {}
+    settleTimer = setTimeout(() => {
+      settleTimer = null
+      void settle()
+    }, 140)
+  }
+
+  ;(async () => {
+    try {
+      const win = getCurrentWindow()
+      try { await win.onMoved(() => schedule()) } catch {}
+      try { await win.onResized(() => schedule()) } catch {}
+    } catch {}
+  })()
 }
 
 

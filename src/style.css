@@ -152,9 +152,18 @@ body {
 
 /* Windows：保持 1.0.4 的透明窗口 + 圆角阴影；Mac/Linux 回退到 673c 之前的纯色窗口 */
 body.platform-windows {
-  background: transparent;
+  /* 
+   * Windows + WebView2 透明窗口在拖动/重绘时可能漏出系统合成层（表现为顶部浅色条/白边）。
+   * 给窗口一个极低 alpha 的底色，确保每个像素都有内容可合成，避免“全透明像素”被 DWM 用默认色填充。
+   */
+  /* 取 >= 1/255 的 alpha，避免被量化成 0 导致“仍然是全透明”。 */
+  background: rgba(0, 0, 0, 0.004);
   padding: 2px; /* 透明边越小越好：只留出足够的圆角/轻微阴影空间 */
   box-sizing: border-box;
+}
+/* Windows 透明窗口拖动后偶发的“顶部白条/残影”兜底：轻微改变背景触发合成层刷新 */
+body.platform-windows.win-compositor-poke {
+  background: rgba(0, 0, 0, 0.008);
 }
 body.platform-windows #app {
   /* 阴影必须“收敛”到 padding 里，否则就是被裁剪或者被迫加大透明边 */
