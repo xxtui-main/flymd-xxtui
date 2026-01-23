@@ -28,20 +28,18 @@ export async function openRenameDialog(stem: string, ext: string): Promise<strin
     return await new Promise<string | null>((resolve) => {
       const onSubmit = (e: Event) => { e.preventDefault(); const v = (inputText.value || '').trim(); resolve(v || null); cleanup() }
       const onCancel = () => { resolve(null); cleanup() }
-      const onOverlay = (e: MouseEvent) => { if (e.target === overlay) onCancel() }
       function cleanup() {
         overlay.classList.add('hidden')
         try {
           form.removeEventListener('submit', onSubmit)
           btnCancel?.removeEventListener('click', onCancel)
           btnClose?.removeEventListener('click', onCancel)
-          overlay.removeEventListener('click', onOverlay)
         } catch {}
       }
       form.addEventListener('submit', onSubmit)
       btnCancel?.addEventListener('click', onCancel)
       btnClose?.addEventListener('click', onCancel)
-      overlay.addEventListener('click', onOverlay)
+      // 禁止点击遮罩关闭：避免选中文字/拖拽鼠标误触到窗口外导致对话框直接消失
       overlay.classList.remove('hidden')
       setTimeout(() => { try { inputText.focus() } catch {} }, 0)
     })
@@ -119,4 +117,3 @@ export async function openLinkDialog(
     }, 0)
   })
 }
-
