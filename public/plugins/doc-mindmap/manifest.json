@@ -1,0 +1,20 @@
+{
+  "id": "doc-mindmap",
+  "name": "文档脑图（Markmap）",
+  "version": "0.2.0",
+  "author": "flyMD",
+  "description": "将当前 Markdown 文档渲染为 Markmap 风格脑图，在右侧停靠面板预览；支持全屏遮挡查看与导出 SVG/PNG；点击节点可跳转文档位置。",
+  "assets": [
+    "assets/d3.min.js",
+    "assets/markmap-view.min.js",
+    "assets/markmap-lib.min.js"
+  ],
+  "i18n": {
+    "en": {
+      "name": "Document Mindmap (Markmap)",
+      "description": "Render the current Markdown document as a Markmap-style mindmap in a right dock panel; fullscreen overlay; export SVG/PNG; click node to jump."
+    }
+  },
+  "main": "main.js",
+  "minHostVersion": "0.6.7"
+}
