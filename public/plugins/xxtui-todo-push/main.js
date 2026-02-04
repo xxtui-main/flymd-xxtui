@@ -42,7 +42,10 @@ const DEFAULT_CFG = {
     from: '飞速MarkDown',
     enableWriteback: true, // 推送/提醒后是否回写标记
     pushFlag: '[pushed]', // 已推送标记文本
-    remindFlag: '[reminded]' // 已创建提醒标记文本
+    remindFlag: '[reminded]', // 已创建提醒标记文本
+    keepPushFlags: false, // 推送时是否保留待办尾部标记
+    pushTitleTpl: '$title', // 推送标题模板
+    pushContentTpl: '$content' // 推送内容模板
 }
 
 // 默认提示状态配置
@@ -59,6 +62,7 @@ const MENU_ACTIONS = {
     PUSH_ALL: 'push_all',
     PUSH_DONE: 'push_done',
     PUSH_TODO: 'push_todo',
+    PUSH_PLAIN: 'push_plain',
     CREATE_REMINDER: 'create_reminder'
 }
 
@@ -120,6 +124,29 @@ function getSelectedMarkdownOrText(context, ctx) {
         // ignore
     }
     return ''
+}
+
+function applyPushTemplate(tpl, vars) {
+    const base = typeof tpl === 'string' ? tpl : ''
+    if (!base) return ''
+    const title = vars && typeof vars.title === 'string' ? vars.title : ''
+    const content = vars && typeof vars.content === 'string' ? vars.content : ''
+    return base.replace(/\$title/g, title).replace(/\$content/g, content)
+}
+
+function appendFromLine(content, fromLine) {
+    const base = String(content || '').replace(/\s+$/, '')
+    if (!fromLine) return base
+    if (!base) return fromLine
+    return base + '\n\n' + fromLine
+}
+
+function hasTodoSyntax(text) {
+    try {
+        return /(^|\n)\s*-\s*\[( |x|X)\]\s+/.test(String(text || ''))
+    } catch {
+        return false
+    }
 }
 
 // 注入设置面板样式（仿 AI 助手风格，简化版）
@@ -230,6 +257,12 @@ function ensureKeyPickerCss() {
             '.xt-picker-section:last-child{margin-bottom:0;}',
             '.xt-picker-label{font-size:13px;font-weight:600;color:#111827;margin-bottom:8px;}',
             '.xt-picker-options{display:flex;flex-direction:column;gap:6px;}',
+            '.xt-picker-seg{display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:10px;margin-bottom:10px;}',
+            '.xt-picker-seg-btn{flex:1;border:none;background:transparent;padding:6px 10px;border-radius:8px;font-size:12px;color:#334155;cursor:pointer;transition:all .15s;}',
+            '.xt-picker-seg-btn.active{background:#2563eb;color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.2);}',
+            '.xt-picker-card{border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;padding:10px;display:flex;flex-direction:column;gap:4px;}',
+            '.xt-picker-card-title{font-size:13px;font-weight:600;color:#0f172a;}',
+            '.xt-picker-card-desc{font-size:12px;color:#6b7280;line-height:1.4;}',
             '.xt-picker-option{display:flex;align-items:center;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.15s;}',
             '.xt-picker-option:hover{background:#f9fafb;border-color:#2563eb;}',
             '.xt-picker-option.selected{background:#eff6ff;border-color:#2563eb;}',
@@ -247,7 +280,7 @@ function ensureKeyPickerCss() {
 }
 
 // 选择 Key 和推送类型弹窗，返回 Promise<{keyObj, action} | null>
-function showKeyPicker(allKeys, defaultKey) {
+function showKeyPicker(allKeys, defaultKey, selectedText) {
     return new Promise((resolve) => {
         try {
             const doc = window && window.document ? window.document : null
@@ -263,7 +296,9 @@ function showKeyPicker(allKeys, defaultKey) {
             overlay.id = 'xtui-picker-overlay'
 
             let selectedKey = defaultKey || allKeys[0]
-            let selectedAction = MENU_ACTIONS.PUSH_ALL
+            let selectedGroup = hasTodoSyntax(selectedText) ? 'todo' : 'plain'
+            let lastTodoAction = MENU_ACTIONS.PUSH_ALL
+            let selectedAction = selectedGroup === 'plain' ? MENU_ACTIONS.PUSH_PLAIN : MENU_ACTIONS.PUSH_ALL
 
             const renderDialog = () => {
                 overlay.innerHTML = [
@@ -276,7 +311,11 @@ function showKeyPicker(allKeys, defaultKey) {
                     '   </div>',
                     '   <div class="xt-picker-section">',
                     '     <div class="xt-picker-label">' + xxtText('选择推送类型', 'Select push type') + '</div>',
-                    '     <div class="xt-picker-options" id="xtui-picker-actions"></div>',
+                    '     <div class="xt-picker-seg">',
+                    '       <button class="xt-picker-seg-btn" data-group="todo">' + xxtText('待办清单', 'Todo list') + '</button>',
+                    '       <button class="xt-picker-seg-btn" data-group="plain">' + xxtText('普通文本', 'Plain text') + '</button>',
+                    '     </div>',
+                    '     <div class="xt-picker-options" id="xtui-picker-types"></div>',
                     '   </div>',
                     ' </div>',
                     ' <div id="xtui-picker-actions">',
@@ -327,47 +366,80 @@ function showKeyPicker(allKeys, defaultKey) {
                 }
 
                 // 渲染推送类型选项
-                const actionsContainer = overlay.querySelector('#xtui-picker-actions')
-                if (actionsContainer) {
-                    const actionOptions = [
-                        { action: MENU_ACTIONS.PUSH_ALL, label: xxtText('推送全部', 'Push all'), desc: xxtText('推送所有待办（已完成+未完成）', 'Push all todos (done + undone)') },
-                        { action: MENU_ACTIONS.PUSH_DONE, label: xxtText('推送已完成', 'Push done'), desc: xxtText('仅推送已完成的待办', 'Push only completed todos') },
-                        { action: MENU_ACTIONS.PUSH_TODO, label: xxtText('推送未完成', 'Push todo'), desc: xxtText('仅推送未完成的待办', 'Push only incomplete todos') }
-                    ]
-
-                    actionOptions.forEach((item) => {
-                        const option = doc.createElement('div')
-                        option.className = 'xt-picker-option' + (item.action === selectedAction ? ' selected' : '')
-
-                        const radio = doc.createElement('input')
-                        radio.type = 'radio'
-                        radio.name = 'xtui-action'
-                        radio.checked = item.action === selectedAction
-
-                        const textDiv = doc.createElement('div')
-                        textDiv.className = 'xt-picker-option-text'
-
-                        const mainText = doc.createElement('div')
-                        mainText.className = 'xt-picker-option-main'
-                        mainText.textContent = item.label
-
-                        const subText = doc.createElement('div')
-                        subText.className = 'xt-picker-option-sub'
-                        subText.textContent = item.desc
-
-                        textDiv.appendChild(mainText)
-                        textDiv.appendChild(subText)
-
-                        option.appendChild(radio)
-                        option.appendChild(textDiv)
-
-                        option.addEventListener('click', () => {
-                            selectedAction = item.action
-                            renderDialog()
-                        })
-
-                        actionsContainer.appendChild(option)
+                const segBtns = overlay.querySelectorAll('.xt-picker-seg-btn')
+                segBtns.forEach((btn) => {
+                    const group = btn.getAttribute('data-group')
+                    btn.classList.toggle('active', group === selectedGroup)
+                    btn.addEventListener('click', () => {
+                        if (group === selectedGroup) return
+                        if (group === 'todo') {
+                            selectedGroup = 'todo'
+                            selectedAction = lastTodoAction
+                        } else {
+                            selectedGroup = 'plain'
+                            selectedAction = MENU_ACTIONS.PUSH_PLAIN
+                        }
+                        renderDialog()
                     })
+                })
+
+                const actionsContainer = overlay.querySelector('#xtui-picker-types')
+                if (actionsContainer) {
+                    actionsContainer.innerHTML = ''
+                    if (selectedGroup === 'plain') {
+                        const card = doc.createElement('div')
+                        card.className = 'xt-picker-card'
+                        const title = doc.createElement('div')
+                        title.className = 'xt-picker-card-title'
+                        title.textContent = xxtText('普通文本', 'Plain text')
+                        const desc = doc.createElement('div')
+                        desc.className = 'xt-picker-card-desc'
+                        desc.textContent = xxtText('原样推送选中内容，不解析待办。', 'Send selected text as-is without parsing todos.')
+                        card.appendChild(title)
+                        card.appendChild(desc)
+                        actionsContainer.appendChild(card)
+                    } else {
+                        const actionOptions = [
+                            { action: MENU_ACTIONS.PUSH_ALL, label: xxtText('推送全部', 'Push all'), desc: xxtText('推送所有待办（已完成+未完成）', 'Push all todos (done + undone)') },
+                            { action: MENU_ACTIONS.PUSH_DONE, label: xxtText('推送已完成', 'Push done'), desc: xxtText('仅推送已完成的待办', 'Push only completed todos') },
+                            { action: MENU_ACTIONS.PUSH_TODO, label: xxtText('推送未完成', 'Push todo'), desc: xxtText('仅推送未完成的待办', 'Push only incomplete todos') }
+                        ]
+
+                        actionOptions.forEach((item) => {
+                            const option = doc.createElement('div')
+                            option.className = 'xt-picker-option' + (item.action === selectedAction ? ' selected' : '')
+
+                            const radio = doc.createElement('input')
+                            radio.type = 'radio'
+                            radio.name = 'xtui-action'
+                            radio.checked = item.action === selectedAction
+
+                            const textDiv = doc.createElement('div')
+                            textDiv.className = 'xt-picker-option-text'
+
+                            const mainText = doc.createElement('div')
+                            mainText.className = 'xt-picker-option-main'
+                            mainText.textContent = item.label
+
+                            const subText = doc.createElement('div')
+                            subText.className = 'xt-picker-option-sub'
+                            subText.textContent = item.desc
+
+                            textDiv.appendChild(mainText)
+                            textDiv.appendChild(subText)
+
+                            option.appendChild(radio)
+                            option.appendChild(textDiv)
+
+                            option.addEventListener('click', () => {
+                                selectedAction = item.action
+                                lastTodoAction = item.action
+                                renderDialog()
+                            })
+
+                            actionsContainer.appendChild(option)
+                        })
+                    }
                 }
 
                 // 绑定按钮事件
@@ -946,6 +1018,17 @@ function parseTitleAndFlags(title, cfg) {
     return res
 }
 
+function stripTodoFlagsFromLine(line, cfg) {
+    const raw = String(line || '')
+    if (!raw) return raw
+    const m = raw.match(/^(\s*[-*]\s+\[(\s|x|X)\]\s+)(.+)$/)
+    if (!m) return raw
+    const parsed = parseTitleAndFlags(m[3], cfg)
+    const clean = parsed.text
+    if (!clean) return raw
+    return m[1] + clean
+}
+
 // 将行尾标记解析出来并追加新的标记
 function addFlagsToLine(line, flagKeys, cfg) {
     const flags = getFlagTexts(cfg)
@@ -1118,9 +1201,12 @@ function describeFilter(type) {
 }
 
 // 保留原始 Markdown 形态的待办行，避免在中间插入额外标记
-function renderTodoMarkdown(todo) {
+function renderTodoMarkdown(todo, cfg, opts) {
     const raw = todo && typeof todo.content === 'string' ? todo.content : ''
-    if (raw && raw.trim()) return raw
+    if (raw && raw.trim()) {
+        if (opts && opts.stripFlags) return stripTodoFlagsFromLine(raw, cfg)
+        return raw
+    }
     const text = String((todo && todo.title) || '').trim() || '待办事项'
     const checkbox = todo && todo.done ? '- [x] ' : '- [ ] '
     return checkbox + text
@@ -1241,7 +1327,7 @@ function parseTodoTime(title, nowSec) {
 }
 
 // 立即推送单条待办到 xxtui
-async function pushInstantBatch(context, cfg, todos, filterLabel, keyObj) {
+async function pushInstantBatch(context, cfg, todos, filterLabel, keyObj, opts) {
     const key = keyObj && keyObj.key ? String(keyObj.key).trim() : ''
     if (!key) throw new Error('NO_API_KEY')
     const list = Array.isArray(todos) ? todos.filter(Boolean) : []
@@ -1253,15 +1339,23 @@ async function pushInstantBatch(context, cfg, todos, filterLabel, keyObj) {
     lines.push('提醒列表（' + label + '，共 ' + list.length + ' 条）：')
     lines.push('')
     list.forEach((todo) => {
-        lines.push(renderTodoMarkdown(todo))
+        lines.push(renderTodoMarkdown(todo, cfg, opts))
     })
-    lines.push('')
-    lines.push('来源：' + ((cfg && cfg.from) || '飞速MarkDown'))
+    const rawTitle = label + ' · ' + list.length + ' 条待办'
+    const rawContent = lines.join('\n')
+    const fromLine = '来源：' + ((cfg && cfg.from) || '飞速MarkDown')
+    const titleTpl = (cfg && typeof cfg.pushTitleTpl === 'string') ? cfg.pushTitleTpl : '$title'
+    const contentTpl = (cfg && typeof cfg.pushContentTpl === 'string') ? cfg.pushContentTpl : '$content'
+    const finalTitle = applyPushTemplate(titleTpl || '$title', { title: rawTitle, content: rawContent }).trim() || rawTitle
+    const finalContent = appendFromLine(
+        applyPushTemplate(contentTpl || '$content', { title: rawTitle, content: rawContent }) || rawContent,
+        fromLine
+    )
 
     const payload = {
         from: (cfg && cfg.from) || '飞速MarkDown',
-        title: label + ' · ' + list.length + ' 条待办',
-        content: lines.join('\n'),
+        title: finalTitle,
+        content: finalContent,
         channel: keyObj && keyObj.channel ? String(keyObj.channel) : ''
     }
 
@@ -1282,6 +1376,44 @@ async function pushInstantBatch(context, cfg, todos, filterLabel, keyObj) {
         log('批量推送出错', err)
         throw err
     }
+}
+
+// 直接推送普通文本（不解析待办）
+async function pushPlainText(context, cfg, text, keyObj) {
+    const key = keyObj && keyObj.key ? String(keyObj.key).trim() : ''
+    if (!key) throw new Error('NO_API_KEY')
+    const raw = String(text || '').trim()
+    if (!raw) throw new Error('NO_TEXT')
+
+    const firstLine = raw.split(/\r?\n/).find((line) => String(line || '').trim())
+    let rawTitle = String(firstLine || '').trim()
+    if (!rawTitle) rawTitle = xxtText('文本推送', 'Text message')
+    if (rawTitle.length > 40) rawTitle = rawTitle.slice(0, 40) + '...'
+
+    const titleTpl = (cfg && typeof cfg.pushTitleTpl === 'string') ? cfg.pushTitleTpl : '$title'
+    const contentTpl = (cfg && typeof cfg.pushContentTpl === 'string') ? cfg.pushContentTpl : '$content'
+    const finalTitle = applyPushTemplate(titleTpl || '$title', { title: rawTitle, content: raw }).trim() || rawTitle
+    const finalContent = applyPushTemplate(contentTpl || '$content', { title: rawTitle, content: raw }) || raw
+
+    const payload = {
+        from: (cfg && cfg.from) || '飞速MarkDown',
+        title: finalTitle,
+        content: finalContent,
+        channel: keyObj && keyObj.channel ? String(keyObj.channel) : ''
+    }
+
+    if (!payload.channel) {
+        delete payload.channel
+    }
+
+    const url = 'https://www.xxtui.com/xxtui/' + encodeURIComponent(key)
+    log('普通文本推送发送', { channel: payload.channel ? '自定义渠道' : '默认渠道' })
+
+    await context.http.fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
 }
 
 // 创建定时提醒
@@ -1410,6 +1542,7 @@ async function runPushFlow(context, cfg, type, keyObj, selectedText) {
     if (!confirmed) return
 
     const forcePush = !!checked
+    const keepFlags = !!(cfg && cfg.keepPushFlags)
     const target = forcePush ? filtered : unpushed
 
     if (!target.length) {
@@ -1427,7 +1560,7 @@ async function runPushFlow(context, cfg, type, keyObj, selectedText) {
     }
 
     try {
-        await pushInstantBatch(context, cfg, target, label, keyObj)
+        await pushInstantBatch(context, cfg, target, label, keyObj, { stripFlags: forcePush && !keepFlags })
         if (context && context.ui && context.ui.notice) {
             context.ui.notice(
                 xxtText('xxtui 推送完成：已发送 ', 'xxtui push complete: sent ') +
@@ -1816,6 +1949,10 @@ async function handleMenuAction(context, action, keyObj, selectedText) {
             await runPushFlow(context, cfg, action, actualKeyObj, selectedText)
             return
         }
+        if (action === MENU_ACTIONS.PUSH_PLAIN) {
+            await pushPlainText(context, cfg, selectedText, actualKeyObj)
+            return
+        }
     } catch (e) {
         const msg = e && e.message ? String(e.message) : String(e || '未知错误')
         if (context && context.ui && context.ui.notice) {
@@ -1842,7 +1979,7 @@ async function handlePushWithKeyPicker(context, selectedText) {
         }
 
         const defaultKey = pickDefaultKey(cfg)
-        const result = await showKeyPicker(allKeys, defaultKey)
+        const result = await showKeyPicker(allKeys, defaultKey, selectedText)
         if (!result || !result.keyObj || !result.action) return
 
         await handleMenuAction(context, result.action, result.keyObj, selectedText)
@@ -2113,7 +2250,10 @@ export async function openSettings(context) {
             ' <div id="xtui-set-body">',
             '   <div id="xtui-set-nav">',
             '     <button class="xtui-nav-btn active" data-tab="push">' +
-                xxtText('推送设置', 'Push settings') +
+                xxtText('API Key 管理', 'API Key Management') +
+                '</button>',
+            '     <button class="xtui-nav-btn" data-tab="template">' +
+                xxtText('自定义消息', 'Custom message') +
                 '</button>',
             '     <button class="xtui-nav-btn" data-tab="plugin">' +
                 xxtText('插件设置', 'Plugin settings') +
@@ -2125,9 +2265,6 @@ export async function openSettings(context) {
             '   </div>',
             '   <div id="xtui-set-panel">',
             '     <div class="xtui-tab active" data-tab="push">',
-            '       <div class="xt-row"><label>' +
-                xxtText('来源 from', 'From') +
-                '</label><input id="xtui-set-from" type="text" placeholder="飞速MarkDown"/></div>',
             '       <div class="xt-row" style="flex-direction:column;align-items:stretch;">',
             '         <div class="xt-keys">',
             '           <div class="xt-keys-head">',
@@ -2174,6 +2311,48 @@ export async function openSettings(context) {
             '         </div>',
             '       </div>',
             '     </div>',
+            '     <div class="xtui-tab" data-tab="template">',
+            '       <div class="xt-row xt-help">',
+            '         <div class="xt-help-title">' +
+                xxtText('自定义消息说明', 'Custom message') +
+                '</div>',
+            '         <div class="xt-help-text">',
+            '           <div>' +
+                xxtText('Title 为推送标题，Content 为推送正文。', 'Title is the push title, Content is the push body.') +
+                '</div>',
+            '           <div>' +
+                xxtText('支持变量：$title（默认标题）、$content（默认正文）。', 'Variables: $title (default title), $content (default content).') +
+                '</div>',
+            '         </div>',
+            '       </div>',
+            '       <div class="xt-row" style="flex-direction:column;align-items:stretch;">',
+            '         <div class="xt-keys">',
+            '           <div class="xt-keys-head">',
+            '             <div style="font-weight:600;color:#111827;">' +
+                xxtText('自定义消息', 'Custom message') +
+                '</div>',
+            '           </div>',
+            '           <div class="xt-row xt-row-center" style="margin:6px 0 4px;">',
+            '             <label class="xt-label-fixed">' +
+                xxtText('来源 from', 'From') +
+                '</label>',
+            '             <input id="xtui-set-from" type="text" class="xt-input-fixed" placeholder="飞速MarkDown"/>',
+            '           </div>',
+            '           <div class="xt-row xt-row-center" style="margin:6px 0 4px;">',
+            '             <label class="xt-label-fixed">' +
+                xxtText('推送标题模板', 'Push title template') +
+                '</label>',
+            '             <input id="xtui-push-title-tpl" type="text" class="xt-input-fixed" placeholder="$title" />',
+            '           </div>',
+            '           <div class="xt-row xt-row-center" style="margin:4px 0 6px;">',
+            '             <label class="xt-label-fixed">' +
+                xxtText('推送内容模板', 'Push content template') +
+                '</label>',
+            '             <input id="xtui-push-content-tpl" type="text" class="xt-input-fixed" placeholder="$content" />',
+            '           </div>',
+            '         </div>',
+            '       </div>',
+            '     </div>',
             '     <div class="xtui-tab" data-tab="plugin">',
             '       <div class="xt-row xt-row-center">',
             '         <label class="xt-label-fixed">' +
@@ -2183,6 +2362,17 @@ export async function openSettings(context) {
             '           <input id="xtui-enable-writeback" type="checkbox" style="width:16px;height:16px;"/>',
             '           <span>' +
                 xxtText('推送/提醒后写入状态标记', 'Write status flags after push/reminder') +
+                '</span>',
+            '         </label>',
+            '       </div>',
+            '       <div class="xt-row xt-row-center">',
+            '         <label class="xt-label-fixed">' +
+                xxtText('强制推送', 'Force push') +
+                '</label>',
+            '         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#111827;white-space:nowrap;">',
+            '           <input id="xtui-keep-push-flags" type="checkbox" style="width:16px;height:16px;"/>',
+            '           <span>' +
+                xxtText('保留待办尾部标记（不去除）', 'Keep tail flags on force push (do not strip)') +
                 '</span>',
             '         </label>',
             '       </div>',
@@ -2314,10 +2504,13 @@ export async function openSettings(context) {
         const elKeysList = overlay.querySelector('#xtui-keys-list')
         const elAddKey = overlay.querySelector('#xtui-add-key')
         const elFrom = overlay.querySelector('#xtui-set-from')
+        const elPushTitleTpl = overlay.querySelector('#xtui-push-title-tpl')
+        const elPushContentTpl = overlay.querySelector('#xtui-push-content-tpl')
         const elWriteback = overlay.querySelector('#xtui-enable-writeback')
         const elResetPromptStatus = overlay.querySelector('#xtui-reset-prompt-status')
         const elFlagPush = overlay.querySelector('#xtui-flag-push')
         const elFlagRemind = overlay.querySelector('#xtui-flag-remind')
+        const elKeepPushFlags = overlay.querySelector('#xtui-keep-push-flags')
 
         let keyList = ensureDefaultKey(cfg.apiKeys)
 
@@ -2434,9 +2627,12 @@ export async function openSettings(context) {
         renderKeys()
 
         if (elFrom) elFrom.value = cfg.from || '飞速MarkDown'
+        if (elPushTitleTpl) elPushTitleTpl.value = cfg.pushTitleTpl || '$title'
+        if (elPushContentTpl) elPushContentTpl.value = cfg.pushContentTpl || '$content'
         if (elWriteback) elWriteback.checked = cfg.enableWriteback !== false
         if (elFlagPush) elFlagPush.value = (cfg.pushFlag || '[pushed]')
         if (elFlagRemind) elFlagRemind.value = (cfg.remindFlag || '[reminded]')
+        if (elKeepPushFlags) elKeepPushFlags.checked = !!cfg.keepPushFlags
 
         const syncFlagInputs = () => {
             const enabled = !elWriteback || !!elWriteback.checked
@@ -2503,16 +2699,22 @@ export async function openSettings(context) {
 
                 const apiKeys = normalizeApiKeys(keyList)
                 const from = elFrom ? String(elFrom.value || '').trim() || '飞速MarkDown' : '飞速MarkDown'
+                const pushTitleTpl = elPushTitleTpl ? String(elPushTitleTpl.value || '').trim() : ''
+                const pushContentTpl = elPushContentTpl ? String(elPushContentTpl.value || '').trim() : ''
                 const enableWriteback = elWriteback ? !!elWriteback.checked : true
                 const pushFlag = elFlagPush ? String(elFlagPush.value || '').trim() || '[pushed]' : '[pushed]'
                 const remindFlag = elFlagRemind ? String(elFlagRemind.value || '').trim() || '[reminded]' : '[reminded]'
+                const keepPushFlags = elKeepPushFlags ? !!elKeepPushFlags.checked : false
 
                 const nextCfg = {
                     apiKeys,
                     from,
+                    pushTitleTpl: pushTitleTpl || '$title',
+                    pushContentTpl: pushContentTpl || '$content',
                     enableWriteback,
                     pushFlag,
-                    remindFlag
+                    remindFlag,
+                    keepPushFlags
                 }
 
                 await saveCfg(context, nextCfg)
